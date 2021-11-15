@@ -19,16 +19,7 @@ from config.mlp_cnn import CreateModel_MLPCNN
 
 
 
-
 args = Options().parse()
-
-
-# Check validity of options for trainig
-if not Options().is_option_valid(args):
-    print('\nInvalid options.\n')
-    exit()
-else:
-    print('\nValid options.\n')
 
 
 # Print options

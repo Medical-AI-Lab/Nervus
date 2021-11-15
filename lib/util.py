@@ -93,10 +93,7 @@ def strcat(delim, *strs):
     return joined
 
 
-"""
-# Notation of basename
-# basename = '[project_name]_[project_task]+ResNet18_CrossEntropyLoss_Adam_batch-size-64_image-set-covid_epochs-3_val-best-epoch-3_val-loss-0.0019_GPU-0-1_2021-05-21-15-04'
-"""
+
 def make_basename(args, val_best_epoch, val_best_loss, dt_name):
 
     gpu_ids = args['gpu_ids']
@@ -108,9 +105,7 @@ def make_basename(args, val_best_epoch, val_best_loss, dt_name):
     else:
         device_name = 'CPU'
 
-    prefix = strcat('_', args['project_name'], args['project_task'])
-
-    conf = strcat('_', args['model'],
+    basename = strcat('_', args['model'],
                        args['criterion'],
                        args['optimizer'],
                        'batch-size-' + str(args['batch_size']),
@@ -121,8 +116,6 @@ def make_basename(args, val_best_epoch, val_best_loss, dt_name):
                        'val-best-loss-' + f'{val_best_loss:.4f}',
                        device_name,
                        dt_name)
-
-    basename = strcat('+', prefix, conf)
 
     return basename
 

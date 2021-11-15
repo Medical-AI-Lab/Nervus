@@ -13,10 +13,6 @@ class Options():
     def __init__(self):
         self.parser = argparse.ArgumentParser(description='Project in PyTorch')
 
-        # Project
-        self.parser.add_argument('--project_name', default=None, help='Project name.')
-        self.parser.add_argument('--project_task', default=None, help='classification or regresssion (Default: None).')
-
         # Model
         self.parser.add_argument('--model', default=None, help='model: MLP, CNN, MLP+CNN (Default: None)')
 
@@ -56,10 +52,6 @@ class Options():
 
     def parse(self):
         self.args = self.parser.parse_args()
-
-        # Add project name and task to args
-        self.args.project_name = static.project_name
-        self.args.project_task = static.project_task
 
         # Get MLP and CNN name only when training
         # 'MLP', 'ResNet18', 'MLP+ResNet18' -> ['MLP'], ['ResNet18'], ['MLP', 'ResNet18']
@@ -112,41 +104,13 @@ class Options():
         response = False
 
         # Check if must options is None.
-        must_opts = ['project_task', 'model', 'image_set', 'epochs', 'batch_size', 'criterion', 'optimizer', 'sampler', 'normalize_image']
+        must_opts = ['model', 'image_set', 'epochs', 'batch_size', 'criterion', 'optimizer', 'sampler', 'normalize_image']
         for op in must_opts:
             if opt[op] is None:
                 print('Specify {}.'.format(op))
                 exit()
             else:
                 pass
-
-
-        # Check validity of options.
-        project_task = opt['project_task']
-        criterion = opt['criterion']
-
-        if (project_task == 'classification') or (project_task == 'multi_classification'):
-            if criterion != 'CrossEntropyLoss':
-                print('Project task is classification.')
-                print('Specify criterion: CrossEntropyLoss!')
-                response = False
-            else:
-                response = True
-
-        elif (project_task == 'regression') or (project_task == 'multi_regression'):
-            if criterion not in ['MSE', 'RMSE', 'MAE']:
-                print('Project task is regression.')
-                print('Specify criterion: MSE, RMSE, or MAE!')
-                response = False
-            else:
-                response = True
-
-        else:
-            print('Wrong projection task: {}'.format(project_task))
-            exit()
-
-        return response
-
 
 
     def print_options(self, opt:dict):

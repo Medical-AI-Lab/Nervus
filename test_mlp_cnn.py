@@ -4,7 +4,7 @@
 import os
 import sys
 
-import nampy as np
+import numpy as np
 import pandas as pd
 
 import torch
@@ -22,7 +22,6 @@ from config.mlp_cnn import CreateModel_MLPCNN
 args = Options().parse()
 
 
-project_task = static.project_task
 csv_path = static.csv_path
 train_opt_log_dir = static.train_opt_log_dir
 weight_dir = static.weight_dir

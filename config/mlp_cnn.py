@@ -7,7 +7,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torchvision.models as models
-from efficientnet_pytorch import EfficientNet
+#from efficientnet_pytorch import EfficientNet
 from collections import OrderedDict
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
@@ -84,16 +84,20 @@ class MLPNet(nn.Module):
 # CNN
 def CNN(cnn_name, num_classes):
     if cnn_name == 'B0':
-        cnn = EfficientNet.from_name('efficientnet-b0')
+        #cnn = EfficientNet.from_name('efficientnet-b0')
+        cnn = models.efficientnet_b0(num_classes=num_classes)
 
     elif cnn_name == 'B2':
-        cnn = EfficientNet.from_name('efficientnet-b2')
+        #cnn = EfficientNet.from_name('efficientnet-b2')
+        cnn = models.efficientnet_b2(num_classes=num_classes)
 
     elif cnn_name == 'B4':
-        cnn = EfficientNet.from_name('efficientnet-b4')
+        #cnn = EfficientNet.from_name('efficientnet-b4')
+        cnn = models.efficientnet_b4(num_classes=num_classes)
 
     elif cnn_name == 'B6':
-        cnn = EfficientNet.from_name('efficientnet-b6')
+        #cnn = EfficientNet.from_name('efficientnet-b6')
+        cnn = models.efficientnet_b6(num_classes=num_classes)
 
     elif cnn_name == 'ResNet':
         cnn = models.resnet50(num_classes=num_classes)
@@ -112,13 +116,14 @@ def CNN(cnn_name, num_classes):
         exit()
 
 
+    """
     if not(num_classes is None):
         # Align output size of EfficientNet
         if cnn_name.startswith('B'):
             cnn._fc = nn.Linear(cnn._fc.in_features, num_classes)
     else:
         pass
-
+    """
 
     return cnn
 

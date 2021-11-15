@@ -4,31 +4,26 @@
 import os
 import pandas as pd
 
-
-# Project name
-project_name = 'CovidPrognosis'
-
-# project_task must be specified.
-# project_task = 'classification' | 'regression' | 'multi_classification' | 'multi_regression'
-project_task = 'classification'
+# data_root is a directory contains directries of csvs and images
+data_root = '../../Implement/covid_prognosis'
+csv_name = 'XXX.csv'
 
 
 project_root = '.'
 
-
-data_root = '../../../Implement/covid_prognosis'
-
-
 # Source CSV
 csv_path = os.path.join(data_root, 'COVID', 'csv', 'covid_last_status_fillna_split.csv')
-
+#csv_path = os.path.join(data_root, 'csvs', csv_name)
 
 # Images
 image_dirs = {
                'covid': os.path.join(data_root, 'COVID')
              }
-
-
+'''
+image_dirs = {
+               'covid': os.path.join(data_root, 'images')
+             }
+'''
 
 # Directory for save
 train_opt_log_dir = os.path.join(project_root, 'train_opt_logs')

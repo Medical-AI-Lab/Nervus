@@ -35,7 +35,7 @@ GRADCAM_CODE := ./visualization/visualize.py
 # make train MODEL='MLP18'
 # make train MODEL='ResNet18'
 # MLP | ResNet18 | MLP+ResNet18
-MODEL := MLP+ResNet18
+MODEL := ResNet18
 IMAGE_SET := covid
 RESIZE_SIZE := 256              # substantial image size
 NORMALIZE_IMAGE := yes
