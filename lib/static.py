@@ -20,8 +20,8 @@ class Static():
                train, before_revert, after_revert, evaluate
         """
         self.args = args          # dict
-        self.phase = status
-            
+        self.status = status
+        
         self.static = self.args   # Copy
 
         # When test, the below is needed pior to other to revert train_opt, ie cvs_name from train_opt
@@ -46,7 +46,7 @@ class Static():
 
             self.csv_name = self.static['csv_name']           # csv_name = 'XXX.csv'
 
-            if (status == 'train') or (status == 'after_revert'):
+            if (self.status == 'train') or (self.status == 'after_revert'):
                 self.image_dir = self.static['image_dir']     # 128, covid, png256   [data_root]/[images_dir]/[image_dir]
                 self.load_input = self.static['load_input']
                 self.load_image = self.static['load_image']
