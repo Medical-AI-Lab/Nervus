@@ -1,13 +1,9 @@
 # pytorch_classification_MLP+CNN
 Classification with any of MLP, CNN, or MLP+CNN.
 
-# Prapaering training
+# Prapaering
 ## CSV
-CSV must contain 'path_to_img', 'label_[target]', 'input_[name]', and 'split'.
+CSV must contain columns named 'id_XXX, ', 'filename', 'dir_to_image', 'input_XXX', 'label_XXX', and 'split'.
 
-## ./lib/static
-Before training, you have to set the value of variables in lib/static.py according to your environment and situation.
-
-
-# MakeFile
+## MakeFile
 Edit Makefile according to your environment and situation.
