@@ -4,11 +4,10 @@
 import os
 import sys
 import torch
-import torchsummary
 import copy
 
-from lib import static
 from lib.options import Options
+from lib.static import Static
 from lib.util import *
 
 from config.criterion import Criterion
@@ -18,61 +17,51 @@ from dataloader.dataloader_mlp_cnn import *
 from config.mlp_cnn import CreateModel_MLPCNN
 
 
+args = Options().parse() # dict
 
-args = Options().parse()
+# Align args by adding additional infomration
+args = Static(args, 'train').parse()
 
+
+# Check validity of options
+# Options().is_option_valid(args)
+# Static().is_option_valid(args) # ???
 
 # Print options
-Options().print_options(args)
+# Options().print_options(args)
+# Static().print_options(args)  # ???
 
 
-device = set_device(args['gpu_ids'])
-image_dir = get_image_dir(static.image_dirs, args['image_set'])
+gpu_ids = args['gpu_ids']
+device = set_device(gpu_ids)
 
 mlp = args['mlp']
 cnn = args['cnn']
 
-train_opt_log_dir = static.train_opt_log_dir
-weight_dir = static.weight_dir
-learning_curve_dir = static.learning_curve_dir
+num_classes = args['num_classes']
+num_inputs = args['num_inputs']
 
-label_name = static.label_name
-num_classes = static.num_classes
-input_list = static.input_list
-input_list_normed = static.input_list_normed
-num_inputs = len(input_list_normed)
+criterion = args['criterion']
+optimizer = args['optimizer']
+lr = args['lr']
+num_epochs = args['epochs']
+
+batch_size = args['batch_size']
+sampler = args['sampler']
+
+train_opt_log_dir = args['train_opt_log_dir']
+weight_dir = args['weight_dir']
+learning_curve_dir = args['learning_curve_dir']
+
 
 # Data Loadar
-train_loader = MakeDataLoader_MLP_CNN_with_WeightedRandomSampler(
-                                    image_dir,
-                                    label_name,
-                                    input_list,
-                                    split_list=['train'],
-                                    resize_size=args['resize_size'],
-                                    normalize_image=args['normalize_image'],
-                                    load_image=args['load_image'],
-                                    batch_size=args['batch_size'],
-                                    is_sampler=args['sampler']
-                                )
-
-
-val_loader = MakeDataLoader_MLP_CNN_with_WeightedRandomSampler(
-                                    image_dir,
-                                    label_name,
-                                    input_list,
-                                    split_list=['val'],
-                                    resize_size=args['resize_size'],
-                                    normalize_image=args['normalize_image'],
-                                    load_image=args['load_image'],
-                                    batch_size=args['batch_size'],
-                                    is_sampler=args['sampler']
-                                )
-
+train_loader = MakeDataLoader_MLP_CNN_with_WeightedRandomSampler(args, split_list=['train'], batch_size=batch_size, sampler=sampler)
+val_loader = MakeDataLoader_MLP_CNN_with_WeightedRandomSampler(args, split_list=['val'], batch_size=batch_size, sampler=sampler)
 
 # Configure of training
-model = CreateModel_MLPCNN(mlp, cnn, num_inputs, num_classes, args['gpu_ids'])
-criterion = Criterion(args['criterion'])
-optimizer = Optimizer(args['optimizer'], model, args['lr'])
+model = CreateModel_MLPCNN(mlp, cnn, num_inputs, num_classes, device=gpu_ids)
+criterion = Criterion(criterion)
+optimizer = Optimizer(optimizer, model, lr)
 
 
 
@@ -88,7 +77,6 @@ val_best_epoch = None
 train_loss_list, train_acc_list, val_loss_list, val_acc_list = [], [], [], []
 update_comment = ''
 
-num_epochs = args['epochs']
 
 for epoch in range(num_epochs):
     for phase in ['train', 'val']:
@@ -102,28 +90,26 @@ for epoch in range(num_epochs):
         running_loss = 0.0
         running_acc = 0
 
-        for i, (pids, labels, inputs_values, inputs_values_normed, images, image_path_names, split) in enumerate(dataloader):
+        for i, (ids, labels, inputs_values_normed, images, splits) in enumerate(dataloader):
             optimizer.zero_grad()
 
             with torch.set_grad_enabled(phase == 'train'):
                 if not(mlp is None) and (cnn is None):
                     # When MLP only
-                    inputs_values_normed = inputs_values_normed.to(device)  # Pass to GPU
-                    images = images                                         # No pass to GPU
+                    inputs_values_normed = inputs_values_normed.to(device)
                     labels = labels.to(device)
                     outputs = model(inputs_values_normed)
 
                 elif (mlp is None) and not(cnn is None):
                     # When CNN only
-                    inputs_values_normed = inputs_values_normed             # No pass to GPU
-                    images = images.to(device)                              # Pass to GPU
+                    images = images.to(device)
                     labels = labels.to(device)
                     outputs = model(images)
 
                 elif not(mlp is None) and not(cnn is None):
                     # When MLP+CNN
-                    inputs_values_normed = inputs_values_normed.to(device)  # Pass to GPU
-                    images = images.to(device)                              # Pass to GPU
+                    inputs_values_normed = inputs_values_normed.to(device)
+                    images = images.to(device)
                     labels = labels.to(device)
                     outputs = model(inputs_values_normed, images)
 
@@ -135,10 +121,8 @@ for epoch in range(num_epochs):
                     loss.backward()
                     optimizer.step()
 
-
-            running_loss += loss.item() * inputs_values_normed.size(0)
+            running_loss += loss.item() * labels.size(0)
             running_acc += (torch.sum(preds == labels.data)).item()
-
 
         epoch_loss = running_loss / len(dataloader.dataset)
         epoch_acc = running_acc / len(dataloader.dataset)
@@ -159,8 +143,6 @@ for epoch in range(num_epochs):
             update_comment = ' Updated val_best_loss!'
         else:
             update_comment = ''
-
-
 
     print(('epoch [{ith_epoch:>3}/{num_epochs:<3}], train_loss: {train_loss:.4f}, val_loss: {val_loss:.4f}, val_acc: {val_acc:.4f}' + update_comment)
     .format(ith_epoch=epoch+1, num_epochs=num_epochs, train_loss=train_loss_list[-1], val_loss=val_loss_list[-1], val_acc=val_acc_list[-1]))

@@ -1,26 +1,33 @@
-# Directory
-
-ROOT := .
-
-HYPERPARAMETER_DIR := $(ROOT)/hyperparameters
-TRAIN_OPT_LOG_DIR := $(ROOT)/train_opt_logs
-WEIGHT_DIR := $(ROOT)/weights
-LOG_DIR := $(ROOT)/logs
-
-RESULT_DIR := $(ROOT)/results
-LEARNING_CURVE_DIR := $(RESULT_DIR)/learning_curve
-LIKELIHOOD_DIR := $(RESULT_DIR)/likelihood
-ROC_DIR := $(RESULT_DIR)/roc
-YY_DIR := $(RESULT_DIR)/yy
-VISUALIZATION_DIR := $(RESULT_DIR)/visualization
-
-TMP_DIR := tmp
-
-HYPERPARAMETER := hyperparameter.csv
-
-
 # ----- Define variables -----
-SHELL := bash
+
+# make train MODEL='MLP18'
+# make train MODEL='ResNet18'
+# MLP | ResNet18 | MLP+ResNet18
+CSV_NAME := clean.csv
+IMAGE_DIR := 128
+MODEL := MLP+ResNet18
+CRITERION := CrossEntropyLoss
+OPTIMIZER := Adam
+EPOCHS := 3
+BATCH_SIZE := 64
+NORMALIZE_IMAGE := yes
+SAMPLER := yes
+GPU_IDS := -1     # 0,1,2,3
+
+TRAIN_OPT := \
+--csv_name $(CSV_NAME) \
+--model $(MODEL) \
+--image_dir $(IMAGE_DIR) \
+--criterion $(CRITERION) \
+--optimizer $(OPTIMIZER) \
+--epochs $(EPOCHS) \
+--batch_size $(BATCH_SIZE) \
+--normalize_image $(NORMALIZE_IMAGE) \
+--sampler $(SAMPLER) \
+--gpu_ids $(GPU_IDS)
+
+
+
 
 PYTHON := python -i
 #PYTHON := python
@@ -32,42 +39,24 @@ YY_CODE := ./evaluation/yy.py
 GRADCAM_CODE := ./visualization/visualize.py
 
 
-# make train MODEL='MLP18'
-# make train MODEL='ResNet18'
-# MLP | ResNet18 | MLP+ResNet18
-MODEL := ResNet18
-IMAGE_SET := covid
-RESIZE_SIZE := 256              # substantial image size
-NORMALIZE_IMAGE := yes
-CRITERION := CrossEntropyLoss   # MSE
-OPTIMIZER := Adam               # SGD
-EPOCHS := 3
-BATCH_SIZE := 64
-SAMPLER := yes
-GPU_IDS := -1                   # 0,1,2,3
+# Directory
+TRAIN_OPT_LOG_DIR := ./train_opt_logs
+WEIGHT_DIR := ./weights
+LOG_DIR := ./logs
 
+RESULT_DIR := ./results
+LEARNING_CURVE_DIR := $(RESULT_DIR)/learning_curve
+LIKELIHOOD_DIR := $(RESULT_DIR)/likelihood
+ROC_DIR := $(RESULT_DIR)/roc
+YY_DIR := $(RESULT_DIR)/yy
+VISUALIZATION_DIR := $(RESULT_DIR)/visualization
+TMP_DIR := tmp
 
-TRAIN_OPT := \
---model $(MODEL) \
---image_set $(IMAGE_SET) \
---resize_size $(RESIZE_SIZE) \
---normalize_image $(NORMALIZE_IMAGE) \
---criterion $(CRITERION) \
---optimizer $(OPTIMIZER) \
---epochs $(EPOCHS) \
---batch_size $(BATCH_SIZE) \
---sampler $(SAMPLER) \
---gpu_ids $(GPU_IDS)
 
 
 
 default:
 	@make list
-
-init:
-	@echo ""
-	@echo "This target is preserved. Not yet defined this target."
-	@echo ""
 
 
 prepare:
@@ -112,10 +101,6 @@ active:
 latest:
 	@echo "The latest weight:"
 	@ls -Ft $(WEIGHT_DIR)/*.pt | head -n +1
-
-
-show_param:
-	@column -s, -t $(HYPERPARAMETER_DIR)/$(HYPERPARAMETER) | nl -v0
 
 
 train:

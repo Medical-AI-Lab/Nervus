@@ -7,12 +7,10 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torchvision.models as models
-#from efficientnet_pytorch import EfficientNet
 from collections import OrderedDict
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from lib.util import *
-from lib import static
 
 
 # Hidden layers of MLP
@@ -115,16 +113,6 @@ def CNN(cnn_name, num_classes):
         print('Cannot specify such a CNN: {}.'.format(cnn_name))
         exit()
 
-
-    """
-    if not(num_classes is None):
-        # Align output size of EfficientNet
-        if cnn_name.startswith('B'):
-            cnn._fc = nn.Linear(cnn._fc.in_features, num_classes)
-    else:
-        pass
-    """
-
     return cnn
 
 
@@ -184,7 +172,7 @@ class MLPCNN_Net(nn.Module):
 
 
 
-def CreateModel_MLPCNN(mlp, cnn, num_inputs, num_classes, gpu_ids):
+def CreateModel_MLPCNN(mlp, cnn, num_inputs, num_classes, device=[]):
     """
     num_input:    number of inputs of MLP or MLP+CNN
     num_classes:  number of outputs of MLP, CNN, or MLP+CNN
@@ -206,7 +194,7 @@ def CreateModel_MLPCNN(mlp, cnn, num_inputs, num_classes, gpu_ids):
         print('Invalid model: ' + mlp_or_cnn)
         exit()
 
-    model = ConfigDevice(model, gpu_ids)
+    model = ConfigDevice(model, device)
 
     return model
 

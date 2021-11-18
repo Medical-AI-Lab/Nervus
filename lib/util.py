@@ -105,33 +105,45 @@ def make_basename(args, val_best_epoch, val_best_loss, dt_name):
     else:
         device_name = 'CPU'
 
-    basename = strcat('_', args['model'],
-                       args['criterion'],
-                       args['optimizer'],
-                       'batch-size-' + str(args['batch_size']),
-                       'image-set-' + str(args['image_set']),
-                       'resize-size-' + str(args['resize_size']),
-                       'epochs-' + str(args['epochs']),
-                       'val-best-epoch-' + str(val_best_epoch),
-                       'val-best-loss-' + f'{val_best_loss:.4f}',
-                       device_name,
-                       dt_name)
+    basename = strcat('_',
+                      args['model'],
+                      args['criterion'],
+                      args['optimizer'],
+                      'image-dir-' + str(args['image_dir']),
+                      'batch-size-' + str(args['batch_size']),
+                      'epochs-' + str(args['epochs']),
+                      'val-best-epoch-' + str(val_best_epoch),
+                      'val-best-loss-' + f'{val_best_loss:.4f}',
+                      device_name,
+                      dt_name
+                    )
 
     return basename
 
 
 
-def save_train_options(args, train_opt_log_dir, dt_name):
+def save_train_options(args:dict, train_opt_log_dir, dt_name):    
     save_path = os.path.join(train_opt_log_dir, dt_name + '.csv')
-
-    df_opt = pd.DataFrame(list(args.items()), columns=['option', 'value'])
+    
+    args_saved = { opt: args[opt] for opt in args['args_saved'] }
+        
+    df_opt = pd.DataFrame(list(args_saved.items()), columns=['option', 'value'])
     df_opt.to_csv(save_path, index=False)
 
 
 
-def read_train_options(path, train_opt_log_dir):
-    basename = get_basename(path)
-    datetime = basename.rsplit('_', 1)[-1]
+def get_datetime(filename):
+    if not(filename is None):
+        basename = get_basename(filename)
+        datetime = basename.rsplit('_', 1)[-1]   # Extract yyyymmddss from filename
+    else:
+        print('Filename is None.\n')
+        exit()
+    
+    return datetime
+
+
+def read_train_options(datetime, train_opt_log_dir):
     opt_path = os.path.join(train_opt_log_dir, datetime + '.csv')
 
     df_opt = pd.read_csv(opt_path, index_col=0)
