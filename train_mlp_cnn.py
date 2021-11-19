@@ -17,37 +17,27 @@ from dataloader.dataloader_mlp_cnn import *
 from config.mlp_cnn import CreateModel_MLPCNN
 
 
-args = Options().parse() # dict
+args = Options().parse()   # dict
 
-# Align args by adding additional infomration
-args = Static(args, 'train').parse()
+#Options().is_option_valid(args)
+Options().print_options(args)
 
-
-# Check validity of options
-# Options().is_option_valid(args)
-# Static().is_option_valid(args) # ???
-
-# Print options
-# Options().print_options(args)
-# Static().print_options(args)  # ???
-
-
-gpu_ids = args['gpu_ids']
-device = set_device(gpu_ids)
+# Align args by adding information of csv
+args = Static(args).align()
 
 mlp = args['mlp']
 cnn = args['cnn']
-
 num_classes = args['num_classes']
 num_inputs = args['num_inputs']
-
 criterion = args['criterion']
 optimizer = args['optimizer']
 lr = args['lr']
 num_epochs = args['epochs']
-
 batch_size = args['batch_size']
 sampler = args['sampler']
+
+gpu_ids = args['gpu_ids']
+device = set_device(gpu_ids)
 
 train_opt_log_dir = args['train_opt_log_dir']
 weight_dir = args['weight_dir']

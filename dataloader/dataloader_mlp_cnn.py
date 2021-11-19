@@ -19,8 +19,6 @@ from sklearn.preprocessing import MinMaxScaler
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from lib.util import *
-from lib.static import *
-
 
 
 class LoadDataSet_MLP_CNN(Dataset):
@@ -50,7 +48,7 @@ class LoadDataSet_MLP_CNN(Dataset):
             df_inputs_normed = pd.DataFrame(inputs_normed, columns=self.input_list_normed)
             self.df_split = pd.concat([self.df_split, df_inputs_normed], axis=1)
 
-        # Augmentation
+        # Preprocess for image
         if self.args['load_image'] == 'yes':
             self.transform = self._make_transforms()
 
@@ -63,23 +61,24 @@ class LoadDataSet_MLP_CNN(Dataset):
     def _make_transforms(self):
         _transforms = []
 
-        if self.args['random_horizontal_flip'] == 'yes':
-            _transforms.append(transforms.RandomHorizontalFlip())
+        if self.args['preprocess'] == 'yes':
+            if self.args['random_horizontal_flip'] == 'yes':
+                _transforms.append(transforms.RandomHorizontalFlip())
 
-        if self.args['random_rotation'] == 'yes':
-            _transforms.append(transforms.RandomRotation((-10, 10)))
+            if self.args['random_rotation'] == 'yes':
+                _transforms.append(transforms.RandomRotation((-10, 10)))
             
-        if self.args['color_jitter'] == 'yes':
-            # If img is PIL Image, mode “1”, “I”, “F” and modes with transparency (alpha channel) are not supported.
-            # When open Grayscle with "RGB" mode 
-            _transforms.append(transforms.ColorJitter())
+            if self.args['color_jitter'] == 'yes':
+                # If img is PIL Image, mode “1”, “I”, “F” and modes with transparency (alpha channel) are not supported.
+                # When open Grayscle with "RGB" mode 
+                _transforms.append(transforms.ColorJitter())
 
-        if self.args['random_apply'] == 'yes':
-            _transforms = transforms.RandomApply(_transforms)
+            if self.args['random_apply'] == 'yes':
+                _transforms = transforms.RandomApply(_transforms)
 
-        
+
+        # MUST: Always convert to Tensor
         _transforms.append(transforms.ToTensor())   # PIL -> Tensor
-
 
         if self.args['normalize_image'] == 'yes':
             # Normalize accepts Tensor only

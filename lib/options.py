@@ -32,7 +32,8 @@ class Options():
         # Input normalize
         #self.parser.add_argument('--normalize_input', type=str, default=None, help='input nomalization, yes or no (Default: None)')
 
-        # Augmentation
+        # Preprocess for image
+        self.parser.add_argument('--preprocess',             type=str, default=None, help='preprocess for image, yes or no (Default: None)')
         self.parser.add_argument('--random_horizontal_flip', type=str, default=None, help='RandomHorizontalFlip, yes or no (Default: None)')
         self.parser.add_argument('--random_rotation',        type=str, default=None, help='RandomRotation, yes or no (Default: None)')
         self.parser.add_argument('--color_jitter',           type=str, default=None, help='ColorJitter, yes or no (Default: None)')
@@ -46,14 +47,17 @@ class Options():
         self.parser.add_argument('--gpu_ids', type=str, default='-1', help='gpu ids: e.g. 0  0,1,2, 0,2. use -1 for CPU (Default: -1)')
 
         # External validation
-        self.parser.add_argument('--test_weight', type=str, default=None, help='weight for test (Default: None)')
+        self.parser.add_argument('--test_datetime', type=str, default=None, help='datetime when training (Default: None)')
+        #self.parser.add_argument('--test_weight', type=str, default=None, help='weight for test (Default: None)')
 
         # Plot ROC or yy-graph
-        self.parser.add_argument('--likelihood', type=str, default=None, help='likelihood plotted for ROC or yy-plot (Default: None)')
+        self.parser.add_argument('--likelihood_datetime', type=str, default=None, help='datetime of likelihodd (Default: None)')
+        #self.parser.add_argument('--likelihood', type=str, default=None, help='likelihood plotted for ROC or yy-plot (Default: None)')
 
         # Visualization
-        self.parser.add_argument('--visualization_weight', type=str, default=None, help='weight for visualization (Default: None)')
-        self.parser.add_argument('--visualization_split',  type=str, default=None, help='split to be visualized: eg. train,val,test, val,test. (Default: None)')
+        #self.parser.add_argument('--visualization_weight', type=str, default=None, help='weight for visualization (Default: None)')
+        self.parser.add_argument('--visualization_datetime', type=str, default=None, help='datetime for visualization (Default: None)')
+        self.parser.add_argument('--visualization_split',  type=str, default='train,val,test', help='split to be visualized: eg. train,val,test, val,test. (Default: train,val,test)')
 
 
 
@@ -94,8 +98,8 @@ class Options():
         else:
             pass
             #Check the case of when no specyfing model 
-        
-        
+
+
         # Align gpu_ids
         str_ids = self.args.gpu_ids.split(',')
         self.args.gpu_ids = []
@@ -108,15 +112,9 @@ class Options():
 
         args_dict = vars(self.args)
 
-
-        # args to be saved after training
-        opt_ignored = ['test_batch_size', 'test_weight', 'likelihood', 'visualization_weight', 'visualization_split']
-        args_dict['args_saved'] = [ opt for opt in list(args_dict.keys()) if not(opt in opt_ignored) ]
-
         return args_dict
 
 
-       
     def is_option_valid(self, args:dict):
         # Check must options
         must_base_opts = ['csv_name', 'model', 'epochs', 'batch_size', 'criterion', 'optimizer', 'sampler']
@@ -160,7 +158,7 @@ class Options():
             else:
                 pass
 
-        message += '------------------- End ---------------------------'
+        message += '------------------- End --------------------------'
         print(message)
 
 

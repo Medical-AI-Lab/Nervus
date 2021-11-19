@@ -67,12 +67,13 @@ def get_latest(target_dir):
     return latest
 
 
-def get_target(target_dir, target_name):
-    if not(target_name is None):
-        target_path = os.path.join(target_dir, target_name)
+def get_target(target_dir, target_dttime):
+    if not(target_dttime is None):
+        #target_path = os.path.join(target_dir, target_name)
+        target_path = (glob.glob(target_dir + '/' + '*' + target_dttime + '*'))
 
-        if os.path.exists(target_path):
-            valid_path = target_path
+        if target_path != []:
+            valid_path = target_path[0]
         else:
             print('No specified target.')
             exit()
@@ -132,21 +133,15 @@ def save_train_options(args:dict, train_opt_log_dir, dt_name):
 
 
 
-def get_datetime(filename):
-    if not(filename is None):
-        basename = get_basename(filename)
-        datetime = basename.rsplit('_', 1)[-1]   # Extract yyyymmddss from filename
-    else:
-        print('Filename is None.\n')
-        exit()
-    
-    return datetime
+def get_dt_name(path):
+    dttime = get_basename(path)
+    #dttime = basename.rsplit('_', 1)[-1]   # Extract yyyymmddss from filename
+    return dttime
 
 
-def read_train_options(datetime, train_opt_log_dir):
-    opt_path = os.path.join(train_opt_log_dir, datetime + '.csv')
-
-    df_opt = pd.read_csv(opt_path, index_col=0)
+def read_train_options(path_train_opt_log):
+    #path_train_opt_log = os.path.join(train_opt_log_dir, datetime + '.csv')
+    df_opt = pd.read_csv(path_train_opt_log, index_col=0)
     df_opt = df_opt.fillna(np.nan).replace([np.nan],[None])
     opt_dict = df_opt.to_dict()['value']
 

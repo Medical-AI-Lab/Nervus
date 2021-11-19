@@ -9,23 +9,20 @@ import matplotlib
 import matplotlib.pyplot as plt
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
-from lib import static
 from lib.options import Options
+from lib.static import Static
 from lib.util import *
 
 
-args = Options().parse()
+args_init = Options().parse()
 
+args_min = Static(None).align()                                                             # just get 'likelihood_dir'
 
-likelihood_dir = static.likelihood_dir
-roc_dir = static.roc_dir
-label_name = static.label_name
-
-
-# Dafult: the latest likelihood
-selected_likelihood = get_target(likelihood_dir, args['likelihood'])
-df_likelihood = pd.read_csv(selected_likelihood)
-
+roc_dir = args_min['roc_dir']
+path_likelihood = get_target(args_min['likelihood_dir'], args_init['likelihood_datetime'])  # the latest likelihod if datatime is None
+df_likelihood = pd.read_csv(path_likelihood)
+label_list = [ column_name for column_name in df_likelihood.columns if column_name.startswith('label_') ]
+label_name = label_list[0]
 
 
 #def plot_roc():
@@ -61,7 +58,7 @@ plt.grid()
 
 # Save Fig
 os.makedirs(roc_dir, exist_ok=True)
-basename = get_basename(selected_likelihood)
+basename = get_basename(path_likelihood)
 roc_name = strcat('_', 'roc', 'val-%.2f'%auc_val, 'test-%.2f'%auc_test, basename)
 roc_path = os.path.join(roc_dir, roc_name) + '.png'
 plt.savefig(roc_path)

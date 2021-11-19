@@ -18,48 +18,35 @@ from dataloader.dataloader_mlp_cnn import *
 from config.mlp_cnn import CreateModel_MLPCNN
 
 
-args = Options().parse()
-# Options().is_option_valid(args)
+args_init = Options().parse()
 
-args = Static(args, 'before_revert').parse()  # just get 'weight_dir' and 'train_opt_log_dir'
-weight_dir = args['weight_dir']
-train_opt_log_dir = args['train_opt_log_dir']
-test_weight = get_target(weight_dir, args['test_weight'])  # the latest weight
-args['test_weight'] = test_weight
+args_min = Static(None).align()                                                         # just get 'train_opt_log_dir'
+path_train_opt = get_target(args_min['train_opt_log_dir'], args_init['test_datetime'])  # the latest train_opt if datatime is None
+dt_name = get_dt_name(path_train_opt)
 
-
-# Revert the configure of training, and then merge train_opt into args
-datetime = get_datetime(test_weight)
-train_opt = read_train_options(datetime, train_opt_log_dir)
-args.update(train_opt)
-args['gpu_ids'] = str2int(args['gpu_ids'])
-
-
-# TTA(Test Time Augmentation) if possible
-# Here, able to align options related to transform for test phase
-args['normalize_image'] = 'yes'
-# args['random_horizontal_flip'] = 'no'
-# args['random_rotation'] = 'no'
-# args['color_jitter'] = 'no'
-# args['random_apply'] = 'no'
-# args['train_opt['normalize_image'] = 'no'
-
-
-# Align args after reverting train_opt
-args = Static(args, 'after_revert').parse()     # MUST: Re-execute with train_opt
+# Revert the configure of training
+train_opt = read_train_options(path_train_opt)  # Revert csv_name
+args = Static(train_opt).align()                    # Revert csv info, args = train_opt + csv info
 
 mlp = args['mlp']
 cnn = args['cnn']
+gpu_ids = str2int(args['gpu_ids'])
+device = set_device(gpu_ids)
+
 num_classes = args['num_classes']
 class_names = args['class_names']
 num_inputs = args['num_inputs']
-test_batch_size = args['test_batch_size']
-gpu_ids = args['gpu_ids']
-device = set_device(gpu_ids)
+
 id_column = args['id_column']
+label_name = args['label_name']
 split_column = args['split_column']
 likelilhood_dir = args['likelihood_dir']
 
+
+# Align option for test only
+test_weight = get_target(args['weight_dir'], dt_name)
+test_batch_size = args_init['test_batch_size']        # Default: 64  No exixt in train_opt
+args['preprocess'] = 'no'                             # No need of preprocess for image when test
 
 # Data Loader
 val_loader = MakeDataLoader_MLP_CNN_with_WeightedRandomSampler(args, split_list=['val'], batch_size=test_batch_size, sampler='no')    # Fixed 'no'
@@ -109,8 +96,8 @@ with torch.no_grad():
 
             elif not(mlp is None) and not(cnn is None):
                 # When MLP+CNN
-                inputs_values_normed = inputs_values_normed.to(device)  # Pass to GPU
-                images = images.to(device)                              # Pass to GPU
+                inputs_values_normed = inputs_values_normed.to(device)
+                images = images.to(device)
                 labels = labels.to(device)
                 outputs = model(inputs_values_normed, images)
 
@@ -131,10 +118,11 @@ with torch.no_grad():
             likelihood_ratio = likelihood_ratio.to('cpu').detach().numpy().copy()
 
             df_id = pd.DataFrame({id_column: ids})
+            df_label = pd.DataFrame({label_name :labels})
             df_likelihood_ratio = pd.DataFrame(likelihood_ratio, columns=class_names)
             df_split = pd.DataFrame({split_column: splits})
-            
-            df_tmp = pd.concat([df_id, df_likelihood_ratio, df_split], axis=1)
+
+            df_tmp = pd.concat([df_id, df_label, df_likelihood_ratio, df_split], axis=1)
             df_result = df_result.append(df_tmp, ignore_index=True)
 
 print(' val: Inference_accuracy: {:.4f} %'.format((val_acc / val_total)*100))
@@ -147,7 +135,6 @@ os.makedirs(likelilhood_dir, exist_ok=True)
 basename = get_basename(test_weight)
 likelihood_path = os.path.join(likelilhood_dir, basename) + '.csv'
 df_result.to_csv(likelihood_path, index=False)
-
 
 
 # ----- EOF -----
