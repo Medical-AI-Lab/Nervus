@@ -136,4 +136,6 @@ train_opt_logs/
 weights/
 tmp/
 
+Makefile
+
 .DS_Store

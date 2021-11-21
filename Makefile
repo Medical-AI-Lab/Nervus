@@ -10,7 +10,6 @@ CRITERION := CrossEntropyLoss
 OPTIMIZER := Adam
 EPOCHS := 3
 BATCH_SIZE := 64
-NORMALIZE_IMAGE := yes
 SAMPLER := yes
 GPU_IDS := -1     # 0,1,2,3
 
@@ -22,7 +21,6 @@ TRAIN_OPT := \
 --optimizer $(OPTIMIZER) \
 --epochs $(EPOCHS) \
 --batch_size $(BATCH_SIZE) \
---normalize_image $(NORMALIZE_IMAGE) \
 --sampler $(SAMPLER) \
 --gpu_ids $(GPU_IDS)
 
