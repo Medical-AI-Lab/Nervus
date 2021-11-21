@@ -39,18 +39,6 @@ def get_column_value(df, column_name:str, value_list:list):
     return df_result
 
 
-def get_image_dir(image_dirs:dict, image_set):
-    image_dir = image_dirs.get(image_set)
-
-    if image_dir is None:
-        print('No specified image set.')
-        exit()
-    else:
-        pass
-
-    return image_dir
-
-
 def get_basename(path):
     return (os.path.splitext(os.path.basename(path)))[0]  # Delete suffix
 
@@ -123,24 +111,23 @@ def make_basename(args, val_best_epoch, val_best_loss, dt_name):
 
 
 
-def save_train_options(args:dict, train_opt_log_dir, dt_name):    
+def save_train_options(args, train_opt_log_dir, dt_name):    
     save_path = os.path.join(train_opt_log_dir, dt_name + '.csv')
+
     
-    args_saved = { opt: args[opt] for opt in args['args_saved'] }
-        
-    df_opt = pd.DataFrame(list(args_saved.items()), columns=['option', 'value'])
+
+    df_opt = pd.DataFrame(list(args.items()), columns=['option', 'value'])
     df_opt.to_csv(save_path, index=False)
 
 
 
 def get_dt_name(path):
     dttime = get_basename(path)
-    #dttime = basename.rsplit('_', 1)[-1]   # Extract yyyymmddss from filename
     return dttime
 
 
+
 def read_train_options(path_train_opt_log):
-    #path_train_opt_log = os.path.join(train_opt_log_dir, datetime + '.csv')
     df_opt = pd.read_csv(path_train_opt_log, index_col=0)
     df_opt = df_opt.fillna(np.nan).replace([np.nan],[None])
     opt_dict = df_opt.to_dict()['value']

@@ -122,7 +122,7 @@ class MLPCNN_Net(nn.Module):
     def __init__(self, num_inputs, num_outputs, cnn_name, cnn_num_outputs):
         """
         # Memo
-        num_inputs:     number of 'input_' in csv except
+        num_inputs:     number of 'input_*' in csv
         num_outputs:    number of output of MLP+CNN
         cnn_num_outpus: number of output size to be passed to MLP
         """

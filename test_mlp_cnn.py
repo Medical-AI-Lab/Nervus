@@ -10,47 +10,50 @@ import pandas as pd
 import torch
 import torch.nn as nn
 
-from lib.options import Options
-from lib.static import Static
 from lib.util import *
+from lib.align_env import *
+from options.test_options import TestOptions
 
 from dataloader.dataloader_mlp_cnn import *
 from config.mlp_cnn import CreateModel_MLPCNN
 
 
-args_init = Options().parse()
+args = TestOptions().parse()
 
-args_min = Static(None).align()                                                         # just get 'train_opt_log_dir'
-path_train_opt = get_target(args_min['train_opt_log_dir'], args_init['test_datetime'])  # the latest train_opt if datatime is None
+dirs_dict = set_dirs()
+train_opt_log_dir = dirs_dict['train_opt_log']
+weight_dir = dirs_dict['weight']
+likelilhood_dir = dirs_dict['likelihood']
+
+# Retrieve training options
+path_train_opt = get_target(dirs_dict['train_opt_log'], args['test_datetime'])  # the latest train_opt if test_datatime is None
 dt_name = get_dt_name(path_train_opt)
-
-# Revert the configure of training
 train_opt = read_train_options(path_train_opt)  # Revert csv_name
-args = Static(train_opt).align()                    # Revert csv info, args = train_opt + csv info
-
-mlp = args['mlp']
-cnn = args['cnn']
-gpu_ids = str2int(args['gpu_ids'])
+mlp = train_opt['mlp']
+cnn = train_opt['cnn']
+gpu_ids = str2int(train_opt['gpu_ids'])
 device = set_device(gpu_ids)
 
-num_classes = args['num_classes']
-class_names = args['class_names']
-num_inputs = args['num_inputs']
+image_dir = os.path.join(dirs_dict['images_dir'], train_opt['image_dir'])
 
-id_column = args['id_column']
-label_name = args['label_name']
-split_column = args['split_column']
-likelilhood_dir = args['likelihood_dir']
+csv_dict = parse_csv(os.path.join(dirs_dict['csvs_dir'], train_opt['csv_name']))
+class_names = csv_dict['class_names']
+num_classes = csv_dict['num_classes']
+num_inputs = csv_dict['num_inputs']
+id_column = csv_dict['id_column']
+label_name = csv_dict['label_name']
+split_column = csv_dict['split_column']
 
 
 # Align option for test only
-test_weight = get_target(args['weight_dir'], dt_name)
-test_batch_size = args_init['test_batch_size']        # Default: 64  No exixt in train_opt
-args['preprocess'] = 'no'                             # No need of preprocess for image when test
+test_weight = get_target(weight_dir, dt_name)
+test_batch_size = args['test_batch_size']        # Default: 64  No exixt in train_opt
+args['preprocess'] = 'no'                        # No need of preprocess for image when test
+
 
 # Data Loader
-val_loader = MakeDataLoader_MLP_CNN_with_WeightedRandomSampler(args, split_list=['val'], batch_size=test_batch_size, sampler='no')    # Fixed 'no'
-test_loader = MakeDataLoader_MLP_CNN_with_WeightedRandomSampler(args, split_list=['test'], batch_size=test_batch_size, sampler='no')  # Fixed 'no'
+val_loader = MakeDataLoader_MLP_CNN_with_WeightedRandomSampler(train_opt, csv_dict, image_dir, split_list=['val'], batch_size=test_batch_size, sampler='no')    # Fixed 'no'
+test_loader = MakeDataLoader_MLP_CNN_with_WeightedRandomSampler(train_opt, csv_dict, image_dir, split_list=['test'], batch_size=test_batch_size, sampler='no')  # Fixed 'no'
 
 
 # Configure of model

@@ -204,10 +204,10 @@ def find_squeezenet_layer(arch, target_layer_name):
 def find_b_layer(arch, target_layer_name):
     """
     As for EfficientNet,
-    target target layer is supposed to be the final convolution layer only.
+    target layer is supposed to be the final convolution layer only.
     """
-
-    target_layer = arch._conv_head
+    #target_layer = arch._conv_head   # This is for efficient-b*
+    target_layer = arch.feature[8]    # This is for EfficientNet from torchvision.models
 
     return target_layer
 

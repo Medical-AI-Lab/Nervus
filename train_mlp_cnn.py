@@ -6,9 +6,9 @@ import sys
 import torch
 import copy
 
-from lib.options import Options
-from lib.static import Static
 from lib.util import *
+from lib.align_env import *
+from options.train_options import TrainOptions
 
 from config.criterion import Criterion
 from config.optimizer import Optimizer
@@ -17,36 +17,37 @@ from dataloader.dataloader_mlp_cnn import *
 from config.mlp_cnn import CreateModel_MLPCNN
 
 
-args = Options().parse()   # dict
+args = TrainOptions().parse()
 
-#Options().is_option_valid(args)
-Options().print_options(args)
-
-# Align args by adding information of csv
-args = Static(args).align()
+TrainOptions().is_option_valid(args)
+TrainOptions().print_options(args)
 
 mlp = args['mlp']
 cnn = args['cnn']
-num_classes = args['num_classes']
-num_inputs = args['num_inputs']
 criterion = args['criterion']
 optimizer = args['optimizer']
 lr = args['lr']
 num_epochs = args['epochs']
 batch_size = args['batch_size']
 sampler = args['sampler']
-
 gpu_ids = args['gpu_ids']
 device = set_device(gpu_ids)
 
-train_opt_log_dir = args['train_opt_log_dir']
-weight_dir = args['weight_dir']
-learning_curve_dir = args['learning_curve_dir']
+dirs_dict = set_dirs()
+train_opt_log_dir = dirs_dict['train_opt_log']
+weight_dir = dirs_dict['weight']
+learning_curve_dir = dirs_dict['learning_curve']
+
+image_dir = os.path.join(dirs_dict['images_dir'], args['image_dir'])
+
+csv_dict = parse_csv(os.path.join(dirs_dict['csvs_dir'], args['csv_name']))
+num_classes = csv_dict['num_classes']
+num_inputs = csv_dict['num_inputs']
 
 
 # Data Loadar
-train_loader = MakeDataLoader_MLP_CNN_with_WeightedRandomSampler(args, split_list=['train'], batch_size=batch_size, sampler=sampler)
-val_loader = MakeDataLoader_MLP_CNN_with_WeightedRandomSampler(args, split_list=['val'], batch_size=batch_size, sampler=sampler)
+train_loader = MakeDataLoader_MLP_CNN_with_WeightedRandomSampler(args, csv_dict, image_dir, split_list=['train'], batch_size=batch_size, sampler=sampler)
+val_loader = MakeDataLoader_MLP_CNN_with_WeightedRandomSampler(args, csv_dict, image_dir, split_list=['val'], batch_size=batch_size, sampler=sampler)
 
 # Configure of training
 model = CreateModel_MLPCNN(mlp, cnn, num_inputs, num_classes, device=gpu_ids)

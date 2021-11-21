@@ -6,7 +6,6 @@ import sys
 import numpy as np
 import pandas as pd
 
-
 import torch
 import torchvision.transforms as transforms
 from torch.utils.data.dataset import Dataset
@@ -15,31 +14,32 @@ from torch.utils.data.sampler import *
 from PIL import Image
 from sklearn.preprocessing import MinMaxScaler
 
-#from collections import OrderedDict
-
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from lib.util import *
 
 
 class LoadDataSet_MLP_CNN(Dataset):
-    def __init__(self, args, split_list):
+    def __init__(self, args, csv_dict, image_dir, split_list):
         #super(LoadDataSet_MLP_CNN, self).__init__()
         super().__init__()
 
         self.args = args
-        self.split_list = split_list   # ['train'], ['val'], ['val', 'test'], ['train', 'val', 'test']
-        self.dir_to_img_column = args['dir_to_img_column']
+        self.csv_dict = csv_dict
+        self.image_dir = image_dir
+        self.split_list = split_list   # ['train'], ['val'], ['val', 'test'], ['train', 'val', 'test']        
 
-        self.df_source = args['df_source']
-        self.id_column = args['id_column']
-        self.label_name = args['label_name']
-        self.input_list = args['input_list']
-        self.split_column = args['split_column']
+        self.df_source = self.csv_dict['source']
+        self.id_column = self.csv_dict['id_column']
+        self.label_name = self.csv_dict['label_name']
+        self.input_list = self.csv_dict['input_list']
+        self.dir_to_img_column = self.csv_dict['dir_to_img_column']
+        self.split_column = self.csv_dict['split_column']
         self.df_split = get_column_value(self.df_source, self.split_column, self.split_list)
-        
+
+
         # Nomalize input variables
         if self.args['load_input'] == 'yes':
-            self.input_list_normed = ['normed_' + input for input in self.input_list]
+            self.input_list_normed = [ 'normed_' + input for input in self.input_list ]
             self.scaler = MinMaxScaler()
             self.df_train = get_column_value(self.df_source, self.split_column, ['train'])  # should be normalized with min and max of training data
             _ = self.scaler.fit(self.df_train[self.input_list])                             # fit only
@@ -57,7 +57,7 @@ class LoadDataSet_MLP_CNN(Dataset):
                             for column_name in self.df_split.columns
                           }
 
-        # To be added blur, shift->horizontal crop, reverse...
+
     def _make_transforms(self):
         _transforms = []
 
@@ -103,7 +103,7 @@ class LoadDataSet_MLP_CNN(Dataset):
         # Convert normalized values to a single Tensor
         if self.args['load_input'] == 'yes':
             index_input_list_normed = [ self.index_dict[input_normed] for input_normed in self.input_list_normed ]
-            s_inputs_value_normed = self.df_split.iloc[idx, index_input_list_normed]   # Do not use loc when specifying use index
+            s_inputs_value_normed = self.df_split.iloc[idx, index_input_list_normed]
             inputs_value_normed = np.array(s_inputs_value_normed, dtype=np.float64)
             inputs_value_normed = torch.from_numpy(inputs_value_normed.astype(np.float32)).clone()
         else:
@@ -111,9 +111,8 @@ class LoadDataSet_MLP_CNN(Dataset):
 
         # Load imgae when CNN or MLP+CNN
         if self.args['load_image'] == 'yes':
-            image_root_dir = os.path.join(self.args['data_root'], self.args['images_dir'], self.args['image_dir'])
             dir_to_img = self.df_split.iat[idx, self.index_dict[self.dir_to_img_column]]
-            image_path = os.path.join(image_root_dir, dir_to_img)
+            image_path = os.path.join(self.image_dir, dir_to_img)
             image = Image.open(image_path).convert('RGB')
             image = self.transform(image)
         else:
@@ -123,13 +122,13 @@ class LoadDataSet_MLP_CNN(Dataset):
 
 
 
-def MakeDataLoader_MLP_CNN_with_WeightedRandomSampler(args, split_list=None, batch_size=None, sampler=None):
+def MakeDataLoader_MLP_CNN_with_WeightedRandomSampler(args, csv_dict, images_dir, split_list=None, batch_size=None, sampler=None):
     if split_list is None:
         print('Specify split to make dataloader.')
         exit()
 
-    split_data = LoadDataSet_MLP_CNN(args, split_list)
-        
+    split_data = LoadDataSet_MLP_CNN(args, csv_dict, images_dir, split_list)
+
     # Make sampler
     if args['sampler'] == 'yes':
         target = []
@@ -140,7 +139,7 @@ def MakeDataLoader_MLP_CNN_with_WeightedRandomSampler(args, split_list=None, bat
         weight = 1. / class_sample_count
         samples_weight = np.array([weight[t] for t in target])
         sampler = WeightedRandomSampler(samples_weight, len(samples_weight))
-        
+
         split_loader = DataLoader(
                             dataset = split_data,
                             batch_size = batch_size,

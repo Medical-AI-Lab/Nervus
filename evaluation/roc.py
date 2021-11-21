@@ -9,17 +9,20 @@ import matplotlib
 import matplotlib.pyplot as plt
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
-from lib.options import Options
-from lib.static import Static
 from lib.util import *
+from lib.align_env import *
+from options.metrics_options import MetricsOptions
 
 
-args_init = Options().parse()
 
-args_min = Static(None).align()                                                             # just get 'likelihood_dir'
+args = MetricsOptions().parse()
 
-roc_dir = args_min['roc_dir']
-path_likelihood = get_target(args_min['likelihood_dir'], args_init['likelihood_datetime'])  # the latest likelihod if datatime is None
+dirs_dict = set_dirs()
+likelilhood_dir = dirs_dict['likelihood']
+roc_dir = dirs_dict['roc']
+
+
+path_likelihood = get_target(dirs_dict['likelihood'], args['likelihood_datetime'])  # the latest likelihod if datatime is None
 df_likelihood = pd.read_csv(path_likelihood)
 label_list = [ column_name for column_name in df_likelihood.columns if column_name.startswith('label_') ]
 label_name = label_list[0]
