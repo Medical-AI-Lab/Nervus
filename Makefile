@@ -3,16 +3,16 @@
 # make train MODEL='MLP18'
 # make train MODEL='ResNet18'
 # MLP | ResNet18 | MLP+ResNet18
-CSV_NAME := clean.csv
+CSV_NAME := clean_reg.csv  # clean.csv
 IMAGE_DIR := 128
-TASK := classification
-MODEL := MLP+ResNet18
-CRITERION := CrossEntropyLoss  # MSE
+TASK := regression      # classification
+MODEL := MLP+ResNet18   # MLP, ResNet18
+CRITERION := MSE        #CrossEntropyLoss 
 OPTIMIZER := Adam
 EPOCHS := 3
 BATCH_SIZE := 64
-SAMPLER := yes # no     # must be no when regression
-GPU_IDS := -1     # 0,1,2,3
+SAMPLER := no           # yes     # should be no when regression
+GPU_IDS := -1           # 0,1,2,3
 
 TRAIN_OPT := \
 --csv_name $(CSV_NAME) \

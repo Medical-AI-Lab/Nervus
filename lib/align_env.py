@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import os
+import numpy as np
 import pandas as pd
 
 
@@ -40,21 +41,32 @@ def parse_csv(csv_path, task):
     column_names = list(df_source.columns)
 
     csv_dict['id_column'] = [ column_name for column_name in column_names if column_name.startswith(prefix_id) ][0]
-    
+
     csv_dict['label_list'] = [ column_name for column_name in column_names if column_name.startswith(prefix_label) ]
     csv_dict['label_name'] = csv_dict['label_list'][0]
-    csv_dict['class_names'] = [ str(i) for i in df_source[csv_dict['label_name']].unique() ]  # must be ['0', '1']
-    csv_dict['num_classes'] = len(csv_dict['class_names'])                                    # must be 2, when classification
 
     csv_dict['input_list'] = [ column_name for column_name in column_names if column_name.startswith(prefix_input) ]
     csv_dict['num_inputs'] = len(csv_dict['input_list'])
+
+    if task == 'classification':
+        #csv_dict['class_names'] =  [ str(i) for i in np.sort(df_source[csv_dict['label_name']].unique()) ]  # must be ['0', '1']
+        csv_dict['class_names'] = [ prefix + csv_dict['label_name'].replace('label_', '') for prefix in ['pred_n_', 'pred_p_'] ]   # must be ['pred_n_*', 'pred_p_*']
+        csv_dict['num_classes'] = 2     #len(csv_dict['class_names'])                                                           # must be 2, when classification
+    elif task == 'regression':
+        csv_dict['class_names'] = [ 'pred_' + csv_dict['label_name'].replace('label_', '') ]
+        csv_dict['num_classes'] = 1     #len(csv_dict['class_names'])    
+
 
     # Cast
     # label_* : int
     # input_* : float
     cast_input_dict = { input: float for input in csv_dict['input_list'] }
-    cast_label_dict = { label: int for label in csv_dict['label_list'] }
-
+    
+    if task == 'classification':
+        cast_label_dict = { label: int for label in csv_dict['label_list'] }
+    elif task == 'regression':
+        cast_label_dict = { label: float for label in csv_dict['label_list'] }
+    
     df_source = df_source.astype(cast_input_dict)
     df_source = df_source.astype(cast_label_dict)
     csv_dict['source'] = df_source

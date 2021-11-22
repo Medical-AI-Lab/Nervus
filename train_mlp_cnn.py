@@ -41,6 +41,8 @@ learning_curve_dir = dirs_dict['learning_curve']
 
 image_dir = os.path.join(dirs_dict['images_dir'], args['image_dir'])
 
+
+
 csv_dict = parse_csv(os.path.join(dirs_dict['csvs_dir'], args['csv_name']), task)
 num_classes = csv_dict['num_classes']
 num_inputs = csv_dict['num_inputs']

@@ -109,15 +109,19 @@ with torch.no_grad():
 
             likelihood_ratio = outputs   # No softmax
 
-            _, preds = torch.max(outputs, 1)
+            if task == 'classification':
+                _, preds = torch.max(outputs, 1)
+            else:
+                pass
 
+            if task == 'classification':
+                if split == 'val':
+                    val_acc += (torch.sum(preds == labels.data)).item()
 
-            if split == 'val':
-                val_acc += (torch.sum(preds == labels.data)).item()
-
-            elif split == 'test':
-                test_acc += (torch.sum(preds == labels.data)).item()
-
+                elif split == 'test':
+                    test_acc += (torch.sum(preds == labels.data)).item()
+            else:
+                pass
 
             labels = labels.to('cpu').detach().numpy().copy()
             likelihood_ratio = likelihood_ratio.to('cpu').detach().numpy().copy()
@@ -130,8 +134,12 @@ with torch.no_grad():
             df_tmp = pd.concat([df_id, df_label, df_likelihood_ratio, df_split], axis=1)
             df_result = df_result.append(df_tmp, ignore_index=True)
 
-print(' val: Inference_accuracy: {:.4f} %'.format((val_acc / val_total)*100))
-print('test: Inference_accuracy: {:.4f} %'.format((test_acc / test_total)*100))
+if task == 'classification':
+    print(' val: Inference_accuracy: {:.4f} %'.format((val_acc / val_total)*100))
+    print('test: Inference_accuracy: {:.4f} %'.format((test_acc / test_total)*100))
+else:
+    pass
+
 print('Inference finished!')
 
 

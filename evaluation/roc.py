@@ -26,16 +26,17 @@ path_likelihood = get_target(dirs_dict['likelihood'], args['likelihood_datetime'
 df_likelihood = pd.read_csv(path_likelihood)
 label_list = [ column_name for column_name in df_likelihood.columns if column_name.startswith('label_') ]
 label_name = label_list[0]
+pred_p_label_name = 'pred_p_' + label_name.replace('label_', '')
 
 
 #def plot_roc():
 # Scores
 df_likelihood_val = get_column_value(df_likelihood, 'split', ['val'])
-y_val_score = df_likelihood_val['1']
+y_val_score = df_likelihood_val[pred_p_label_name]
 y_val_true = df_likelihood_val[label_name]
 
 df_likelihood_test = get_column_value(df_likelihood, 'split', ['test'])
-y_test_score = df_likelihood_test['1']
+y_test_score = df_likelihood_test[pred_p_label_name]
 y_test_true = df_likelihood_test[label_name]
 
 
