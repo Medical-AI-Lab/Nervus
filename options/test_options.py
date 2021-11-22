@@ -14,8 +14,7 @@ class TestOptions():
         self.parser.add_argument('--test_batch_size', type=int, default=64,   metavar='N', help='batch size for test (Default: 64)')
         self.parser.add_argument('--test_datetime',   type=str, default=None, help='datetime when training (Default: None)')
         
-        self.parser.add_argument('--preprocess',      type=str, default='no',  help='preprocess for image, yes or no (Default: no when test)')
-        self.parser.add_argument('--normalize_image', type=str, default='yes', help='image nomalization, yes no no (Default: None)')
+        self.parser.add_argument('--normalize_image', type=str, default='yes', help='image nomalization, yes no no (Default: yes)')
 
     def parse(self):
         self.args = self.parser.parse_args()

@@ -28,7 +28,7 @@ likelilhood_dir = dirs_dict['likelihood']
 # Retrieve training options
 path_train_opt = get_target(dirs_dict['train_opt_log'], args['test_datetime'])  # the latest train_opt if test_datatime is None
 dt_name = get_dt_name(path_train_opt)
-train_opt = read_train_options(path_train_opt)  # Revert csv_name
+train_opt = read_train_options(path_train_opt)   # Retrieve options in training
 mlp = train_opt['mlp']
 cnn = train_opt['cnn']
 gpu_ids = str2int(train_opt['gpu_ids'])
@@ -48,7 +48,7 @@ split_column = csv_dict['split_column']
 # Align option for test only
 test_weight = get_target(weight_dir, dt_name)
 test_batch_size = args['test_batch_size']        # Default: 64  No exixt in train_opt
-args['preprocess'] = 'no'                        # No need of preprocess for image when test
+train_opt['preprocess'] = 'no'                   # No need of preprocess for image when test, Define no in test_options.py, 
 
 
 # Data Loader
