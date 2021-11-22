@@ -59,11 +59,6 @@ default:
 	@make list
 
 
-prepare:
-	-mkdir -p ./data/documents
-	-mkdir -p $(LOG_DIR)
-
-
 temp:
 	-mkdir -p $(TRAIN_OPT_LOG_DIR)/$(TMP_DIR)
 	-mkdir -p $(HYPERPARAMETER_DIR)/$(TMP_DIR)

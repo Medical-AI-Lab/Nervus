@@ -1,4 +1,4 @@
-model,criterion,optimizer,batch_size,epochs,image_set,resize_size,sampler,normalize_image
-MLP,CrossEntropyLoss,Adam,64,50,hcc,256,yes,yes
-ResNet18,CrossEntropyLoss,Adam,64,50,covid,256,yes,yes
-MLP+ResNet18,CrossEntropyLoss,Adam,64,50,covid,256,yes,yes
+task,csv_name,image_dir,model,criterion,optimizer,epochs,batch_size,sampler
+classification,clean.csv,128,MLP,CrossEntropyLoss,Adam,50,64,yes
+classification,clean.csv,128,ResNet18,CrossEntropyLoss,Adam,50,64,yes
+classification,clean.csv,128,MLP+ResNet18,CrossEntropyLoss,Adam,50,64,yes
