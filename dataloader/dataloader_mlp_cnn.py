@@ -38,7 +38,6 @@ class LoadDataSet_MLP_CNN(Dataset):
 
 
         # Nomalize input variables
-        #if self.args['load_input'] == 'yes':
         if not(self.args['mlp'] is None):
             self.input_list_normed = [ 'normed_' + input for input in self.input_list ]
             self.scaler = MinMaxScaler()
@@ -50,7 +49,6 @@ class LoadDataSet_MLP_CNN(Dataset):
             self.df_split = pd.concat([self.df_split, df_inputs_normed], axis=1)
 
         # Preprocess for image
-        #if self.args['load_image'] == 'yes':
         if not(self.args['cnn'] is None):
             self.transform = self._make_transforms()
 
@@ -103,7 +101,6 @@ class LoadDataSet_MLP_CNN(Dataset):
         split = self.df_split.iat[idx, self.index_dict[self.split_column]]        
         
         # Convert normalized values to a single Tensor
-        #if self.args['load_input'] == 'yes':
         if not(self.args['mlp'] is None):
             # Load input
             index_input_list_normed = [ self.index_dict[input_normed] for input_normed in self.input_list_normed ]
@@ -114,7 +111,6 @@ class LoadDataSet_MLP_CNN(Dataset):
             inputs_value_normed = ''
 
         # Load imgae when CNN or MLP+CNN
-        #if self.args['load_image'] == 'yes':
         if not(self.args['cnn'] is None):
             # Load image
             dir_to_img = self.df_split.iat[idx, self.index_dict[self.dir_to_img_column]]

@@ -19,7 +19,7 @@ from config.mlp_cnn import CreateModel_MLPCNN
 
 args = TrainOptions().parse()
 
-TrainOptions().is_option_valid(args)
+#TrainOptions().is_option_valid(args)
 TrainOptions().print_options(args)
 
 task = args['task']

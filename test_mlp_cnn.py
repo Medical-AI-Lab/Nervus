@@ -28,7 +28,7 @@ likelilhood_dir = dirs_dict['likelihood']
 # Retrieve training options
 path_train_opt = get_target(dirs_dict['train_opt_log'], args['test_datetime'])  # the latest train_opt if test_datatime is None
 dt_name = get_dt_name(path_train_opt)
-train_opt = read_train_options(path_train_opt)   # Retrieve options in training
+train_opt = read_train_options(path_train_opt)
 task = train_opt['task']
 mlp = train_opt['mlp']
 cnn = train_opt['cnn']
@@ -65,7 +65,7 @@ model.load_state_dict(weight)
 
 # Classification
 #def test_classification():
-print ('Inference for clasification started...')
+print ('Inference started...')
 
 val_total = len(val_loader.dataset)
 test_total = len(test_loader.dataset)

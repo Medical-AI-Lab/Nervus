@@ -70,17 +70,6 @@ class TrainOptions():
             else:
                 self.args.cnn = None
 
-            # Set load_input
-            if not(self.args.mlp is None):
-                self.args.load_input = 'yes'
-            else:
-                self.args.load_input = 'no'
-
-            # Set load_image
-            if not(self.args.cnn is None):
-                self.args.load_image = 'yes'
-            else:
-                self.args.load_image = 'no'
         else:
             pass
             #Check the case of when no specifying model later
@@ -102,7 +91,7 @@ class TrainOptions():
     def is_option_valid(self, args:dict):
         # Check must options
         must_base_opts = ['csv_name', 'task', 'model', 'epochs', 'batch_size', 'criterion', 'optimizer', 'sampler']
-        if args['load_image'] == 'yes':
+        if not(args['cnn'] is None):
             must_base_opts = must_base_opts + ['image_dir', 'normalize_image']
         
         for opt in must_base_opts:
