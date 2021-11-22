@@ -15,6 +15,9 @@ class TrainOptions():
         self.parser.add_argument('--csv_name',  type=str, default=None, help='csv namefilename(Default: None)')
         self.parser.add_argument('--image_dir', type=str, default=None, help='directory name contaning images(Default: None)')
 
+        # Task
+        self.parser.add_argument('--task',  type=str, default=None, help='Task: classification or regression (Default: None)')
+
         # Model
         self.parser.add_argument('--model', type=str, default=None, help='model: MLP, CNN, MLP+CNN (Default: None)')
 
@@ -33,7 +36,7 @@ class TrainOptions():
         self.parser.add_argument('--random_rotation',        type=str, default=None,  help='RandomRotation, yes or no (Default: None)')
         self.parser.add_argument('--color_jitter',           type=str, default=None,  help='ColorJitter, yes or no (Default: None)')
         self.parser.add_argument('--random_apply',           type=str, default=None,  help='transform randomly applies, yes or no (Default: None)')
-        self.parser.add_argument('--normalize_image',        type=str, default='yes', help='image nomalization, yes no no (Default: None)')
+        self.parser.add_argument('--normalize_image',        type=str, default='yes', help='image nomalization, yes no no (Default: yes)')
 
         # Sampler
         self.parser.add_argument('--sampler', type=str, default=None, help='sample data in traning or not, yes or no (Default: None)')
@@ -80,7 +83,7 @@ class TrainOptions():
                 self.args.load_image = 'no'
         else:
             pass
-            #Check the case of when no specyfing model 
+            #Check the case of when no specifying model later
 
 
         # Align gpu_ids
@@ -98,7 +101,7 @@ class TrainOptions():
 
     def is_option_valid(self, args:dict):
         # Check must options
-        must_base_opts = ['csv_name', 'model', 'epochs', 'batch_size', 'criterion', 'optimizer', 'sampler']
+        must_base_opts = ['csv_name', 'task', 'model', 'epochs', 'batch_size', 'criterion', 'optimizer', 'sampler']
         if args['load_image'] == 'yes':
             must_base_opts = must_base_opts + ['image_dir', 'normalize_image']
         

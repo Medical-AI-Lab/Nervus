@@ -22,6 +22,7 @@ args = TrainOptions().parse()
 TrainOptions().is_option_valid(args)
 TrainOptions().print_options(args)
 
+task = args['task']
 mlp = args['mlp']
 cnn = args['cnn']
 criterion = args['criterion']
@@ -40,9 +41,14 @@ learning_curve_dir = dirs_dict['learning_curve']
 
 image_dir = os.path.join(dirs_dict['images_dir'], args['image_dir'])
 
-csv_dict = parse_csv(os.path.join(dirs_dict['csvs_dir'], args['csv_name']))
+csv_dict = parse_csv(os.path.join(dirs_dict['csvs_dir'], args['csv_name']), task)
 num_classes = csv_dict['num_classes']
 num_inputs = csv_dict['num_inputs']
+
+# Modify for regression tmporalily
+#csv_dict['label_name'] = 'periods_length_of_stay'
+#num_classes = 1
+
 
 
 # Data Loadar
@@ -105,26 +111,45 @@ for epoch in range(num_epochs):
                     outputs = model(inputs_values_normed, images)
 
 
-                _, preds = torch.max(outputs, 1)
-                loss = criterion(outputs, labels)
+                if task == 'classification':
+                    _, preds = torch.max(outputs, 1)
+                    loss = criterion(outputs, labels)
+                else:
+                    loss = criterion(outputs.squeeze(), labels.float())
+
 
                 if phase == 'train':
                     loss.backward()
                     optimizer.step()
 
             running_loss += loss.item() * labels.size(0)
-            running_acc += (torch.sum(preds == labels.data)).item()
+            
+            if task == 'classification':
+                running_acc += (torch.sum(preds == labels.data)).item()
+            else:
+                pass
 
         epoch_loss = running_loss / len(dataloader.dataset)
-        epoch_acc = running_acc / len(dataloader.dataset)
 
+        if task == 'classification':
+            epoch_acc = running_acc / len(dataloader.dataset)
+        else:
+            pass
 
         if phase == 'train':
             train_loss_list.append(epoch_loss)
-            train_acc_list.append(epoch_acc)
+            
+            if task == 'classification':
+                train_acc_list.append(epoch_acc)
+            else:
+                pass
         else:
             val_loss_list.append(epoch_loss)
-            val_acc_list.append(epoch_acc)
+            
+            if task == 'classification':
+                val_acc_list.append(epoch_acc)
+            else:
+                pass
 
         # Keep the best weight when epoch_loss is the lowest.
         if (phase == 'val' and (val_best_loss is None or (epoch_loss < val_best_loss))):
@@ -134,9 +159,14 @@ for epoch in range(num_epochs):
             update_comment = ' Updated val_best_loss!'
         else:
             update_comment = ''
-
-    print(('epoch [{ith_epoch:>3}/{num_epochs:<3}], train_loss: {train_loss:.4f}, val_loss: {val_loss:.4f}, val_acc: {val_acc:.4f}' + update_comment)
-    .format(ith_epoch=epoch+1, num_epochs=num_epochs, train_loss=train_loss_list[-1], val_loss=val_loss_list[-1], val_acc=val_acc_list[-1]))
+    
+    if task == 'classification':
+        print(('epoch [{ith_epoch:>3}/{num_epochs:<3}], train_loss: {train_loss:.4f}, val_loss: {val_loss:.4f}, val_acc: {val_acc:.4f}' + update_comment)
+        .format(ith_epoch=epoch+1, num_epochs=num_epochs, train_loss=train_loss_list[-1], val_loss=val_loss_list[-1], val_acc=val_acc_list[-1]))
+    else:
+        print(('epoch [{ith_epoch:>3}/{num_epochs:<3}], train_loss: {train_loss:.4f}, val_loss: {val_loss:.4f}' + update_comment)
+        .format(ith_epoch=epoch+1, num_epochs=num_epochs, train_loss=train_loss_list[-1], val_loss=val_loss_list[-1]))
+    
 
 print('Training finished!')
 
@@ -159,10 +189,18 @@ torch.save(best_weight, weight_path)
 # Learning curve
 os.makedirs(learning_curve_dir, exist_ok=True)
 learning_curve_path = os.path.join(learning_curve_dir, basename) + '.csv'
-df_learning_curve = pd.DataFrame({'train_loss': train_loss_list,
-                                  'train_acc':  train_acc_list,
-                                  'val_loss':   val_loss_list,
-                                  'val_acc':    val_acc_list})
+
+if task == 'classification':
+    df_learning_curve = pd.DataFrame({'train_loss': train_loss_list,
+                                       'train_acc':  train_acc_list,
+                                       'val_loss':   val_loss_list,
+                                       'val_acc':    val_acc_list
+                                    })
+else:
+    df_learning_curve = pd.DataFrame({'train_loss': train_loss_list,
+                                      'val_loss':   val_loss_list,
+                                    })
+
 df_learning_curve.to_csv(learning_curve_path, index=False)
 
 

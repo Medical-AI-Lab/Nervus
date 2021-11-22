@@ -29,6 +29,7 @@ likelilhood_dir = dirs_dict['likelihood']
 path_train_opt = get_target(dirs_dict['train_opt_log'], args['test_datetime'])  # the latest train_opt if test_datatime is None
 dt_name = get_dt_name(path_train_opt)
 train_opt = read_train_options(path_train_opt)   # Retrieve options in training
+task = train_opt['task']
 mlp = train_opt['mlp']
 cnn = train_opt['cnn']
 gpu_ids = str2int(train_opt['gpu_ids'])
@@ -36,7 +37,7 @@ device = set_device(gpu_ids)
 
 image_dir = os.path.join(dirs_dict['images_dir'], train_opt['image_dir'])
 
-csv_dict = parse_csv(os.path.join(dirs_dict['csvs_dir'], train_opt['csv_name']))
+csv_dict = parse_csv(os.path.join(dirs_dict['csvs_dir'], train_opt['csv_name']), task)
 class_names = csv_dict['class_names']
 num_classes = csv_dict['num_classes']
 num_inputs = csv_dict['num_inputs']

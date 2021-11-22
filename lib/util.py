@@ -95,6 +95,7 @@ def make_basename(args, val_best_epoch, val_best_loss, dt_name):
         device_name = 'CPU'
 
     basename = strcat('_',
+                      args['task'],
                       args['model'],
                       args['criterion'],
                       args['optimizer'],

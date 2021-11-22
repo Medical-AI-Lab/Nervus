@@ -5,18 +5,20 @@
 # MLP | ResNet18 | MLP+ResNet18
 CSV_NAME := clean.csv
 IMAGE_DIR := 128
-MODEL := MLP+ResNet18
-CRITERION := CrossEntropyLoss
+TASK := classification
+MODEL := ResNet18
+CRITERION := CrossEntropyLoss  # MSE
 OPTIMIZER := Adam
 EPOCHS := 3
 BATCH_SIZE := 64
-SAMPLER := yes
+SAMPLER := yes # no     # must be no when regression
 GPU_IDS := -1     # 0,1,2,3
 
 TRAIN_OPT := \
 --csv_name $(CSV_NAME) \
---model $(MODEL) \
 --image_dir $(IMAGE_DIR) \
+--task $(TASK) \
+--model $(MODEL) \
 --criterion $(CRITERION) \
 --optimizer $(OPTIMIZER) \
 --epochs $(EPOCHS) \
@@ -34,7 +36,7 @@ TRAIN_CODE := train_mlp_cnn.py
 TEST_CODE := test_mlp_cnn.py
 ROC_CODE := ./evaluation/roc.py
 YY_CODE := ./evaluation/yy.py
-GRADCAM_CODE := ./visualization/visualize.py
+GRADCAM_CODE := visualize.py
 
 
 # Directory

@@ -36,6 +36,7 @@ visualization_split_list = (args['visualization_split']).split(',')
 path_train_opt = get_target(dirs_dict['train_opt_log'], args['visualization_datetime'])  # the latest train_opt if datatime is None
 dt_name = get_dt_name(path_train_opt)
 train_opt = read_train_options(path_train_opt)  # Revert csv_name
+task = train_opt['task']
 mlp = train_opt['mlp']
 cnn = train_opt['cnn']
 gpu_ids = str2int(train_opt['gpu_ids'])
@@ -43,7 +44,7 @@ device = set_device(gpu_ids)
 
 image_dir = os.path.join(dirs_dict['images_dir'], train_opt['image_dir'])
 
-csv_dict = parse_csv(os.path.join(dirs_dict['csvs_dir'], train_opt['csv_name']))
+csv_dict = parse_csv(os.path.join(dirs_dict['csvs_dir'], train_opt['csv_name']), task)
 num_inputs = csv_dict['num_inputs']
 num_classes = csv_dict['num_classes']
 df_split = get_column_value(csv_dict['source'], 'split', visualization_split_list)

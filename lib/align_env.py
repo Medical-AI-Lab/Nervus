@@ -26,7 +26,7 @@ def set_dirs():
 
 
 
-def parse_csv(csv_path):
+def parse_csv(csv_path, task):
     csv_dict = {}
     prefix_id = 'id_'
     prefix_label = 'label_'
@@ -54,6 +54,7 @@ def parse_csv(csv_path):
     # input_* : float
     cast_input_dict = { input: float for input in csv_dict['input_list'] }
     cast_label_dict = { label: int for label in csv_dict['label_list'] }
+
     df_source = df_source.astype(cast_input_dict)
     df_source = df_source.astype(cast_label_dict)
     csv_dict['source'] = df_source

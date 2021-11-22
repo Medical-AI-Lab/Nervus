@@ -38,7 +38,8 @@ class LoadDataSet_MLP_CNN(Dataset):
 
 
         # Nomalize input variables
-        if self.args['load_input'] == 'yes':
+        #if self.args['load_input'] == 'yes':
+        if not(self.args['mlp'] is None):
             self.input_list_normed = [ 'normed_' + input for input in self.input_list ]
             self.scaler = MinMaxScaler()
             self.df_train = get_column_value(self.df_source, self.split_column, ['train'])  # should be normalized with min and max of training data
@@ -49,7 +50,8 @@ class LoadDataSet_MLP_CNN(Dataset):
             self.df_split = pd.concat([self.df_split, df_inputs_normed], axis=1)
 
         # Preprocess for image
-        if self.args['load_image'] == 'yes':
+        #if self.args['load_image'] == 'yes':
+        if not(self.args['cnn'] is None):
             self.transform = self._make_transforms()
 
         # index of each column
@@ -67,10 +69,10 @@ class LoadDataSet_MLP_CNN(Dataset):
 
             if self.args['random_rotation'] == 'yes':
                 _transforms.append(transforms.RandomRotation((-10, 10)))
-            
+
             if self.args['color_jitter'] == 'yes':
                 # If img is PIL Image, mode “1”, “I”, “F” and modes with transparency (alpha channel) are not supported.
-                # When open Grayscle with "RGB" mode 
+                # When open Grayscle with "RGB" mode
                 _transforms.append(transforms.ColorJitter())
 
             if self.args['random_apply'] == 'yes':
@@ -101,7 +103,9 @@ class LoadDataSet_MLP_CNN(Dataset):
         split = self.df_split.iat[idx, self.index_dict[self.split_column]]        
         
         # Convert normalized values to a single Tensor
-        if self.args['load_input'] == 'yes':
+        #if self.args['load_input'] == 'yes':
+        if not(self.args['mlp'] is None):
+            # Load input
             index_input_list_normed = [ self.index_dict[input_normed] for input_normed in self.input_list_normed ]
             s_inputs_value_normed = self.df_split.iloc[idx, index_input_list_normed]
             inputs_value_normed = np.array(s_inputs_value_normed, dtype=np.float64)
@@ -110,7 +114,9 @@ class LoadDataSet_MLP_CNN(Dataset):
             inputs_value_normed = ''
 
         # Load imgae when CNN or MLP+CNN
-        if self.args['load_image'] == 'yes':
+        #if self.args['load_image'] == 'yes':
+        if not(self.args['cnn'] is None):
+            # Load image
             dir_to_img = self.df_split.iat[idx, self.index_dict[self.dir_to_img_column]]
             image_path = os.path.join(self.image_dir, dir_to_img)
             image = Image.open(image_path).convert('RGB')
