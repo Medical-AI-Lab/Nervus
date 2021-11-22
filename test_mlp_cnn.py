@@ -48,8 +48,9 @@ split_column = csv_dict['split_column']
 
 # Align option for test only
 test_weight = get_target(weight_dir, dt_name)
-test_batch_size = args['test_batch_size']        # Default: 64  No exixt in train_opt
-train_opt['preprocess'] = 'no'                   # No need of preprocess for image when test, Define no in test_options.py, 
+test_batch_size = args['test_batch_size']                # Default: 64  No exixt in train_opt
+train_opt['preprocess'] = 'no'                           # No need of preprocess for image when test, Define no in test_options.py
+train_opt['normalize_image'] = args['normalize_image']   # Default: 'yes'
 
 
 # Data Loader
