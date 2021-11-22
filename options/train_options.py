@@ -107,7 +107,7 @@ class TrainOptions():
     def print_options(self, opt:dict):
         self.args = self.parser.parse_args()
 
-        ignore = ['mlp', 'cnn', 'load_input', 'load_image']
+        ignore = ['mlp', 'cnn']
 
         message = ''
         message += '-------------------- Options --------------------\n'

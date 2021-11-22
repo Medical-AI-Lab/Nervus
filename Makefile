@@ -6,7 +6,7 @@
 CSV_NAME := clean.csv
 IMAGE_DIR := 128
 TASK := classification
-MODEL := ResNet18
+MODEL := MLP+ResNet18
 CRITERION := CrossEntropyLoss  # MSE
 OPTIMIZER := Adam
 EPOCHS := 3
