@@ -90,7 +90,7 @@ class TrainOptions():
 
     def is_option_valid(self, args:dict):
         # Check must options
-        must_base_opts = ['csv_name', 'task', 'model', 'epochs', 'batch_size', 'criterion', 'optimizer', 'sampler']
+        must_base_opts = ['task', 'csv_name', 'model', 'criterion', 'optimizer', 'epochs', 'batch_size','sampler']
         if not(args['cnn'] is None):
             must_base_opts = must_base_opts + ['image_dir', 'normalize_image']
         
