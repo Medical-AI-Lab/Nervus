@@ -98,7 +98,7 @@ class LoadDataSet_MLP_CNN(Dataset):
     def __getitem__(self, idx):
         id = self.df_split.iat[idx, self.index_dict[self.id_column]]
         label = self.df_split.iat[idx, self.index_dict[self.label_name]]
-        split = self.df_split.iat[idx, self.index_dict[self.split_column]]        
+        split = self.df_split.iat[idx, self.index_dict[self.split_column]]
         
         # Convert normalized values to a single Tensor
         if not(self.args['mlp'] is None):
