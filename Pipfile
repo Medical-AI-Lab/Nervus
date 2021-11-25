@@ -13,6 +13,7 @@ matplotlib = "*"
 opencv-python = "*"
 torchsummary = "*"
 seaborn = "*"
+pillow = "*"
 
 [dev-packages]
 
