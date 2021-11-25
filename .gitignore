@@ -136,6 +136,6 @@ train_opt_logs/
 weights/
 tmp/
 
-Makefile
+Pipfile.lock
 
 .DS_Store
