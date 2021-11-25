@@ -38,12 +38,16 @@ device = set_device(gpu_ids)
 image_dir = os.path.join(dirs_dict['images_dir'], train_opt['image_dir'])
 
 csv_dict = parse_csv(os.path.join(dirs_dict['csvs_dir'], train_opt['csv_name']), task)
-class_names = csv_dict['class_names']
 num_classes = csv_dict['num_classes']
 num_inputs = csv_dict['num_inputs']
 id_column = csv_dict['id_column']
 label_name = csv_dict['label_name']
 split_column = csv_dict['split_column']
+
+if task == 'classification':
+    class_names = [ prefix + csv_dict['label_name'].replace('label_', '') for prefix in ['pred_n_', 'pred_p_'] ]
+else:
+    class_names = [ 'pred_' + csv_dict['label_name'].replace('label_', '') ]
 
 
 # Align option for test only

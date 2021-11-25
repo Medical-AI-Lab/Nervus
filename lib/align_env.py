@@ -49,11 +49,9 @@ def parse_csv(csv_path, task):
     csv_dict['num_inputs'] = len(csv_dict['input_list'])
 
     if task == 'classification':
-        csv_dict['class_names'] = [ prefix + csv_dict['label_name'].replace('label_', '') for prefix in ['pred_n_', 'pred_p_'] ]   # must be ['pred_n_*', 'pred_p_*']
-        csv_dict['num_classes'] = 2     #len(csv_dict['class_names'])                                                              # must be 2, when classification
+        csv_dict['num_classes'] = 2   # should be 2.
     elif task == 'regression':
-        csv_dict['class_names'] = [ 'pred_' + csv_dict['label_name'].replace('label_', '') ]
-        csv_dict['num_classes'] = 1     #len(csv_dict['class_names'])    
+        csv_dict['num_classes'] = 1
 
 
     # Cast
