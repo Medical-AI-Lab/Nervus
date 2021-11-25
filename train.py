@@ -13,7 +13,7 @@ from options.train_options import TrainOptions
 from config.criterion import Criterion
 from config.optimizer import Optimizer
 
-from dataloader.dataloader_mlp_cnn import *
+from dataloader.dataloader import *
 from config.mlp_cnn import CreateModel_MLPCNN
 
 

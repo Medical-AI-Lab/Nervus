@@ -14,7 +14,7 @@ from lib.util import *
 from lib.align_env import *
 from options.test_options import TestOptions
 
-from dataloader.dataloader_mlp_cnn import *
+from dataloader.dataloader import *
 from config.mlp_cnn import CreateModel_MLPCNN
 
 
