@@ -1,18 +1,21 @@
 # ----- Define variables -----
-
-# make train MODEL='MLP18'
-# make train MODEL='ResNet18'
-# MLP | ResNet18 | MLP+ResNet18
-CSV_NAME := clean_reg.csv  # clean.csv
+# CSV_NAME = clean.csv
+# IMAGE_DIR = 128 | covid | png256
+# TASK = classification | regression
+# MODEL = MLP | ResNet18 | MLP+ResNet18
+# CRITERION = CrossEntropyLoss | MSE
+# SAMPLER = yes | no    # should be no when regression or multi-label
+#GPU_IDS = -1 | 0,1,2
+CSV_NAME := clean.csv     
 IMAGE_DIR := 128
-TASK := regression      # classification
-MODEL := MLP+ResNet18   # MLP, ResNet18
-CRITERION := MSE        #CrossEntropyLoss 
+TASK := classification
+MODEL := MLP
+CRITERION := CrossEntropyLoss
 OPTIMIZER := Adam
 EPOCHS := 3
 BATCH_SIZE := 64
-SAMPLER := no           # yes     # should be no when regression
-GPU_IDS := -1           # 0,1,2,3
+SAMPLER := yes
+GPU_IDS := -1
 
 TRAIN_OPT := \
 --csv_name $(CSV_NAME) \
@@ -28,12 +31,11 @@ TRAIN_OPT := \
 
 
 
-
 PYTHON := python -i
 #PYTHON := python
 
-TRAIN_CODE := train_mlp_cnn.py
-TEST_CODE := test_mlp_cnn.py
+TRAIN_CODE := train.py
+TEST_CODE := test.py
 ROC_CODE := ./evaluation/roc.py
 YY_CODE := ./evaluation/yy.py
 GRADCAM_CODE := visualize.py
@@ -53,10 +55,6 @@ VISUALIZATION_DIR := $(RESULT_DIR)/visualization
 TMP_DIR := tmp
 
 
-
-
-default:
-	@make list
 
 
 temp:
@@ -84,18 +82,8 @@ clean:
 	-mv $(VISUALIZATION_DIR)/*_* $(VISUALIZATION_DIR)/$(TMP_DIR)
 
 
-list:
-	@echo "Make targets are:"
-	@grep '^[^#[:space:]].*:' Makefile | grep -v =
-
-
 active:
 	pipenv shell
-
-
-latest:
-	@echo "The latest weight:"
-	@ls -Ft $(WEIGHT_DIR)/*.pt | head -n +1
 
 
 train:
