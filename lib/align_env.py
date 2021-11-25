@@ -50,7 +50,7 @@ def parse_csv(csv_path, task):
 
     if task == 'classification':
         csv_dict['num_classes'] = 2   # should be 2.
-    elif task == 'regression':
+    else:
         csv_dict['num_classes'] = 1
 
 
@@ -61,7 +61,7 @@ def parse_csv(csv_path, task):
     
     if task == 'classification':
         cast_label_dict = { label: int for label in csv_dict['label_list'] }
-    elif task == 'regression':
+    else:
         cast_label_dict = { label: float for label in csv_dict['label_list'] }
     
     df_source = df_source.astype(cast_input_dict)
