@@ -97,14 +97,11 @@ def CNN(cnn_name, num_classes):
         #cnn = EfficientNet.from_name('efficientnet-b6')
         cnn = models.efficientnet_b6(num_classes=num_classes)
 
-    elif cnn_name == 'ResNet':
-        cnn = models.resnet50(num_classes=num_classes)
-
     elif cnn_name == 'ResNet18':
         cnn = models.resnet18(num_classes=num_classes)
 
-    elif cnn_name == 'ResNext':
-        cnn = models.resnext50_32x4d(num_classes=num_classes)
+    elif cnn_name == 'ResNet':
+        cnn = models.resnet50(num_classes=num_classes)
 
     elif cnn_name == 'DenseNet':
         cnn = models.densenet161(num_classes=num_classes)

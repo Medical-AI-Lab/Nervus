@@ -147,7 +147,7 @@ class EfficientNet_Multi(nn.Module):
         self.input_size_fc = base_model.classifier[1].in_features
         _dropout = base_model.classifier[0]     # Originally, Dropout(p=0.2, inplace=True)
         # Note:
-        # Unless inplace=False, cannot backword
+        # If inplace=True, cannot backword,
         # because gradient is deleted bue to inplace
         _dropout.inplace = False
         
@@ -193,14 +193,11 @@ def CNN(cnn_name, label_list, num_outputs):
     elif cnn_name == 'B6':
         cnn = models.efficientnet_b6
 
-    elif cnn_name == 'ResNet':
-        cnn = models.resnet50
-
     elif cnn_name == 'ResNet18':
         cnn = models.resnet18
 
-    elif cnn_name == 'ResNext':
-        cnn = models.resnext50_32x4d
+    elif cnn_name == 'ResNet':
+        cnn = models.resnet50
 
     elif cnn_name == 'DenseNet':
         cnn = models.densenet161
@@ -217,9 +214,6 @@ def CNN(cnn_name, label_list, num_outputs):
 
         elif cnn_name.startswith('B'):
             cnn = EfficientNet_Multi(cnn(), label_list, num_outputs)
-            
-        elif cnn_name.startswith('ResNext'):
-            print('To be defined.')
 
         elif cnn_name.startswith('DenseNet'):
             print('To be defined.')
