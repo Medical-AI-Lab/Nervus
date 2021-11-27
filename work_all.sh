@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+set -eu
 
 hyperparameter_csv="./hyperparameters/hyperparameter.csv"
 
