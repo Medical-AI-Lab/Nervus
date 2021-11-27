@@ -22,3 +22,9 @@ Other python codes are commonly used in both of single-label output and multi-la
 # Debugging
 ## MakeFile
 Edit Makefile according to your environment and situation.
+
+
+# CUDA VERSION
+CUDA Version = 11.3, 11.4
+
+
