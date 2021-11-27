@@ -20,10 +20,10 @@ yy_code="./evaluation/yy.py"
 gpu_ids="-1"
 
 # Delete previous logs.
-rm -f ${train_log}
-rm -f ${test_log}
-rm -f ${roc_log}
-rm -f ${yy_log}
+rm -f "${train_log}"
+rm -f "${test_log}"
+rm -f "${roc_log}"
+rm -f "${yy_log}"
 
 #1 task,
 #2 csv_name,
@@ -37,7 +37,7 @@ rm -f ${yy_log}
 
 total=$(tail -n +2 "${hyperparameter_csv}" | wc -l)
 i=1
-for row in `tail -n +2 ${hyperparameter_csv}`; do
+for row in $(tail -n +2 "${hyperparameter_csv}"); do
   task=$(echo "${row}" | cut -d "," -f1)
   csv_name=$(echo "${row}" | cut -d "," -f2)
   image_dir=$(echo "${row}" | cut -d "," -f3)
@@ -55,14 +55,14 @@ for row in `tail -n +2 ${hyperparameter_csv}`; do
 
   # Traning
   echo "${python} ${train_code} --task ${task} --csv_name ${csv_name} --image_dir ${image_dir} --model ${model} --criterion ${criterion} --optimizer ${optimizer} --epochs ${epochs} --batch_size ${batch_size} --sampler ${sampler} --gpu_ids ${gpu_ids}"
-  ${python} ${train_code} --task ${task} --csv_name ${csv_name} --image_dir ${image_dir} --model ${model} --criterion ${criterion} --optimizer ${optimizer} --epochs ${epochs} --batch_size ${batch_size} --sampler ${sampler} --gpu_ids ${gpu_ids} 2>&1 | tee -a ${train_log}
+  "${python}" "${train_code}" --task "${task}" --csv_name "${csv_name}" --image_dir "${image_dir}" --model "${model}" --criterion "${criterion}" --optimizer "${optimizer}" --epochs "${epochs}" --batch_size "${batch_size}" --sampler "${sampler}" --gpu_ids "${gpu_ids}" 2>&1 | tee -a "${train_log}"
 
   echo ""
 
   # Test
   echo "${i}/${total}: Test starts..."
   echo "${python} ${test_code}"
-  ${python} ${test_code} 2>&1 | tee -a ${test_log}
+  "${python}" "${test_code}" 2>&1 | tee -a "${test_log}"
 
   echo ""
 
@@ -70,7 +70,7 @@ for row in `tail -n +2 ${hyperparameter_csv}`; do
   # Plot ROC
   echo "${i}/${total}: Plot ROC..."
   echo "${python} ${roc_code}"
-  ${python} ${roc_code} 2>&1 | tee -a ${roc_log}
+  "${python}" "${roc_code}" 2>&1 | tee -a "${roc_log}"
 
 
   # Regression
