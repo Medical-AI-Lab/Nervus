@@ -105,7 +105,7 @@ for epoch in range(num_epochs):
                     labels = labels.to(device)
                     outputs = model(images)
 
-                elif not(mlp is None) and not(cnn is None):
+                else: # elif not(mlp is None) and not(cnn is None):
                     # When MLP+CNN
                     inputs_values_normed = inputs_values_normed.to(device)
                     images = images.to(device)
