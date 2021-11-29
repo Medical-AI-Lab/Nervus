@@ -134,6 +134,40 @@ class ResNet_Multi(nn.Module):
 
 
 
+# For DenseNet family
+class DenseNet_Multi(nn.Module):
+    def __init__(self, base_model, label_list, num_outputs):
+        super().__init__()
+
+        self.extractor = base_model 
+        self.label_list = label_list
+        self.num_outputs = num_outputs
+
+        # Construct fc layres
+        self.input_size_fc = self.extractor.classifier.in_features
+        self.fc_names = [ ('fc_' + label) for label in self.label_list ]
+        self.fc_multi = nn.ModuleDict({
+                            fc_name : nn.Linear(self.input_size_fc, self.num_outputs)
+                            for fc_name in self.fc_names
+                        })
+
+        # Replace the original fc layer
+        self.extractor.classifier = DUMMY_LAYER
+
+    def forward(self, x):
+        x = self.extractor(x)
+
+        # Fork forwarding
+        output_multi =  {
+                            fc_name : self.fc_multi[fc_name](x)
+                            for fc_name in self.fc_names
+                        }
+
+        return output_multi
+ 
+
+
+
 # For EfficientNet family
 class EfficientNet_Multi(nn.Module):
     def __init__(self, base_model, label_list, num_outputs):
@@ -216,7 +250,7 @@ def CNN(cnn_name, label_list, num_outputs):
             cnn = EfficientNet_Multi(cnn(), label_list, num_outputs)
 
         elif cnn_name.startswith('DenseNet'):
-            print('To be defined.')
+            cnn = DenseNet_Multi(cnn(), label_list, num_outputs)
 
     else:
         # When MLP+CNN
