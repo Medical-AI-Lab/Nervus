@@ -12,8 +12,8 @@ import torch
 from torchvision import transforms
 from torchvision.utils import make_grid, save_image
 
-from gradcam.utils import visualize_cam
-from gradcam.gradcam import GradCAM, GradCAMpp
+from visualization.gradcam.utils import visualize_cam
+from visualization.gradcam.gradcam import GradCAM, GradCAMpp
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from lib.util import *
@@ -45,6 +45,7 @@ device = set_device(gpu_ids)
 image_dir = os.path.join(dirs_dict['images_dir'], train_opt['image_dir'])
 
 csv_dict = parse_csv(os.path.join(dirs_dict['csvs_dir'], train_opt['csv_name']), task)
+label_list = csv_dict['label_list']
 num_inputs = csv_dict['num_inputs']
 num_classes = csv_dict['num_classes']
 df_split = get_column_value(csv_dict['source'], 'split', visualization_split_list)
@@ -54,7 +55,14 @@ visualization_weight = get_target(weight_dir, dt_name)
 
 
 # Configure of model
-model = CreateModel_MLPCNN(mlp, cnn, num_inputs, num_classes, gpu_ids)
+if len(label_list) == 1:
+    # When single-label output
+    model = CreateModel_MLPCNN(mlp, cnn, num_inputs, num_classes, device=gpu_ids)
+else:
+    # When multi-label output
+    model = CreateModel_MLPCNN(mlp, cnn, label_list, num_inputs, num_classes, device=gpu_ids)
+
+
 weight = torch.load(visualization_weight)
 model.load_state_dict(weight)
 
