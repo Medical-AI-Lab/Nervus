@@ -129,8 +129,6 @@ for epoch in range(num_epochs):
                     # To be specofic, loss(NegativeLogLikelihood) cannot be defined in this case.
                     loss.backward()
                     optimizer.step()
-                else:
-                    print(phase, 'label 0')
 
             running_loss += loss.item() * labels.size(0)
 
