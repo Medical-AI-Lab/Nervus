@@ -33,7 +33,7 @@ def parse_csv(csv_path, task):
     prefix_label = 'label_'
     prefix_input = 'input_'
 
-    csv_dict['filename_column'] = 'finename'
+    csv_dict['filename_column'] = 'filename'
     csv_dict['dir_to_img_column'] = 'dir_to_img'
     csv_dict['split_column'] = 'split'
 
