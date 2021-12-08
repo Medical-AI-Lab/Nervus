@@ -124,9 +124,13 @@ for epoch in range(num_epochs):
                     #print(inputs_values_normed)
                     #print(risk_preds)
 
-                if phase == 'train':
+                if (phase == 'train') and (torch.sum(labels).item() > 0):
+                    # No backward when every label is 1 in labels.
+                    # To be specofic, loss(NegativeLogLikelihood) cannot be defined in this case.
                     loss.backward()
                     optimizer.step()
+                else:
+                    print(phase, 'label 0')
 
             running_loss += loss.item() * labels.size(0)
 
