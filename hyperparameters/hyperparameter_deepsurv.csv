@@ -1,4 +1,4 @@
 task,csv_name,image_dir,model,criterion,optimizer,epochs,batch_size,sampler
 regression,clean.csv,128,MLP,NLL,Adam,50,64,yes
 regression,clean.csv,128,MLP+ResNet18,NLL,Adam,50,64,yes
-regression,clean.csv,128,ResNet18,CrossEntropyLoss,Adam,50,64,yes
+regression,clean.csv,128,ResNet18,NLL,Adam,50,64,yes
