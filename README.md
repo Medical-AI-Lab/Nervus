@@ -22,7 +22,7 @@ For deepsurv, Similarty to the above.
 In single-label output classification or regression(the number of labels = 1), use train.py, test.py, and evaluation/roc.py or evaluation/yy.py.
 
 ## Multi-label output classifiucation/regression
-In multi-label output classification or regression(the number of labels >= 2), use train_multi.py, test_multi.py, and roc_multi.py or yy_multi.py,
+In multi-label output classification or regression(the number of labels >= 2), use train_multi.py, test_multi.py, and roc_multi.py or yy_multi.py.
 
 ## Deepsurv
 In deepsurv(the number of labels = 1 and the number of periods = 1), use train_deepsurv.py, test_depsurv.py, and c_index.py.
