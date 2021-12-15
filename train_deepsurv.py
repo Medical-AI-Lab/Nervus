@@ -16,7 +16,7 @@ from config.criterion_deepsurv import NegativeLogLikelihood
 from config.optimizer import Optimizer
 #from dataloader.dataloader import *
 from dataloader.dataloader_deepsurv import *
-from config.mlp_cnn import CreateModel_MLPCNN
+from config.model import *
 
 
 args = TrainOptions().parse()
@@ -44,6 +44,7 @@ learning_curve_dir = dirs_dict['learning_curve']
 image_dir = os.path.join(dirs_dict['images_dir'], args['image_dir'])
 
 csv_dict = parse_csv(os.path.join(dirs_dict['csvs_dir'], args['csv_name']), task)
+label_list = csv_dict['label_list']
 num_classes = csv_dict['num_classes']
 num_inputs = csv_dict['num_inputs']
 
@@ -54,7 +55,7 @@ train_loader = MakeDataLoader_MLP_CNN_with_WeightedRandomSampler(args, csv_dict,
 val_loader = MakeDataLoader_MLP_CNN_with_WeightedRandomSampler(args, csv_dict, image_dir, split_list=['val'], batch_size=batch_size, sampler=sampler)
 
 # Configure of training
-model = CreateModel_MLPCNN(mlp, cnn, num_inputs, num_classes, device=gpu_ids)
+model = CreateModel_MLPCNN(mlp, cnn, label_list, num_inputs, num_classes, device=gpu_ids)
 #criterion = Criterion(criterion)
 criterion = NegativeLogLikelihood(device).to(device)
 optimizer = Optimizer(optimizer, model, lr)

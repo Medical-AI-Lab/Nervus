@@ -15,7 +15,7 @@ from lib.align_env import *
 from options.test_options import TestOptions
 
 from dataloader.dataloader import *
-from config.mlp_cnn import CreateModel_MLPCNN
+from config.model import *
 
 
 args = TestOptions().parse()
@@ -41,6 +41,7 @@ csv_dict = parse_csv(os.path.join(dirs_dict['csvs_dir'], train_opt['csv_name']),
 num_classes = csv_dict['num_classes']
 num_inputs = csv_dict['num_inputs']
 id_column = csv_dict['id_column']
+label_list = csv_dict['label_list']
 label_name = csv_dict['label_name']
 split_column = csv_dict['split_column']
 
@@ -63,7 +64,7 @@ test_loader = MakeDataLoader_MLP_CNN_with_WeightedRandomSampler(train_opt, csv_d
 
 
 # Configure of model
-model = CreateModel_MLPCNN(mlp, cnn, num_inputs, num_classes, gpu_ids)
+model = CreateModel_MLPCNN(mlp, cnn, label_list, num_inputs, num_classes, device=gpu_ids)
 weight = torch.load(test_weight)
 model.load_state_dict(weight)
 

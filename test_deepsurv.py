@@ -16,7 +16,7 @@ from options.test_options import TestOptions
 
 #from dataloader.dataloader import *
 from dataloader.dataloader_deepsurv import *
-from config.mlp_cnn import CreateModel_MLPCNN
+from config.model import *
 
 
 args = TestOptions().parse()
@@ -42,6 +42,7 @@ csv_dict = parse_csv(os.path.join(dirs_dict['csvs_dir'], train_opt['csv_name']),
 num_classes = csv_dict['num_classes']
 num_inputs = csv_dict['num_inputs']
 id_column = csv_dict['id_column']
+label_list = csv_dict['label_list']
 label_name = csv_dict['label_name']
 split_column = csv_dict['split_column']
 
@@ -64,7 +65,7 @@ test_loader = MakeDataLoader_MLP_CNN_with_WeightedRandomSampler(train_opt, csv_d
 
 
 # Configure of model
-model = CreateModel_MLPCNN(mlp, cnn, num_inputs, num_classes, gpu_ids)
+model = CreateModel_MLPCNN(mlp, cnn, label_list, num_inputs, num_classes, gpu_ids)
 weight = torch.load(test_weight)
 model.load_state_dict(weight)
 
@@ -105,7 +106,7 @@ with torch.no_grad():
                 # When CNN only
                 images = images.to(device)
                 labels = labels.to(device)
-                outputs = model(images)
+                risk_pred = model(images)
 
             else: # elif not(mlp is None) and not(cnn is None):
                 # When MLP+CNN
@@ -115,7 +116,6 @@ with torch.no_grad():
                 periods = periods.float().to(device)
                 #outputs = model(inputs_values_normed, images)
                 risk_pred = model(inputs_values_normed, images)
-
 
             #likelihood_ratio = outputs   # No softmax
             likelihood_ratio = risk_pred
