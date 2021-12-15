@@ -13,7 +13,7 @@ from lib.util import *
 from lib.align_env import *
 from options.test_options import TestOptions
 from dataloader.dataloader_multi import *
-from config.mlp_cnn_multi import *
+from config.model import *
 
 
 args = TestOptions().parse()

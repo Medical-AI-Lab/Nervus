@@ -18,8 +18,8 @@ from visualization.gradcam.gradcam import GradCAM, GradCAMpp
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from lib.util import *
 from lib.align_env import *
+from config.model import *
 from options.visualize_option import VisualizeOptions
-from config.mlp_cnn import CreateModel_MLPCNN
 
 
 args = VisualizeOptions().parse()
@@ -55,14 +55,7 @@ visualization_weight = get_target(weight_dir, dt_name)
 
 
 # Configure of model
-if len(label_list) == 1:
-    # When single-label output
-    model = CreateModel_MLPCNN(mlp, cnn, num_inputs, num_classes, device=gpu_ids)
-else:
-    # When multi-label output
-    model = CreateModel_MLPCNN(mlp, cnn, label_list, num_inputs, num_classes, device=gpu_ids)
-
-
+model = CreateModel_MLPCNN(mlp, cnn, label_list, num_inputs, num_classes, device=gpu_ids)
 weight = torch.load(visualization_weight)
 model.load_state_dict(weight)
 
@@ -83,6 +76,7 @@ if (mlp is None) and not(cnn is None):
         raw_model = raw_model.extractor
     else:
         raw_model = raw_model
+
 elif not(mlp is None) and not(cnn is None):
 # Extract CNN from MLP+CNN
     model_name = cnn
