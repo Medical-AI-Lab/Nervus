@@ -78,7 +78,11 @@ raw_model = model.module if len(gpu_ids) > 0 else model
 if (mlp is None) and not(cnn is None):
     # CNN only
     model_name = cnn
-    raw_model = raw_model
+    if len(label_list) > 1:
+        # When multi
+        raw_model = raw_model.extractor
+    else:
+        raw_model = raw_model
 elif not(mlp is None) and not(cnn is None):
 # Extract CNN from MLP+CNN
     model_name = cnn
