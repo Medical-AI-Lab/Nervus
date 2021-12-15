@@ -101,6 +101,7 @@ class MLP_Multi(nn.Module):
 
         return output_multi
 
+
 # For ResNet family
 class ResNet_Multi(nn.Module):
     def __init__(self, base_model, label_list, num_outputs):
@@ -132,6 +133,7 @@ class ResNet_Multi(nn.Module):
 
         return output_multi
 
+
 # For DenseNet family
 class DenseNet_Multi(nn.Module):
     def __init__(self, base_model, label_list, num_outputs):
@@ -161,6 +163,7 @@ class DenseNet_Multi(nn.Module):
                             for fc_name in self.fc_names
                         }
         return output_multi
+
   
 # For EfficientNet family
 class EfficientNet_Multi(nn.Module):
@@ -347,3 +350,4 @@ def get_layer_output(outputs_multi, label_name):
     layer_name = [output_layer_name for output_layer_name in output_layer_names if output_layer_name.endswith(label_name)][0]
     output_layer = outputs_multi[layer_name]
     return output_layer
+
