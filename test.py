@@ -13,8 +13,6 @@ import torch.nn as nn
 from lib.util import *
 from lib.align_env import *
 from options.test_options import TestOptions
-
-from dataloader.dataloader import *
 from config.model import *
 
 
@@ -45,12 +43,6 @@ label_list = csv_dict['label_list']
 label_name = csv_dict['label_name']
 split_column = csv_dict['split_column']
 
-if task == 'classification':
-    class_names = [ prefix + csv_dict['label_name'].replace('label_', '') for prefix in ['pred_n_', 'pred_p_'] ]
-else:
-    class_names = [ 'pred_' + csv_dict['label_name'].replace('label_', '') ]
-
-
 # Align option for test only
 test_weight = get_target(weight_dir, dt_name)
 test_batch_size = args['test_batch_size']                # Default: 64  No exixt in train_opt
@@ -59,6 +51,10 @@ train_opt['normalize_image'] = args['normalize_image']   # Default: 'yes'
 
 
 # Data Loader
+if len(label_list) > 1:
+    from dataloader.dataloader_multi import *
+else:
+    from dataloader.dataloader import *
 val_loader = MakeDataLoader_MLP_CNN_with_WeightedRandomSampler(train_opt, csv_dict, image_dir, split_list=['val'], batch_size=test_batch_size, sampler='no')    # Fixed 'no'
 test_loader = MakeDataLoader_MLP_CNN_with_WeightedRandomSampler(train_opt, csv_dict, image_dir, split_list=['test'], batch_size=test_batch_size, sampler='no')  # Fixed 'no'
 
@@ -69,84 +65,161 @@ weight = torch.load(test_weight)
 model.load_state_dict(weight)
 
 
-# Classification
-#def test_classification():
-print ('Inference started...')
+def execute_test_single(task, mlp, cnn, device, id_column, label_name, split_column, val_loader, test_loader, model):
+    model.eval()
+    with torch.no_grad():
+        val_acc = 0.0
+        test_acc = 0.0
+        df_result = pd.DataFrame([])
 
+        if task == 'classification':
+            column_class_label_names = [prefix + label_name.replace('label_', '') for prefix in ['pred_n_', 'pred_p_']]
+        else:
+            column_class_label_names = ['pred_' + label_name.replace('label_', '')]
+
+        for split in ['val', 'test']:
+            if split == 'val':
+                dataloader = val_loader
+            elif split == 'test':
+                dataloader = test_loader
+
+            for i, (ids, labels, inputs_values_normed, images, splits) in enumerate(dataloader):
+                if not(mlp is None) and (cnn is None):
+                # When MLP only
+                    inputs_values_normed = inputs_values_normed.to(device)
+                    labels = labels.to(device)
+                    outputs = model(inputs_values_normed)
+
+                elif (mlp is None) and not(cnn is None):
+                # When CNN only
+                    images = images.to(device)
+                    labels = labels.to(device)
+                    outputs = model(images)
+
+                else: # elif not(mlp is None) and not(cnn is None):
+                # When MLP+CNN
+                    inputs_values_normed = inputs_values_normed.to(device)
+                    images = images.to(device)
+                    labels = labels.to(device)
+                    outputs = model(inputs_values_normed, images)
+
+                likelihood_ratio = outputs   # No softmax
+
+                if task == 'classification':
+                    _, preds = torch.max(outputs, 1)
+                    split_acc = (torch.sum(preds == labels.data)).item()
+                    if split == 'val':
+                        val_acc += split_acc
+                    else: #elif split == 'test':
+                        test_acc += split_acc
+                else:
+                    pass
+
+                labels = labels.to('cpu').detach().numpy().copy()
+                likelihood_ratio = likelihood_ratio.to('cpu').detach().numpy().copy()
+
+                df_id = pd.DataFrame({id_column: ids})
+                df_split = pd.DataFrame({split_column: splits})
+                df_label = pd.DataFrame({label_name :labels})
+                df_likelihood_ratio = pd.DataFrame(likelihood_ratio, columns=column_class_label_names)
+                df_tmp = pd.concat([df_id, df_label, df_likelihood_ratio, df_split], axis=1)
+                df_result = df_result.append(df_tmp, ignore_index=True)
+
+    return val_acc, test_acc, df_result
+
+
+def exeute_test_multi(task, mlp, cnn, device, id_column, label_list, split_column, val_loader, test_loader, model):
+    model.eval()
+    with torch.no_grad():
+        val_acc = 0
+        test_acc = 0
+        df_result = pd.DataFrame([])
+
+        for split in ['val', 'test']:
+            if split == 'val':
+                dataloader = val_loader
+            elif split == 'test':
+                dataloader = test_loader
+
+            for i, (ids, labels_dict, inputs_values_normed, images, splits) in enumerate(dataloader):
+                if not(mlp is None) and (cnn is None):
+                # When MLP only
+                    inputs_values_normed = inputs_values_normed.to(device)
+                    labels_multi = { label_name: labels.to(device) for label_name, labels in labels_dict.items() }
+                    outputs = model(inputs_values_normed)
+
+                elif (mlp is None) and not(cnn is None):
+                # When CNN only
+                    images = images.to(device)
+                    labels_multi = { label_name: labels.to(device) for label_name, labels in labels_dict.items() }
+                    outputs = model(images)
+
+                else: # elif not(mlp is None) and not(cnn is None):
+                # When MLP+CNN
+                    inputs_values_normed = inputs_values_normed.to(device)
+                    images = images.to(device)
+                    labels_multi = { label_name: labels.to(device) for label_name, labels in labels_dict.items() }
+                    outputs = model(inputs_values_normed, images)
+
+                likelihood_multi = {}
+                preds_multi = {}
+                for label_name, labels in labels_multi.items():
+                    likelihood_multi[label_name] = get_layer_output(outputs, label_name)   # No softmax
+                    if task == 'classification':
+                        preds_multi[label_name] = torch.max(likelihood_multi[label_name], 1)[1]
+                        split_acc_label_name = torch.sum(preds_multi[label_name] == labels.data).item()
+                        if split == 'val':
+                            val_acc += split_acc_label_name
+                        else: #elif split == 'test':
+                            test_acc += split_acc_label_name
+                    else:
+                        pass
+
+                for label_name in label_list:
+                    labels_multi[label_name] = labels_multi[label_name].to('cpu').detach().numpy().copy()
+                    likelihood_multi[label_name] = likelihood_multi[label_name].to('cpu').detach().numpy().copy()
+
+                df_id = pd.DataFrame({id_column: ids})
+                df_split = pd.DataFrame({split_column: splits})
+                df_likelihood_multi = pd.DataFrame([])
+                for label_name in label_list:
+                    if task == 'classification':
+                        column_class_label_names =  [prefix + label_name.replace('label_', '') for prefix in ['pred_n_', 'pred_p_']]
+                    else:
+                        column_class_label_names =  ['pred_' + label_name.replace('label_', '')]
+
+                    df_label = pd.DataFrame(labels_multi[label_name], columns=[label_name])
+                    df_likelihood_label_name = pd.DataFrame(likelihood_multi[label_name], columns=column_class_label_names)
+                    df_likelihood_multi = pd.concat([df_likelihood_multi, df_label, df_likelihood_label_name], axis=1)
+            
+                df_tmp = pd.concat([df_id, df_likelihood_multi, df_split], axis=1)
+                df_result = df_result.append(df_tmp, ignore_index=True)
+
+    return val_acc, test_acc, df_result
+
+
+# Inference
+print ('Inference started...')
 val_total = len(val_loader.dataset)
 test_total = len(test_loader.dataset)
-print(' val_data = {num_val_data}'.format(num_val_data=val_total))
-print('test_data = {num_test_data}'.format(num_test_data=test_total))
+print(f" val_data = {val_total}")
+print(f"test_data = {test_total}")
 
-
-model.eval()
-with torch.no_grad():
-    val_acc = 0
-    test_acc = 0
-    df_result = pd.DataFrame([])
-
-    for split in ['val', 'test']:
-        if split == 'val':
-            dataloader = val_loader
-        elif split == 'test':
-            dataloader = test_loader
-
-        for i, (ids, labels, inputs_values_normed, images, splits) in enumerate(dataloader):
-            if not(mlp is None) and (cnn is None):
-                # When MLP only
-                inputs_values_normed = inputs_values_normed.to(device)
-                labels = labels.to(device)
-                outputs = model(inputs_values_normed)
-
-            elif (mlp is None) and not(cnn is None):
-                # When CNN only
-                images = images.to(device)
-                labels = labels.to(device)
-                outputs = model(images)
-
-            else: # elif not(mlp is None) and not(cnn is None):
-                # When MLP+CNN
-                inputs_values_normed = inputs_values_normed.to(device)
-                images = images.to(device)
-                labels = labels.to(device)
-                outputs = model(inputs_values_normed, images)
-
-
-            likelihood_ratio = outputs   # No softmax
-
-            if task == 'classification':
-                _, preds = torch.max(outputs, 1)
-            else:
-                pass
-
-            if task == 'classification':
-                if split == 'val':
-                    val_acc += (torch.sum(preds == labels.data)).item()
-
-                elif split == 'test':
-                    test_acc += (torch.sum(preds == labels.data)).item()
-            else:
-                pass
-
-            labels = labels.to('cpu').detach().numpy().copy()
-            likelihood_ratio = likelihood_ratio.to('cpu').detach().numpy().copy()
-
-            df_id = pd.DataFrame({id_column: ids})
-            df_label = pd.DataFrame({label_name :labels})
-            df_likelihood_ratio = pd.DataFrame(likelihood_ratio, columns=class_names)
-            df_split = pd.DataFrame({split_column: splits})
-
-            df_tmp = pd.concat([df_id, df_label, df_likelihood_ratio, df_split], axis=1)
-            df_result = df_result.append(df_tmp, ignore_index=True)
+if len(label_list) > 1:
+    # Multi-label outputs
+    val_acc, test_acc, df_result = exeute_test_multi(task, mlp, cnn, device, id_column, label_list, split_column, val_loader, test_loader, model)
+else:
+    # Single-label output
+    val_acc, test_acc, df_result = execute_test_single(task, mlp, cnn, device, id_column, label_name, split_column, val_loader, test_loader, model)
 
 if task == 'classification':
-    print(' val: Inference_accuracy: {:.4f} %'.format((val_acc / val_total)*100))
-    print('test: Inference_accuracy: {:.4f} %'.format((test_acc / test_total)*100))
+    val_acc = (val_acc / (val_total * len(label_list))) * 100
+    test_acc = (test_acc / (test_total * len(label_list))) * 100
+    print(f" val: Inference_accuracy: {val_acc:.4f} %")
+    print(f"test: Inference_accuracy: {test_acc:.4f} %")
 else:
     pass
-
 print('Inference finished!')
-
 
 # Save inference result
 os.makedirs(likelilhood_dir, exist_ok=True)
