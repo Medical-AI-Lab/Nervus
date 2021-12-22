@@ -20,11 +20,11 @@ def set_dirs():
     dirs_dict['learning_curve'] = os.path.join(results_dir, 'learning_curve')
     dirs_dict['likelihood'] = os.path.join(results_dir, 'likelihood')
     dirs_dict['roc'] = os.path.join(results_dir, 'roc')
+    dirs_dict['roc_summary'] = os.path.join(dirs_dict['roc'], 'summary')
     dirs_dict['yy'] = os.path.join(results_dir, 'yy')
+    dirs_dict['yy_summary'] = os.path.join(dirs_dict['yy'], 'summary')
     dirs_dict['visualization'] = os.path.join(results_dir, 'visualization')
-
     return dirs_dict
-
 
 
 def parse_csv(csv_path, task):
