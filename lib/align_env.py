@@ -38,6 +38,7 @@ def parse_csv(csv_path, task):
     csv_dict['split_column'] = 'split'
 
     df_source = pd.read_csv(csv_path)
+    df_spurce = df_source[df_source['split'] != 'exclude']
     column_names = list(df_source.columns)
 
     csv_dict['id_column'] = [ column_name for column_name in column_names if column_name.startswith(prefix_id) ][0]
@@ -58,12 +59,12 @@ def parse_csv(csv_path, task):
     # label_* : int
     # input_* : float
     cast_input_dict = { input: float for input in csv_dict['input_list'] }
-    
+
     if task == 'classification':
         cast_label_dict = { label: int for label in csv_dict['label_list'] }
     else:
         cast_label_dict = { label: float for label in csv_dict['label_list'] }
-    
+
     df_source = df_source.astype(cast_input_dict)
     df_source = df_source.astype(cast_label_dict)
     csv_dict['source'] = df_source
