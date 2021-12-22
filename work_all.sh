@@ -35,7 +35,6 @@ rm -f "$yy_log"
 #7 epochs,
 #8 batch_size,
 #9 sampler
-
 total=$(tail -n +2 "$hyperparameter_csv" | wc -l)
 i=1
 for row in $(tail -n +2 "$hyperparameter_csv"); do
@@ -67,19 +66,17 @@ for row in $(tail -n +2 "$hyperparameter_csv"); do
 
   echo ""
 
-  # Classification
-  # Plot ROC
-  echo "$i/$total: Plot ROC..."
-  echo "$python $roc_code"
-  "$python" "$roc_code" 2>&1 | tee -a "$roc_log"
-
-
-  # Regression
-  # Plot yy-graph
-  #echo "$i/$total: Plot yy-graph..."
-  #echo "python $yy_code"
-  #python $yy_code |& tee -a $yy_log_file
-
+  if [ "$task" = "classification" ]; then
+    # Classification
+    echo "$i/$total: Plot ROC..."
+    echo "$python $roc_code"
+    "$python" "$roc_code" 2>&1 | tee -a "$roc_log"
+  else
+    # Regression
+    echo "$i/$total: Plot yy-graph..."
+    echo "python $yy_code"
+    "$python" "$yy_code" 2>&1 | tee -a "$yy_log"
+  fi
 
   i=$(($i + 1))
   echo -e "\n"

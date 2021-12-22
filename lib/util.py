@@ -114,9 +114,6 @@ def make_basename(args, val_best_epoch, val_best_loss, dt_name):
 
 def save_train_options(args, train_opt_log_dir, dt_name):    
     save_path = os.path.join(train_opt_log_dir, dt_name + '.csv')
-
-    
-
     df_opt = pd.DataFrame(list(args.items()), columns=['option', 'value'])
     df_opt.to_csv(save_path, index=False)
 
