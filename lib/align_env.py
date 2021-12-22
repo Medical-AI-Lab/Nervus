@@ -38,7 +38,7 @@ def parse_csv(csv_path, task):
     csv_dict['split_column'] = 'split'
 
     df_source = pd.read_csv(csv_path)
-    df_spurce = df_source[df_source['split'] != 'exclude']
+    df_source = df_source[df_source['split'] != 'exclude']
     column_names = list(df_source.columns)
 
     csv_dict['id_column'] = [ column_name for column_name in column_names if column_name.startswith(prefix_id) ][0]
