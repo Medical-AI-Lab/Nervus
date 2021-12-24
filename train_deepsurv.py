@@ -103,6 +103,7 @@ for epoch in range(num_epochs):
                     # When CNN only
                     images = images.to(device)
                     labels = labels.to(device)
+                    periods = periods.float().to(device)
                     outputs = model(images)
                     risk_preds = outputs
 

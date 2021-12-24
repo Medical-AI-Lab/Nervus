@@ -106,6 +106,7 @@ with torch.no_grad():
                 # When CNN only
                 images = images.to(device)
                 labels = labels.to(device)
+                periods = periods.float().to(device)
                 risk_pred = model(images)
 
             else: # elif not(mlp is None) and not(cnn is None):
@@ -119,7 +120,6 @@ with torch.no_grad():
 
             #likelihood_ratio = outputs   # No softmax
             likelihood_ratio = risk_pred
-
 
             if task == 'classification':
                 _, preds = torch.max(outputs, 1)
