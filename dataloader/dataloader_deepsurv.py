@@ -26,25 +26,22 @@ class LoadDataSet_DeepSurv(Dataset):
         self.args = args
         self.csv_dict = csv_dict
         self.image_dir = image_dir
-        self.split_list = split_list   # ['train'], ['val'], ['val', 'test'], ['train', 'val', 'test']        
-
+        self.split_list = split_list   # ['train'], ['val'], ['val', 'test'], ['train', 'val', 'test']
         self.df_source = self.csv_dict['source']
         self.id_column = self.csv_dict['id_column']
-        self.label_name = self.csv_dict['label_name']   # 'label_last_status'
+        self.label_name = self.csv_dict['label_list'][0] #self.csv_dict['label_name']
         self.input_list = self.csv_dict['input_list']
         self.dir_to_img_column = self.csv_dict['dir_to_img_column']
         self.split_column = self.csv_dict['split_column']
         self.df_split = get_column_value(self.df_source, self.split_column, self.split_list)
-
-        self.period = 'periods_length_of_stay'
-
+        self.period_columns = self.csv_dict['period_column']
 
         # Nomalize input variables
         if not(self.args['mlp'] is None):
             self.input_list_normed = [ 'normed_' + input for input in self.input_list ]
             self.scaler = MinMaxScaler()
-            self.df_train = get_column_value(self.df_source, self.split_column, ['train'])  # should be normalized with min and max of training data
-            _ = self.scaler.fit(self.df_train[self.input_list])                             # fit only
+            self.df_train = get_column_value(self.df_source, self.split_column, ['train'])   # should be normalized with min and max of training data
+            _ = self.scaler.fit(self.df_train[self.input_list])                              # fit only
 
             inputs_normed = self.scaler.transform(self.df_split[self.input_list])
             df_inputs_normed = pd.DataFrame(inputs_normed, columns=self.input_list_normed)
@@ -59,10 +56,8 @@ class LoadDataSet_DeepSurv(Dataset):
                             for column_name in self.df_split.columns
                           }
 
-
     def _make_transforms(self):
         _transforms = []
-
         if self.args['preprocess'] == 'yes':
             if self.args['random_horizontal_flip'] == 'yes':
                 _transforms.append(transforms.RandomHorizontalFlip())
@@ -78,7 +73,6 @@ class LoadDataSet_DeepSurv(Dataset):
             if self.args['random_apply'] == 'yes':
                 _transforms = transforms.RandomApply(_transforms)
 
-
         # MUST: Always convert to Tensor
         _transforms.append(transforms.ToTensor())   # PIL -> Tensor
 
@@ -87,22 +81,18 @@ class LoadDataSet_DeepSurv(Dataset):
             _transforms.append(transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]))
 
         _transforms = transforms.Compose(_transforms)
-
         return _transforms
-
 
 
     def __len__(self):
         return len(self.df_split)
 
 
-
     def __getitem__(self, idx):
         id = self.df_split.iat[idx, self.index_dict[self.id_column]]
         label = self.df_split.iat[idx, self.index_dict[self.label_name]]
         split = self.df_split.iat[idx, self.index_dict[self.split_column]]
-
-        period = self.df_split.iloc[idx, self.index_dict[self.period]]        
+        period = self.df_split.iloc[idx, self.index_dict[self.period_columns]]        
 
         label = np.array(label, dtype=np.float64)
         label = torch.from_numpy(label.astype(np.float32)).clone()
@@ -115,13 +105,12 @@ class LoadDataSet_DeepSurv(Dataset):
         # Convert normalized values to a single Tensor
         if not(self.args['mlp'] is None):
             # Load input
-            index_input_list_normed = [ self.index_dict[input_normed] for input_normed in self.input_list_normed ]
+            index_input_list_normed = [self.index_dict[input_normed] for input_normed in self.input_list_normed]
             s_inputs_value_normed = self.df_split.iloc[idx, index_input_list_normed]
             inputs_value_normed = np.array(s_inputs_value_normed, dtype=np.float64)
             inputs_value_normed = torch.from_numpy(inputs_value_normed.astype(np.float32)).clone()
         else:
             inputs_value_normed = ''
-
 
         # Load imgae when CNN or MLP+CNN
         if not(self.args['cnn'] is None):
@@ -132,7 +121,6 @@ class LoadDataSet_DeepSurv(Dataset):
             image = self.transform(image)
         else:
             image = ''
-
         return id, label, period, inputs_value_normed, image, split
 
 
@@ -151,7 +139,7 @@ def MakeDataLoader_MLP_CNN_with_WeightedRandomSampler(args, csv_dict, images_dir
             target.append(label)
 
         # Only for DeepSurv
-        target = [ int(t.item()) for t in target ]   # Tensor -> int
+        target = [int(t.item()) for t in target]   # Tensor -> int
 
         class_sample_count = np.array( [ len(np.where(target == t)[0]) for t in np.unique(target) ] )
         weight = 1. / class_sample_count

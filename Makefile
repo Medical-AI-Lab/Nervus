@@ -1,16 +1,16 @@
 # ----- Define variables -----
-# CSV_NAME = clean.csv | clean_reg.csv | clean_cla_multi.csv | clean_reg_multi.csv
+# CSV_NAME = clean.csv(single-label classifiation or deepsurv) | clean_reg.csv | clean_cla_multi.csv | clean_reg_multi.csv
 # IMAGE_DIR = 128 | covid | png256
-# TASK = classification | regression
+# TASK = classification | regression | deepsurv
 # MODEL = MLP | ResNet18 | MLP+ResNet18
-# CRITERION = CrossEntropyLoss | MSE
+# CRITERION = CrossEntropyLoss | MSE | NLL
 # SAMPLER = yes | no    # should be no when regression or multi-label
 #GPU_IDS = -1 | 0,1,2
 CSV_NAME := clean.csv
 IMAGE_DIR := 128
-TASK := classification
+TASK := deepsurv
 MODEL := MLP
-CRITERION := CrossEntropyLoss
+CRITERION := NLL
 OPTIMIZER := Adam
 EPOCHS := 3
 BATCH_SIZE := 64
@@ -36,6 +36,7 @@ TRAIN_CODE := train.py
 TEST_CODE := test.py
 ROC_CODE := ./evaluation/roc.py
 YY_CODE := ./evaluation/yy.py
+C_INDEX_CODE := ./evaluation/c_index.py
 GRADCAM_CODE := visualize.py
 
 # Directory
@@ -49,6 +50,8 @@ ROC_DIR := $(RESULT_DIR)/roc
 ROC_SUMMARY_DIR := $(ROC_DIR)/summary
 YY_DIR := $(RESULT_DIR)/yy
 YY_SUMMARY_DIR := $(YY_DIR)/summary
+C_INDEX_DIR := $(RESULT_DIR)/c_index
+C_INDEX_SUMMARY_DIR := $(C_INDEX_DIR)/summary
 VISUALIZATION_DIR := $(RESULT_DIR)/visualization
 TMP_DIR := tmp
 DATETIME := $$(date "+%Y-%m-%d-%H-%M-%S")
@@ -65,6 +68,8 @@ temp:
 	-mkdir -p $(ROC_SUMMARY_DIR)/$(TMP_DIR)
 	-mkdir -p $(YY_DIR)/$(TMP_DIR)
 	-mkdir -p $(YY_SUMMARY_DIR)/$(TMP_DIR)
+	@#-mkdir -p $(C_INDEX_DIR)/$(TMP_DIR)
+	-mkdir -p $(C_INDEX_SUMMARY_DIR)/$(TMP_DIR)
 	-mkdir -p $(VISUALIZATION_DIR)/$(TMP_DIR)
 
 clean:
@@ -78,6 +83,8 @@ clean:
 	-mv $(ROC_SUMMARY_DIR)/summary.csv $(ROC_SUMMARY_DIR)/$(TMP_DIR)/summary_$(DATETIME).csv
 	-mv $(YY_DIR)/*.png $(YY_DIR)/$(TMP_DIR)
 	-mv $(YY_SUMMARY_DIR)/summary.csv $(YY_SUMMARY_DIR)/$(TMP_DIR)/summary_$(DATETIME).csv
+	@#-mv $(C_INDEX_DIR)/*.png $(C_INDEX_DIR)/$(TMP_DIR)
+	-mv $(C_INDEX_SUMMARY_DIR)/summary.csv $(C_INDEX_SUMMARY_DIR)/$(TMP_DIR)/summary_$(DATETIME).csv
 	-mv $(VISUALIZATION_DIR)/*_* $(VISUALIZATION_DIR)/$(TMP_DIR)
 
 active:
@@ -94,6 +101,9 @@ roc:
 
 yy:
 	$(PYTHON) $(YY_CODE)
+
+c_index:
+	$(PYTHON) $(C_INDEX_CODE)
 
 gradcam:
 	$(PYTHON) $(GRADCAM_CODE)

@@ -10,6 +10,7 @@ train_log="./logs/train.log"
 test_log="./logs/test.log"
 roc_log="./logs/roc.log"
 yy_log="./logs/yy.log"
+c_index_log="./logs/c_index.log"
 
 
 #python="python3"
@@ -19,12 +20,14 @@ train_code="train.py"
 test_code="test.py"
 roc_code="./evaluation/roc.py"
 yy_code="./evaluation/yy.py"
+c_index_code="./evaluation/c_index.py"
 
 # Delete previous logs.
 rm -f "$train_log"
 rm -f "$test_log"
 rm -f "$roc_log"
 rm -f "$yy_log"
+rm -f "$c_index_log"
 
 #1 task,
 #2 csv_name,
@@ -67,18 +70,20 @@ for row in $(tail -n +2 "$hyperparameter_csv"); do
   echo ""
 
   if [ "$task" = "classification" ]; then
-    # Classification
     echo "$i/$total: Plot ROC..."
     echo "$python $roc_code"
     "$python" "$roc_code" 2>&1 | tee -a "$roc_log"
-  else
-    # Regression
+  elif [ "$task" = "regression" ]; then
     echo "$i/$total: Plot yy-graph..."
     echo "python $yy_code"
     "$python" "$yy_code" 2>&1 | tee -a "$yy_log"
+  else
+    # deepsurv
+    echo "$i/$total: Calculate c-index..."
+    echo "python $c_index_code"
+    "$python" "$c_index_code" 2>&1 | tee -a "$c_index_log"
   fi
 
   i=$(($i + 1))
   echo -e "\n"
-
 done
