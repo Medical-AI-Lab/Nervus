@@ -30,7 +30,7 @@ class LoadDataSet_MLP_CNN(Dataset):
 
         self.df_source = self.csv_dict['source']
         self.id_column = self.csv_dict['id_column']
-        self.label_name = self.csv_dict['label_name']
+        self.label_name = self.csv_dict['label_list'][0]
         self.input_list = self.csv_dict['input_list']
         self.dir_to_img_column = self.csv_dict['dir_to_img_column']
         self.split_column = self.csv_dict['split_column']
