@@ -23,6 +23,8 @@ def set_dirs():
     dirs_dict['roc_summary'] = os.path.join(dirs_dict['roc'], 'summary')
     dirs_dict['yy'] = os.path.join(results_dir, 'yy')
     dirs_dict['yy_summary'] = os.path.join(dirs_dict['yy'], 'summary')
+    dirs_dict['c_index'] = os.path.join(results_dir, 'c_index')
+    dirs_dict['c_index_summary'] = os.path.join(dirs_dict['c_index'], 'summary')
     dirs_dict['visualization'] = os.path.join(results_dir, 'visualization')
     return dirs_dict
 
