@@ -41,6 +41,7 @@ GRADCAM_CODE := visualize.py
 
 # Directory
 TRAIN_OPT_LOG_DIR := ./train_opt_logs
+HYPERPARAMETER_DIR := ./hyperparameters
 WEIGHT_DIR := ./weights
 LOG_DIR := ./logs
 RESULT_DIR := ./results
@@ -58,7 +59,7 @@ DATETIME := $$(date "+%Y-%m-%d-%H-%M-%S")
 
 temp:
 	-mkdir -p $(TRAIN_OPT_LOG_DIR)/$(TMP_DIR)
-	-mkdir -p $(HYPERPARAMETER_DIR)/$(TMP_DIR)
+	@#-mkdir -p $(HYPERPARAMETER_DIR)/$(TMP_DIR)
 	-mkdir -p $(TRAIN_OPT_LOG_DIR)/$(TMP_DIR)
 	-mkdir -p $(WEIGHT_DIR)/$(TMP_DIR)
 	-mkdir -p $(LOG_DIR)/$(TMP_DIR)
