@@ -289,9 +289,14 @@ class MLPCNN_Net(nn.Module):
 
     # Normalize tensor to [0, 1]
     def normalize_cnn_output(self, outputs_cnn):
+        # Note:
+        # Can not use sklearn.preprocessing.MinMaxScaler() because sklearn does not support GPU.
         max = outputs_cnn.max()
         min = outputs_cnn.min()
-        outputs_cnn_normed = (outputs_cnn - min) / (max - min)
+        if min == max:
+            outputs_cnn_normed = outputs_cnn - min   # ie. 0
+        else:
+            outputs_cnn_normed = (outputs_cnn - min) / (max - min)
         return outputs_cnn_normed
 
 
