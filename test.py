@@ -34,10 +34,13 @@ device = set_device(gpu_ids)
 image_dir = os.path.join(dirs_dict['images_dir'], train_opt['image_dir'])
 
 csv_dict = parse_csv(os.path.join(dirs_dict['csvs_dir'], train_opt['csv_name']), task)
-num_classes = csv_dict['num_classes']
+output_class_label = csv_dict['output_class_label']
+label_num_classes = csv_dict['label_num_classes']
+label_list = csv_dict['label_list']
+output_list = csv_dict['output_list']
+
 num_inputs = csv_dict['num_inputs']
 id_column = csv_dict['id_column']
-label_list = csv_dict['label_list']
 split_column = csv_dict['split_column']
 if task == 'deepsurv':
     period_column = csv_dict['period_column']
@@ -60,25 +63,35 @@ else:
         from dataloader.dataloader_multi import *
     else:
         from dataloader.dataloader import *
-val_loader = MakeDataLoader_MLP_CNN_with_WeightedRandomSampler(train_opt, csv_dict, image_dir, split_list=['val'], batch_size=test_batch_size, sampler='no')
-test_loader = MakeDataLoader_MLP_CNN_with_WeightedRandomSampler(train_opt, csv_dict, image_dir, split_list=['test'], batch_size=test_batch_size, sampler='no')
+val_loader = dalaloader_mlp_cnn(train_opt, csv_dict, image_dir, split_list=['val'], batch_size=test_batch_size, sampler='no')
+test_loader = dalaloader_mlp_cnn(train_opt, csv_dict, image_dir, split_list=['test'], batch_size=test_batch_size, sampler='no')
 
 # Configure of model
-model = CreateModel_MLPCNN(mlp, cnn, label_list, num_inputs, num_classes, device=gpu_ids)
+model = create_mlp_cnn(mlp, cnn, label_num_classes, num_inputs, device=gpu_ids)
 weight = torch.load(test_weight)
 model.load_state_dict(weight)
 
-def execute_test_single(task, mlp, cnn, device, id_column, label_name, split_column, val_loader, test_loader, model):
+
+# column_class_label_names
+# {output_1: {A:1, B:2, C:3}, ...} -> {output_1: [pred_output_1_A, pred_output_1_B, pred_output_1_C], ...}
+column_class_label_names_dict = {}
+for output_name, class_label_dict in output_class_label.items():
+    column_class_label_names = []
+    if task == 'classification':
+        for class_name in class_label_dict.keys():
+            column_class_label_names.append('pred_' + output_name + '_' + class_name)
+    else:
+    # When regression or deepsurv
+        column_class_label_names.append('pred_' + output_name)
+    column_class_label_names_dict[output_name] = column_class_label_names
+
+
+def execute_test_single_label(task, mlp, cnn, device, id_column, split_column, val_loader, test_loader, model, column_class_label_names_dict):
     model.eval()
     with torch.no_grad():
         val_acc = 0.0
         test_acc = 0.0
         df_result = pd.DataFrame([])
-
-        if task == 'classification':
-            column_class_label_names = [prefix + label_name.replace('label_', '') for prefix in ['pred_n_', 'pred_p_']]
-        else:
-            column_class_label_names = ['pred_' + label_name.replace('label_', '')]
 
         for split in ['val', 'test']:
             if split == 'val':
@@ -86,7 +99,7 @@ def execute_test_single(task, mlp, cnn, device, id_column, label_name, split_col
             else: # elif split == 'test':
                 dataloader = test_loader
 
-            for i, (ids, labels, inputs_values_normed, images, splits) in enumerate(dataloader):
+            for i, (ids, raw_outputs, labels, inputs_values_normed, images, splits) in enumerate(dataloader):
                 if not(mlp is None) and (cnn is None):
                 # When MLP only
                     inputs_values_normed = inputs_values_normed.to(device)
@@ -121,15 +134,16 @@ def execute_test_single(task, mlp, cnn, device, id_column, label_name, split_col
                 labels = labels.to('cpu').detach().numpy().copy()
                 likelihood_ratio = likelihood_ratio.to('cpu').detach().numpy().copy()
 
+                output_name = list(column_class_label_names_dict.keys())[0]
                 df_id = pd.DataFrame({id_column: ids})
                 df_split = pd.DataFrame({split_column: splits})
-                df_likelihood_ratio = pd.DataFrame(likelihood_ratio, columns=column_class_label_names)
-                df_label = pd.DataFrame({label_name :labels})
-                df_tmp = pd.concat([df_id, df_label, df_likelihood_ratio, df_split], axis=1)
+                df_raw_output = pd.DataFrame({output_name: raw_outputs})   # Single-output
+                df_likelihood_ratio = pd.DataFrame(likelihood_ratio, columns=column_class_label_names_dict[output_name])
+                df_tmp = pd.concat([df_id, df_raw_output, df_likelihood_ratio, df_split], axis=1)
                 df_result = df_result.append(df_tmp, ignore_index=True)
     return val_acc, test_acc, df_result
 
-def execute_test_multi(task, mlp, cnn, device, id_column, label_list, split_column, val_loader, test_loader, model):
+def execute_test_multi_label(task, mlp, cnn, device, id_column, split_column, val_loader, test_loader, model, column_class_label_names_dict):
     model.eval()
     with torch.no_grad():
         val_acc = 0
@@ -142,7 +156,7 @@ def execute_test_multi(task, mlp, cnn, device, id_column, label_list, split_colu
             else: # elif split == 'test':
                 dataloader = test_loader
 
-            for i, (ids, labels_dict, inputs_values_normed, images, splits) in enumerate(dataloader):
+            for i, (ids, raw_outputs_dict, labels_dict, inputs_values_normed, images, splits) in enumerate(dataloader):
                 if not(mlp is None) and (cnn is None):
                 # When MLP only
                     inputs_values_normed = inputs_values_normed.to(device)
@@ -176,32 +190,25 @@ def execute_test_multi(task, mlp, cnn, device, id_column, label_list, split_colu
                     else:
                         pass
 
-                for label_name in label_list:
-                    labels_multi[label_name] = labels_multi[label_name].to('cpu').detach().numpy().copy()
-                    likelihood_multi[label_name] = likelihood_multi[label_name].to('cpu').detach().numpy().copy()
+                labels_multi = {label_name: label.to('cpu').detach().numpy().copy() for label_name, label in labels_multi.items()}
+                likelihood_multi = {label_name: likelihood.to('cpu').detach().numpy().copy() for label_name, likelihood in likelihood_multi.items()}
 
                 df_id = pd.DataFrame({id_column: ids})
                 df_split = pd.DataFrame({split_column: splits})
-                df_likelihood_multi = pd.DataFrame([])
-                for label_name in label_list:
-                    if task == 'classification':
-                        column_class_label_names =  [prefix + label_name.replace('label_', '') for prefix in ['pred_n_', 'pred_p_']]
-                    else:
-                        column_class_label_names =  ['pred_' + label_name.replace('label_', '')]
-
-                    df_label = pd.DataFrame(labels_multi[label_name], columns=[label_name])
-                    df_likelihood_label_name = pd.DataFrame(likelihood_multi[label_name], columns=column_class_label_names)
-                    df_likelihood_multi = pd.concat([df_likelihood_multi, df_label, df_likelihood_label_name], axis=1)
-            
-                df_tmp = pd.concat([df_id, df_likelihood_multi, df_split], axis=1)
+                df_likelihood = pd.DataFrame([])
+                for output_name, class_label_names in column_class_label_names_dict.items():
+                    df_raw_output = pd.DataFrame(raw_outputs_dict[output_name], columns=[output_name])
+                    df_likelihood_output_name = pd.DataFrame(likelihood_multi['label_' + output_name], columns=class_label_names)
+                    df_likelihood = pd.concat([df_likelihood, df_raw_output, df_likelihood_output_name], axis=1)
+                df_tmp = pd.concat([df_id, df_likelihood, df_split], axis=1)
                 df_result = df_result.append(df_tmp, ignore_index=True)
     return val_acc, test_acc, df_result
 
-def execute_test_deepsurv(mlp, cnn, device, id_column, label_name, split_column, period_column, val_loader, test_loader, model):
+def execute_test_deepsurv(mlp, cnn, device, id_column, split_column, period_column, val_loader, test_loader, model, column_class_label_names_dict):
     model.eval()
     with torch.no_grad():
         df_result = pd.DataFrame([])
-        class_names = ['pred_' + label_name.replace('label_', '')]
+        #class_names = ['pred_' + label_name.replace('label_', '')]
 
         for split in ['val', 'test']:
             if split == 'val':
@@ -209,7 +216,7 @@ def execute_test_deepsurv(mlp, cnn, device, id_column, label_name, split_column,
             else: #elif split == 'test':
                 dataloader = test_loader
 
-            for i, (ids, labels, periods, inputs_values_normed, images, splits) in enumerate(dataloader):
+            for i, (ids, raw_outputs, labels, periods, inputs_values_normed, images, splits) in enumerate(dataloader):
                 if not(mlp is None) and (cnn is None):
                 # When MLP only
                     inputs_values_normed = inputs_values_normed.to(device)
@@ -232,12 +239,13 @@ def execute_test_deepsurv(mlp, cnn, device, id_column, label_name, split_column,
                 periods = periods.to('cpu').detach().numpy().copy()
                 likelihood_ratio = likelihood_ratio.to('cpu').detach().numpy().copy()
 
+                output_name = list(column_class_label_names_dict.keys())[0]
                 df_id = pd.DataFrame({id_column: ids})
                 df_split = pd.DataFrame({split_column: splits})
-                df_likelihood_ratio = pd.DataFrame(likelihood_ratio, columns=class_names)
-                df_label = pd.DataFrame({label_name: labels}, dtype=int)
+                df_raw_output = pd.DataFrame({output_name: raw_outputs})   # Single-output
+                df_likelihood_ratio = pd.DataFrame(likelihood_ratio, columns=column_class_label_names_dict[output_name])
                 df_period = pd.DataFrame({period_column: periods})
-                df_tmp = pd.concat([df_id, df_label, df_period, df_likelihood_ratio, df_split], axis=1)
+                df_tmp = pd.concat([df_id, df_raw_output, df_period, df_likelihood_ratio, df_split], axis=1)
                 df_result = df_result.append(df_tmp, ignore_index=True)
     return df_result
 
@@ -249,15 +257,15 @@ test_total = len(test_loader.dataset)
 print(f" val_data = {val_total}")
 print(f"test_data = {test_total}")
 if task == 'deepsurv':
-    df_result = execute_test_deepsurv(mlp, cnn, device, id_column, label_list[0], split_column, period_column, val_loader, test_loader, model)
+    df_result = execute_test_deepsurv(mlp, cnn, device, id_column, split_column, period_column, val_loader, test_loader, model, column_class_label_names_dict)
 else:
 # When classification or regression
     if len(label_list) > 1:
         # Multi-label outputs
-        val_acc, test_acc, df_result = execute_test_multi(task, mlp, cnn, device, id_column, label_list, split_column, val_loader, test_loader, model)
+        val_acc, test_acc, df_result = execute_test_multi_label(task, mlp, cnn, device, id_column, split_column, val_loader, test_loader, model, column_class_label_names_dict)
     else:
         # Single-label output
-        val_acc, test_acc, df_result = execute_test_single(task, mlp, cnn, device, id_column, label_list[0], split_column, val_loader, test_loader, model)
+        val_acc, test_acc, df_result = execute_test_single_label(task, mlp, cnn, device, id_column, split_column, val_loader, test_loader, model, column_class_label_names_dict)
 
 if task == 'classification':
     val_acc = (val_acc / (val_total * len(label_list))) * 100

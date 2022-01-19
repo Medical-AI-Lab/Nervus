@@ -5,7 +5,7 @@ import torch.optim as optim
 
 
 
-def Optimizer(optimizer_name, model, lr):
+def set_optimizer(optimizer_name, model, lr):
     """
     Usage:
     from lib.criterion import Optimizer

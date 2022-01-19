@@ -27,11 +27,13 @@ class LoadDataSet_DeepSurv(Dataset):
         self.csv_dict = csv_dict
         self.image_dir = image_dir
         self.split_list = split_list   # ['train'], ['val'], ['val', 'test'], ['train', 'val', 'test']
+        
         self.df_source = self.csv_dict['source']
         self.id_column = self.csv_dict['id_column']
-        self.label_name = self.csv_dict['label_list'][0] #self.csv_dict['label_name']
+        self.output_name = csv_dict['output_list'][0]       # should be one because single-output
+        self.label_name = self.csv_dict['label_list'][0]    # should be one because single-output
         self.input_list = self.csv_dict['input_list']
-        self.dir_to_img_column = self.csv_dict['dir_to_img_column']
+        self.filepath_column = self.csv_dict['filepath_column']
         self.split_column = self.csv_dict['split_column']
         self.df_split = get_column_value(self.df_source, self.split_column, self.split_list)
         self.period_columns = self.csv_dict['period_column']
@@ -90,6 +92,7 @@ class LoadDataSet_DeepSurv(Dataset):
 
     def __getitem__(self, idx):
         id = self.df_split.iat[idx, self.index_dict[self.id_column]]
+        raw_output = self.df_split.iat[idx, self.index_dict[self.output_name]]
         label = self.df_split.iat[idx, self.index_dict[self.label_name]]
         split = self.df_split.iat[idx, self.index_dict[self.split_column]]
         period = self.df_split.iloc[idx, self.index_dict[self.period_columns]]        
@@ -100,7 +103,7 @@ class LoadDataSet_DeepSurv(Dataset):
 
         period = np.array(period, dtype=np.float64)
         period = torch.from_numpy(period.astype(np.float32)).clone()
-        #period = period.reshape(-1,1)
+        #period = period.reshape(-1, 1)
 
         # Convert normalized values to a single Tensor
         if not(self.args['mlp'] is None):
@@ -115,17 +118,17 @@ class LoadDataSet_DeepSurv(Dataset):
         # Load imgae when CNN or MLP+CNN
         if not(self.args['cnn'] is None):
             # Load image
-            dir_to_img = self.df_split.iat[idx, self.index_dict[self.dir_to_img_column]]
-            image_path = os.path.join(self.image_dir, dir_to_img)
+            filepath = self.df_split.iat[idx, self.index_dict[self.filepath_column]]
+            image_path = os.path.join(self.image_dir, filepath)
             image = Image.open(image_path).convert('RGB')
             image = self.transform(image)
         else:
             image = ''
-        return id, label, period, inputs_value_normed, image, split
+        return id, raw_output, label, period, inputs_value_normed, image, split
 
 
 
-def MakeDataLoader_MLP_CNN_with_WeightedRandomSampler(args, csv_dict, images_dir, split_list=None, batch_size=None, sampler=None):
+def dalaloader_mlp_cnn(args, csv_dict, images_dir, split_list=None, batch_size=None, sampler=None):
     if split_list is None:
         print('Specify split to make dataloader.')
         exit()
