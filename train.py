@@ -134,13 +134,13 @@ def execute_epoch_single_label(task, mlp, cnn, criterion, optimizer, num_epochs,
                 optimizer.zero_grad()
 
                 with torch.set_grad_enabled(phase == 'train'):
-                    if not(mlp is None) and (cnn is None):
+                    if (mlp is not None) and (cnn is None):
                     # When MLP only
                         inputs_values_normed = inputs_values_normed.to(device)
                         labels = labels.to(device)
                         outputs = model(inputs_values_normed)
 
-                    elif (mlp is None) and not(cnn is None):
+                    elif (mlp is None) and (cnn is not None):
                     # When CNN only
                         images = images.to(device)
                         labels = labels.to(device)
@@ -194,13 +194,13 @@ def execute_epoch_multi_label(task, mlp, cnn, criterion, optimizer, num_epochs, 
                 optimizer.zero_grad()
 
                 with torch.set_grad_enabled(phase == 'train'):
-                    if not(mlp is None) and (cnn is None):
+                    if (mlp is not None) and (cnn is None):
                         # When MLP only
                         inputs_values_normed = inputs_values_normed.to(device)
                         labels_multi = { label_name: labels.to(device) for label_name, labels in labels_dict.items() }
                         outputs = model(inputs_values_normed)
 
-                    elif (mlp is None) and not(cnn is None):
+                    elif (mlp is None) and (cnn is not None):
                         # When CNN only
                         images = images.to(device)
                         labels_multi = { label_name: labels.to(device) for label_name, labels in labels_dict.items() }
@@ -277,14 +277,14 @@ def execute_epoch_deepsurv(task, mlp, cnn, criterion, optimizer, num_epochs, dev
                 optimizer.zero_grad()
 
                 with torch.set_grad_enabled(phase == 'train'):
-                    if not(mlp is None) and (cnn is None):
+                    if (mlp is not None) and (cnn is None):
                     # When MLP only
                         inputs_values_normed = inputs_values_normed.to(device)
                         labels = labels.float().to(device)
                         periods = periods.float().to(device)
                         outputs = model(inputs_values_normed)
 
-                    elif (mlp is None) and not(cnn is None):
+                    elif (mlp is None) and (cnn is not None):
                     # When CNN only
                         images = images.to(device)
                         labels = labels.to(device)

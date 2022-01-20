@@ -118,39 +118,35 @@ class LoadDataSet_MLP_CNN(Dataset):
 
 
 def dalaloader_mlp_cnn(args, csv_dict, images_dir, split_list=None, batch_size=None, sampler=None):
-    if split_list is None:
-        print('Specify split to make dataloader.')
-        exit()
+    assert (split_list is not None), 'Specify split to make dataloader.'
+    if (args['task'] == 'regression'):
+        assert (args['sampler'] == 'no'), 'samper should be no when multi-ouputs regression, but yes was specified.'
 
     split_data = LoadDataSet_MLP_CNN(args, csv_dict, images_dir, split_list)
 
     # Make sampler
-    if args['sampler'] == 'yes':
+    if sampler == 'yes':
         target = []
-        for i, (_, label, _, _, _) in enumerate(split_data):
+        for _, (_, _, label, _, _, _) in enumerate(split_data):
             target.append(label)
 
-        class_sample_count = np.array( [ len(np.where(target == t)[0]) for t in np.unique(target) ] )
+        class_sample_count = np.array([len(np.where(target == t)[0]) for t in np.unique(target)])
         weight = 1. / class_sample_count
         samples_weight = np.array([weight[t] for t in target])
         sampler = WeightedRandomSampler(samples_weight, len(samples_weight))
-
         split_loader = DataLoader(
                             dataset = split_data,
                             batch_size = batch_size,
-                            #shuffle = False,        # Default: False, Note: must not be specified when sampler is not None.
+                            #shuffle = False,        # Default: False, Note: must not be True when sampler is not None.
                             num_workers = 0,
-                            sampler = sampler
-                        )
+                            sampler = sampler)
     else:
         split_loader = DataLoader(
                             dataset = split_data,
                             batch_size = batch_size,
                             shuffle = True,
                             num_workers = 0,
-                            sampler = None
-                        )
-
+                            sampler = None)
     return split_loader
 
 

@@ -17,15 +17,13 @@ from lib.util import *
 # Configure GPU or CPU
 def config_device(model, gpu_ids):
     if gpu_ids:
-        if torch.cuda.is_available():
-            primary_gpu_id = gpu_ids[0]
-            device_name = f'cuda:{primary_gpu_id}'
-            torch.cuda.set_device(device_name)   # Set primary GPU
-            model.to(device_name)
-            model = torch.nn.DataParallel(model, gpu_ids)
-        else:
-            print('Error from config_device: No avalibale GPU on this machine. Use CPU.')
-            exit()
+        assert torch.cuda.is_available(), 'No avalibale GPU on this machine. Use CPU.'
+
+        primary_gpu_id = gpu_ids[0]
+        device_name = f'cuda:{primary_gpu_id}'
+        torch.cuda.set_device(device_name)   # Set primary GPU
+        model.to(device_name)
+        model = torch.nn.DataParallel(model, gpu_ids)
     else:
         device = torch.device('cpu')
         model = model.to(device)
@@ -209,8 +207,7 @@ def conv_net(cnn_name, label_num_classes):
         cnn = models.densenet161
 
     else:
-        print('Cannot specify such a CNN: {}.'.format(cnn_name))
-        exit()
+        print(f"No specified CNN: {cnn_name}.")
 
     label_list = list(label_num_classes.keys())
     if len(label_list) > 1 :

@@ -129,44 +129,34 @@ class LoadDataSet_DeepSurv(Dataset):
 
 
 def dalaloader_mlp_cnn(args, csv_dict, images_dir, split_list=None, batch_size=None, sampler=None):
-    if split_list is None:
-        print('Specify split to make dataloader.')
-        exit()
+    assert (split_list is not None), 'Specify split to make dataloader.'
 
     split_data = LoadDataSet_DeepSurv(args, csv_dict, images_dir, split_list)
 
     # Make sampler
     if args['sampler'] == 'yes':
         target = []
-        for i, (_, label, _, _, _, _) in enumerate(split_data):
+        for _, (_, _, label, _, _, _, _) in enumerate(split_data):
             target.append(label)
 
-        # Only for DeepSurv
         target = [int(t.item()) for t in target]   # Tensor -> int
-
         class_sample_count = np.array( [ len(np.where(target == t)[0]) for t in np.unique(target) ] )
         weight = 1. / class_sample_count
         samples_weight = np.array([weight[t] for t in target])
         sampler = WeightedRandomSampler(samples_weight, len(samples_weight))
-
         split_loader = DataLoader(
                             dataset = split_data,
                             batch_size = batch_size,
                             #shuffle = False,        # Default: False, Note: must not be specified when sampler is not None
                             num_workers = 0,
-                            sampler = sampler
-                        )
-
+                            sampler = sampler)
     else:
         split_loader = DataLoader(
                             dataset = split_data,
                             batch_size = batch_size,
                             shuffle = True,
                             num_workers = 0,
-                            sampler = None
-                        )
-
+                            sampler = None)
     return split_loader
-
 
 # ----- EOF -----

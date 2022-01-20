@@ -10,7 +10,6 @@ import torch
 import torchvision.transforms as transforms
 from torch.utils.data.dataset import Dataset
 from torch.utils.data.dataloader import DataLoader
-from torch.utils.data.sampler import *
 from PIL import Image
 from sklearn.preprocessing import MinMaxScaler
 
@@ -125,51 +124,17 @@ class LoadDataSet_MLP_CNN(Dataset):
         return id, raw_output_dict, label_dict, inputs_value_normed, image, split
 
 
-
 def dalaloader_mlp_cnn(args, csv_dict, images_dir, split_list=None, batch_size=None, sampler=None):
-    if split_list is None:
-        print('Specify split to make dataloader.')
-        exit()
+    assert (split_list is not None), 'Specify split to make dataloader.'
+    assert (args['sampler'] == 'no'), 'samper should be no when multi-ouputs classification, but yes was specified.'
 
     split_data = LoadDataSet_MLP_CNN(args, csv_dict, images_dir, split_list)
-
-    # Make sampler
-    # When multi-label output, cannot calsulate
-    if (args['sampler'] == 'yes'):
-
-        if (len(csv_dict['label_list']) >= 2):
-            print('\nCannot calculate sampler when multi-label >= 2.\n')
-            exit()
-        else:
-            # must be len(csv_dict['label_list']) == 1 
-            target = []
-        
-            for _, (_, label, _, _, _) in enumerate(split_data):
-                #target.append(label[0])
-                v = list(label.values())[0]    # eg. {'label_last_status': 0}
-                target.append(v)
-
-            class_sample_count = np.array( [ len(np.where(target == t)[0]) for t in np.unique(target) ] )
-            weight = 1. / class_sample_count
-            samples_weight = np.array([weight[t] for t in target])
-            sampler = WeightedRandomSampler(samples_weight, len(samples_weight))
-
-            split_loader = DataLoader(
-                                dataset = split_data,
-                                batch_size = batch_size,
-                                #shuffle = False,        # Default: False, Note: must not be specified when sampler is not None
-                                num_workers = 0,
-                                sampler = sampler
-                            )
-    else:
-        split_loader = DataLoader(
+    split_loader = DataLoader(
                             dataset = split_data,
                             batch_size = batch_size,
                             shuffle = True,
                             num_workers = 0,
-                            sampler = None
-                        )
-
+                            sampler = None)
     return split_loader
 
 
