@@ -42,7 +42,7 @@ class LabelMetricsYY:
     test: MetricsYY
 
 def cal_label_metrics_yy(output_name, df_likelihood):
-    pred_name = 'pred' + output_name.replace('output', '')
+    pred_name = 'pred_' + output_name
     for split in ['val', 'test']:
         df_likelihood_split = get_column_value(df_likelihood, 'split', [split])
         y_obs_split = df_likelihood_split[output_name].values
@@ -76,7 +76,7 @@ for i in range(len(output_name_list)):
     offset_val = (i * len_splits) + 1
     offset_test = offset_val + 1
     output_name = output_name_list[i]
-    pred_name = 'pred' + output_name.replace('output', '')
+    pred_name = 'pred_' + output_name
 
     ax_val = fig.add_subplot(num_rows,
                              num_cols,

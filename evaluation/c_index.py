@@ -35,7 +35,7 @@ class LabelCIndex:
     test: float
 
 def cal_c_index(df_likelihood, output_name, period_name):
-    pred_name = 'pred' + output_name.replace('output', '')
+    pred_name = 'pred_' + output_name
     label_name = 'label_' + output_name
     for split in ['val', 'test']:
         df_likelihood_split = get_column_value(df_likelihood, 'split', [split])

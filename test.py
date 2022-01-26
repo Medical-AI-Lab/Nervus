@@ -78,10 +78,10 @@ for output_name, class_label_dict in output_class_label.items():
     column_class_label_names = []
     if task == 'classification':
         for class_name in class_label_dict.keys():
-            column_class_label_names.append('pred' + output_name.replace('output', '') + '_' + class_name)
+            column_class_label_names.append('pred_' + output_name + '_' + class_name)
     else:
     # When regression or deepsurv
-        column_class_label_names.append('pred' + output_name.replace('output', ''))
+        column_class_label_names.append('pred_' + output_name)
     column_output_class_names_dict[output_name] = column_class_label_names
 
 
@@ -133,13 +133,14 @@ def execute_test_single_label(task, mlp, cnn, device, id_column, split_column, v
                 labels = labels.to('cpu').detach().numpy().copy()
                 likelihood_ratio = likelihood_ratio.to('cpu').detach().numpy().copy()
 
-                output_name = list(column_output_class_names_dict.keys())[0]
+                output_name = output_list[0]
                 df_id = pd.DataFrame({id_column: ids})
                 df_split = pd.DataFrame({split_column: splits})
-                df_raw_output = pd.DataFrame({output_name: raw_outputs})   # Single-output
-                df_likelihood_ratio = pd.DataFrame(likelihood_ratio, columns=column_output_class_names_dict[output_name])
-                df_tmp = pd.concat([df_id, df_raw_output, df_likelihood_ratio, df_split], axis=1)
+                df_raw_output = pd.DataFrame({output_name: raw_outputs})
+                df_likelihood = pd.DataFrame(likelihood_ratio, columns=column_output_class_names_dict[output_name])
+                df_tmp = pd.concat([df_id, df_raw_output, df_likelihood, df_split], axis=1)
                 df_result = df_result.append(df_tmp, ignore_index=True)
+
     return val_acc, test_acc, df_result
 
 def execute_test_multi_label(task, mlp, cnn, device, id_column, split_column, val_loader, test_loader, model, column_output_class_names_dict):
@@ -194,12 +195,14 @@ def execute_test_multi_label(task, mlp, cnn, device, id_column, split_column, va
 
                 df_id = pd.DataFrame({id_column: ids})
                 df_split = pd.DataFrame({split_column: splits})
-                df_likelihood = pd.DataFrame([])
+                df_likelihood_tmp = pd.DataFrame([])
                 for output_name, class_label_names in column_output_class_names_dict.items():
+                    label_name = 'label_' + output_name
                     df_raw_output = pd.DataFrame(raw_outputs_dict[output_name], columns=[output_name])
-                    df_likelihood_output_name = pd.DataFrame(likelihood_multi['label_' + output_name], columns=class_label_names)
-                    df_likelihood = pd.concat([df_likelihood, df_raw_output, df_likelihood_output_name], axis=1)
-                df_tmp = pd.concat([df_id, df_likelihood, df_split], axis=1)
+                    df_likelihood = pd.DataFrame(likelihood_multi[label_name], columns=class_label_names)
+                    df_likelihood_tmp = pd.concat([df_likelihood_tmp, df_raw_output, df_likelihood], axis=1)
+
+                df_tmp = pd.concat([df_id, df_likelihood_tmp, df_split], axis=1)
                 df_result = df_result.append(df_tmp, ignore_index=True)
     return val_acc, test_acc, df_result
 
@@ -207,7 +210,6 @@ def execute_test_deepsurv(mlp, cnn, device, id_column, split_column, period_colu
     model.eval()
     with torch.no_grad():
         df_result = pd.DataFrame([])
-        #class_names = ['pred_' + label_name.replace('label_', '')]
 
         for split in ['val', 'test']:
             if split == 'val':
@@ -237,14 +239,15 @@ def execute_test_deepsurv(mlp, cnn, device, id_column, split_column, period_colu
                 periods = periods.to('cpu').detach().numpy().copy()
                 likelihood_ratio = likelihood_ratio.to('cpu').detach().numpy().copy()
 
-                output_name = list(column_output_class_names_dict.keys())[0]
+                output_name = output_list[0]
+                label_name = label_list[0]
                 df_id = pd.DataFrame({id_column: ids})
                 df_split = pd.DataFrame({split_column: splits})
-                df_raw_output = pd.DataFrame({output_name: raw_outputs})   # Single-output
-                df_likelihood_ratio = pd.DataFrame(likelihood_ratio, columns=column_output_class_names_dict[output_name])
+                df_raw_output = pd.DataFrame({output_name: raw_outputs})
+                df_label = pd.DataFrame({label_name: labels}, dtype=int)
+                df_likelihood = pd.DataFrame(likelihood_ratio, columns=column_output_class_names_dict[output_name])
                 df_period = pd.DataFrame({period_column: periods})
-                df_label = pd.DataFrame({('label_'+output_name): labels}, dtype=int)   # Needed for calculation of c_index
-                df_tmp = pd.concat([df_id, df_raw_output, df_period, df_likelihood_ratio, df_split, df_label], axis=1)
+                df_tmp = pd.concat([df_id, df_raw_output, df_label, df_period, df_likelihood, df_split], axis=1)
                 df_result = df_result.append(df_tmp, ignore_index=True)
     return df_result
 
