@@ -26,7 +26,7 @@ likelilhood_dir = dirs_dict['likelihood']
 roc_dir = dirs_dict['roc']
 roc_summary_dir = dirs_dict['roc_summary']
 path_likelihood = get_target(dirs_dict['likelihood'], args['likelihood_datetime'])
-# Parse csv odf likelihood
+# Parse csv of likelihood
 df_likelihood = pd.read_csv(path_likelihood)
 output_list = [column_name for column_name in df_likelihood.columns if column_name.startswith('output')]
 
@@ -60,9 +60,13 @@ def cal_roc_binary_class(output_name, df_likelihood):
         y_score_split = df_likelihood_split[pred_positive_name]
         fpr_split, tpr_split, thresholds_split = metrics.roc_curve(y_true_split, y_score_split, pos_label=positive_class)
         if split == 'val':
-            output_roc_val = ROC(fpr=AverageType(micro=fpr_split), tpr=AverageType(micro=tpr_split), auc=AverageType(micro=metrics.auc(fpr_split, tpr_split)))
+            output_roc_val = ROC(fpr=AverageType(micro=fpr_split),
+                                 tpr=AverageType(micro=tpr_split),
+                                 auc=AverageType(micro=metrics.auc(fpr_split, tpr_split)))
         else:
-            output_roc_test = ROC(fpr=AverageType(micro=fpr_split), tpr=AverageType(micro=tpr_split), auc=AverageType(micro=metrics.auc(fpr_split, tpr_split)))
+            output_roc_test = ROC(fpr=AverageType(micro=fpr_split),
+                                  tpr=AverageType(micro=tpr_split),
+                                  auc=AverageType(micro=metrics.auc(fpr_split, tpr_split)))
     output_roc = OutputROC(val=output_roc_val, test=output_roc_test)
     print(f"{output_name}, val: {output_roc.val.auc.micro:.2f}, test: {output_roc.test.auc.micro:.2f}")
     return output_roc
@@ -104,12 +108,12 @@ def cal_roc_multi_class(output_name, df_likelihood):
 
         if split == 'val':
             output_roc_val = ROC(fpr=AverageType(macro=output_all_fpr_split),
-                                    tpr=AverageType(macro=output_mean_tpr_split),
-                                    auc=AverageType(macro=metrics.auc(output_all_fpr_split, output_mean_tpr_split)))
+                                 tpr=AverageType(macro=output_mean_tpr_split),
+                                 auc=AverageType(macro=metrics.auc(output_all_fpr_split, output_mean_tpr_split)))
         else:
             output_roc_test = ROC(fpr=AverageType(macro=output_all_fpr_split),
-                                    tpr=AverageType(macro=output_mean_tpr_split),
-                                    auc=AverageType(macro=metrics.auc(output_all_fpr_split, output_mean_tpr_split)))
+                                  tpr=AverageType(macro=output_mean_tpr_split),
+                                  auc=AverageType(macro=metrics.auc(output_all_fpr_split, output_mean_tpr_split)))
 
     output_roc = OutputROC(val=output_roc_val, test=output_roc_test)
     print(f"{output_name}, val: {output_roc.val.auc.macro:.2f}, test: {output_roc.test.auc.macro:.2f}")
