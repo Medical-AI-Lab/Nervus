@@ -26,7 +26,7 @@ yy_dir = dirs_dict['yy']
 yy_summary_dir = dirs_dict['yy_summary']
 path_likelihood = get_target(dirs_dict['likelihood'], args['likelihood_datetime'])
 df_likelihood = pd.read_csv(path_likelihood)
-label_list = [ column_name for column_name in df_likelihood.columns if column_name.startswith('label_') ]
+output_name_list = [column_name for column_name in df_likelihood.columns if column_name.startswith('output')]
 
 
 @dataclasses.dataclass
@@ -41,47 +41,47 @@ class LabelMetricsYY:
     val: MetricsYY
     test: MetricsYY
 
-def cal_label_metrics_yy(label_name, df_likelihood):
-    pred_label_name = 'pred_' + label_name.replace('label_', '')
+def cal_label_metrics_yy(output_name, df_likelihood):
+    pred_name = 'pred_' + output_name
     for split in ['val', 'test']:
         df_likelihood_split = get_column_value(df_likelihood, 'split', [split])
-        y_obs_split = df_likelihood_split[label_name].values
-        y_pred_split = df_likelihood_split[pred_label_name].values
+        y_obs_split = df_likelihood_split[output_name].values
+        y_pred_split = df_likelihood_split[pred_name].values
         r2 = metrics.r2_score(y_obs_split, y_pred_split)
         mse = metrics.mean_squared_error(y_obs_split, y_pred_split)
         rmse = np.sqrt(mse)
         mae = metrics.mean_absolute_error(y_obs_split, y_pred_split)
         if split == 'val':
-            label_metrics_yy_val = MetricsYY(r2=r2, mse=mse, rmse=rmse, mae=mae)
+            output_metrics_yy_val = MetricsYY(r2=r2, mse=mse, rmse=rmse, mae=mae)
         else:
-            label_metrics_yy_test = MetricsYY(r2=r2, mse=mse, rmse=rmse, mae=mae)
-    label_metrics_yy = LabelMetricsYY(val=label_metrics_yy_val, test=label_metrics_yy_test)
-    print(label_name + ': ')
-    print(f"{'val':>5}, R2: {label_metrics_yy.val.r2:>5.2f}, MSE: {label_metrics_yy.val.mse:.2f}, RMES: {label_metrics_yy.val.rmse:.2f}, MAE: {label_metrics_yy.val.mae:.2f}")
-    print(f"{'test':>5}, R2: {label_metrics_yy.test.r2:>5.2f}, MSE: {label_metrics_yy.test.mse:.2f}, RMES: {label_metrics_yy.test.rmse:.2f}, MAE: {label_metrics_yy.test.mae:.2f}")
-    return label_metrics_yy
+            output_metrics_yy_test = MetricsYY(r2=r2, mse=mse, rmse=rmse, mae=mae)
+    output_metrics_yy = LabelMetricsYY(val=output_metrics_yy_val, test=output_metrics_yy_test)
+    print(output_name + ': ')
+    print(f"{'val':>5}, R2: {output_metrics_yy.val.r2:>5.2f}, MSE: {output_metrics_yy.val.mse:.2f}, RMES: {output_metrics_yy.val.rmse:.2f}, MAE: {output_metrics_yy.val.mae:.2f}")
+    print(f"{'test':>5}, R2: {output_metrics_yy.test.r2:>5.2f}, MSE: {output_metrics_yy.test.mse:.2f}, RMES: {output_metrics_yy.test.rmse:.2f}, MAE: {output_metrics_yy.test.mae:.2f}")
+    return output_metrics_yy
 
-metrics_yy = {label_name: cal_label_metrics_yy(label_name, df_likelihood) for label_name in label_list}
+metrics_yy = {output_name: cal_label_metrics_yy(output_name, df_likelihood) for output_name in output_name_list}
 
 # Plot yy-graph
 len_splits = len(['vat', 'test'])
 num_rows = 1
-num_cols = len(label_list) * len_splits
+num_cols = len(output_name_list) * len_splits
 base_size = 7
 height = num_rows * base_size
 width = num_cols * height 
 
 fig = plt.figure(figsize=(width, height))
-for i in range(len(label_list)):
+for i in range(len(output_name_list)):
     offset_val = (i * len_splits) + 1
     offset_test = offset_val + 1
-    label_name = label_list[i]
-    pred_label_name = 'pred_' + label_name.replace('label_', '')
+    output_name = output_name_list[i]
+    pred_name = 'pred_' + output_name
 
     ax_val = fig.add_subplot(num_rows,
                              num_cols,
                              offset_val,
-                             title=label_name + '\n' + 'val: Observed-Predicted Plot',
+                             title=output_name + '\n' + 'val: Observed-Predicted Plot',
                              xlabel='Observed',
                              ylabel='Predicted',
                              xmargin=0,
@@ -89,19 +89,19 @@ for i in range(len(label_list)):
     ax_test = fig.add_subplot(num_rows,
                               num_cols,
                               offset_test,
-                              title=label_name + '\n' + 'test: Observed-Predicted Plot',
+                              title=output_name + '\n' + 'test: Observed-Predicted Plot',
                               xlabel='Observed',
                               ylabel='Predicted',
                               xmargin=0,
                               ymargin=0)
 
     df_val = get_column_value(df_likelihood, 'split', ['val'])
-    y_obs_val = df_val[label_name].values
-    y_pred_val = df_val[pred_label_name].values
+    y_obs_val = df_val[output_name].values
+    y_pred_val = df_val[pred_name].values
 
     df_test = get_column_value(df_likelihood, 'split', ['test'])
-    y_obs_test = df_test[label_name].values
-    y_pred_test = df_test[pred_label_name].values
+    y_obs_test = df_test[output_name].values
+    y_pred_test = df_test[pred_name].values
 
     y_values_val = np.concatenate([y_obs_val.flatten(), y_pred_val.flatten()])
     y_values_test = np.concatenate([y_obs_test.flatten(), y_pred_test.flatten()])
@@ -126,21 +126,21 @@ fig.tight_layout()
 os.makedirs(yy_dir, exist_ok=True)
 basename = get_basename(path_likelihood)
 yy_path = os.path.join(yy_dir, 'yy_' + basename) + '.png'
-fig.savefig(yy_path) 
+fig.savefig(yy_path)
 
 # Save metrics of yy
 date_name = basename.rsplit('_', 1)[-1]
 summary_new = {'datetime': [date_name]}
-for label_name in metrics_yy.keys():
-    summary_new[label_name+'_val_r2'] = [f"{metrics_yy[label_name].val.r2:.2f}"]
-    summary_new[label_name+'_val_mse'] = [f"{metrics_yy[label_name].val.mse:.2f}"]
-    summary_new[label_name+'_val_rmse'] = [f"{metrics_yy[label_name].val.rmse:.2f}"]
-    summary_new[label_name+'_val_mae'] = [f"{metrics_yy[label_name].val.mae:.2f}"]
+for output_name in metrics_yy.keys():
+    summary_new[output_name+'_val_r2'] = [f"{metrics_yy[output_name].val.r2:.2f}"]
+    summary_new[output_name+'_val_mse'] = [f"{metrics_yy[output_name].val.mse:.2f}"]
+    summary_new[output_name+'_val_rmse'] = [f"{metrics_yy[output_name].val.rmse:.2f}"]
+    summary_new[output_name+'_val_mae'] = [f"{metrics_yy[output_name].val.mae:.2f}"]
 
-    summary_new[label_name+'_test_r2'] = [f"{metrics_yy[label_name].test.r2:.2f}"]
-    summary_new[label_name+'_test_mse'] = [f"{metrics_yy[label_name].test.mse:.2f}"]
-    summary_new[label_name+'_test_rmse'] = [f"{metrics_yy[label_name].test.rmse:.2f}"]
-    summary_new[label_name+'_test_mae'] = [f"{metrics_yy[label_name].test.mae:.2f}"]
+    summary_new[output_name+'_test_r2'] = [f"{metrics_yy[output_name].test.r2:.2f}"]
+    summary_new[output_name+'_test_mse'] = [f"{metrics_yy[output_name].test.mse:.2f}"]
+    summary_new[output_name+'_test_rmse'] = [f"{metrics_yy[output_name].test.rmse:.2f}"]
+    summary_new[output_name+'_test_mae'] = [f"{metrics_yy[output_name].test.mae:.2f}"]
 df_summary_new = pd.DataFrame(summary_new)
 
 summary_path = os.path.join(yy_summary_dir, 'summary.csv')   # Previous summary

@@ -10,7 +10,6 @@ import torch
 import torchvision.transforms as transforms
 from torch.utils.data.dataset import Dataset
 from torch.utils.data.dataloader import DataLoader
-from torch.utils.data.sampler import *
 from PIL import Image
 from sklearn.preprocessing import MinMaxScaler
 
@@ -32,9 +31,12 @@ class LoadDataSet_MLP_CNN(Dataset):
 
         self.df_source = self.csv_dict['source']
         self.id_column = self.csv_dict['id_column']
-        self.label_name = self.csv_dict['label_list'][0]
+
+        self.output_list = self.csv_dict['output_list']
+        self.label_list = self.csv_dict['label_list']
+
         self.input_list = self.csv_dict['input_list']
-        self.dir_to_img_column = self.csv_dict['dir_to_img_column']
+        self.filepath_column = self.csv_dict['filepath_column']
         self.split_column = self.csv_dict['split_column']
         self.df_split = get_column_value(self.df_source, self.split_column, self.split_list)
 
@@ -55,9 +57,7 @@ class LoadDataSet_MLP_CNN(Dataset):
             self.transform = self._make_transforms()
 
         # index of each column
-        self.index_dict = { column_name: self.df_split.columns.get_loc(column_name)
-                            for column_name in self.df_split.columns
-                          }
+        self.index_dict = {column_name: self.df_split.columns.get_loc(column_name) for column_name in self.df_split.columns}
 
 
     def _make_transforms(self):
@@ -78,7 +78,6 @@ class LoadDataSet_MLP_CNN(Dataset):
             if self.args['random_apply'] == 'yes':
                 _transforms = transforms.RandomApply(_transforms)
 
-
         # MUST: Always convert to Tensor
         _transforms.append(transforms.ToTensor())   # PIL -> Tensor
 
@@ -91,18 +90,14 @@ class LoadDataSet_MLP_CNN(Dataset):
         return _transforms
 
 
-
     def __len__(self):
         return len(self.df_split)
 
 
-
     def __getitem__(self, idx):
         id = self.df_split.iat[idx, self.index_dict[self.id_column]]
-        
-        #label = self.df_split.iat[idx, self.index_dict[self.label_name]]
-        label_dict = { label_name: self.df_split.iat[idx, self.index_dict[label_name]] for label_name in self.csv_dict['label_list'] }
-
+        raw_output_dict = {output_name: self.df_split.iat[idx, self.index_dict[output_name]] for output_name in self.output_list}
+        label_dict = {label_name: self.df_split.iat[idx, self.index_dict[label_name]] for label_name in self.label_list}
         split = self.df_split.iat[idx, self.index_dict[self.split_column]]
 
         # Convert normalized values to a single Tensor
@@ -118,64 +113,28 @@ class LoadDataSet_MLP_CNN(Dataset):
         # Load imgae when CNN or MLP+CNN
         if not(self.args['cnn'] is None):
             # Load image
-            dir_to_img = self.df_split.iat[idx, self.index_dict[self.dir_to_img_column]]
-            image_path = os.path.join(self.image_dir, dir_to_img)
+            filepath = self.df_split.iat[idx, self.index_dict[self.filepath_column]]
+            image_path = os.path.join(self.image_dir, filepath)
             image = Image.open(image_path).convert('RGB')
             image = self.transform(image)
         else:
             image = ''
 
         #return id, label, inputs_value_normed, image, split
-        return id, label_dict, inputs_value_normed, image, split
+        return id, raw_output_dict, label_dict, inputs_value_normed, image, split
 
 
-
-def MakeDataLoader_MLP_CNN_with_WeightedRandomSampler(args, csv_dict, images_dir, split_list=None, batch_size=None, sampler=None):
-    if split_list is None:
-        print('Specify split to make dataloader.')
-        exit()
+def dalaloader_mlp_cnn(args, csv_dict, images_dir, split_list=None, batch_size=None, sampler=None):
+    assert (split_list is not None), 'Specify split to make dataloader.'
+    assert (args['sampler'] == 'no'), 'samper should be no when multi-ouputs classification, but yes was specified.'
 
     split_data = LoadDataSet_MLP_CNN(args, csv_dict, images_dir, split_list)
-
-    # Make sampler
-    # When multi-label output, cannot calsulate
-    if (args['sampler'] == 'yes'):
-
-        if (len(csv_dict['label_list']) >= 2):
-            print('\nCannot calculate sampler when multi-label >= 2.\n')
-            exit()
-
-        else:
-            # must be len(csv_dict['label_list']) == 1 
-            target = []
-        
-            for _, (_, label, _, _, _) in enumerate(split_data):
-                #target.append(label[0])
-                v = list(label.values())[0]    # eg. {'label_last_status': 0}
-                target.append(v)
-
-            class_sample_count = np.array( [ len(np.where(target == t)[0]) for t in np.unique(target) ] )
-            weight = 1. / class_sample_count
-            samples_weight = np.array([weight[t] for t in target])
-            sampler = WeightedRandomSampler(samples_weight, len(samples_weight))
-
-            split_loader = DataLoader(
-                                dataset = split_data,
-                                batch_size = batch_size,
-                                #shuffle = False,        # Default: False, Note: must not be specified when sampler is not None
-                                num_workers = 0,
-                                sampler = sampler
-                            )
-
-    else:
-        split_loader = DataLoader(
+    split_loader = DataLoader(
                             dataset = split_data,
                             batch_size = batch_size,
                             shuffle = True,
                             num_workers = 0,
-                            sampler = None
-                        )
-
+                            sampler = None)
     return split_loader
 
 

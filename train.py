@@ -12,8 +12,8 @@ import copy
 from lib.util import *
 from lib.align_env import *
 from options.train_options import TrainOptions
-from config.criterion import Criterion
-from config.optimizer import Optimizer
+from config.criterion import set_criterion
+from config.optimizer import set_optimizer
 from config.model import *
 
 
@@ -42,8 +42,8 @@ learning_curve_dir = dirs_dict['learning_curve']
 image_dir = os.path.join(dirs_dict['images_dir'], args['image_dir'])
 
 csv_dict = parse_csv(os.path.join(dirs_dict['csvs_dir'], args['csv_name']), task)
+label_num_classes = csv_dict['label_num_classes']
 label_list = csv_dict['label_list']
-num_classes = csv_dict['num_classes']
 num_inputs = csv_dict['num_inputs']
 
 
@@ -56,13 +56,14 @@ else:
         from dataloader.dataloader_multi import *
     else:
         from dataloader.dataloader import *
-train_loader = MakeDataLoader_MLP_CNN_with_WeightedRandomSampler(args, csv_dict, image_dir, split_list=['train'], batch_size=batch_size, sampler=sampler)
-val_loader = MakeDataLoader_MLP_CNN_with_WeightedRandomSampler(args, csv_dict, image_dir, split_list=['val'], batch_size=batch_size, sampler=sampler)
+train_loader = dalaloader_mlp_cnn(args, csv_dict, image_dir, split_list=['train'], batch_size=batch_size, sampler=sampler)
+val_loader = dalaloader_mlp_cnn(args, csv_dict, image_dir, split_list=['val'], batch_size=batch_size, sampler=sampler)
 
 # Configure of training
-model = CreateModel_MLPCNN(mlp, cnn, label_list, num_inputs, num_classes, device=gpu_ids)
-criterion = Criterion(criterion, device)
-optimizer = Optimizer(optimizer, model, lr)
+#model = CreateModel_MLPCNN(mlp, cnn, label_list, num_inputs, num_classes, device=gpu_ids)
+model = create_mlp_cnn(mlp, cnn, label_num_classes, num_inputs, device=gpu_ids)
+criterion = set_criterion(criterion, device)
+optimizer = set_optimizer(optimizer, model, lr)
 
 best_weight = None
 val_best_loss = None
@@ -116,7 +117,7 @@ def update_loss_acc_dict(task, num_epochs, loss_acc_dict, epoch, phase, running_
     return loss_acc_dict, val_best_loss, val_best_epoch, update_flag
 
 
-def execute_epoch_single(task, mlp, cnn, criterion, optimizer, num_epochs, device, label_list, train_loader, val_loader, model, val_best_loss, val_best_epoch, loss_acc_dict):
+def execute_epoch_single_label(task, mlp, cnn, criterion, optimizer, num_epochs, device, label_list, train_loader, val_loader, model, val_best_loss, val_best_epoch, loss_acc_dict):
     for epoch in range(num_epochs):
         for phase in ['train', 'val']:
             if phase == 'train':
@@ -129,17 +130,17 @@ def execute_epoch_single(task, mlp, cnn, criterion, optimizer, num_epochs, devic
             running_loss = 0.0
             running_acc = 0.0
 
-            for i, (ids, labels, inputs_values_normed, images, splits) in enumerate(dataloader):
+            for i, (ids, raw_outputs, labels, inputs_values_normed, images, splits) in enumerate(dataloader):
                 optimizer.zero_grad()
 
                 with torch.set_grad_enabled(phase == 'train'):
-                    if not(mlp is None) and (cnn is None):
+                    if (mlp is not None) and (cnn is None):
                     # When MLP only
                         inputs_values_normed = inputs_values_normed.to(device)
                         labels = labels.to(device)
                         outputs = model(inputs_values_normed)
 
-                    elif (mlp is None) and not(cnn is None):
+                    elif (mlp is None) and (cnn is not None):
                     # When CNN only
                         images = images.to(device)
                         labels = labels.to(device)
@@ -176,7 +177,7 @@ def execute_epoch_single(task, mlp, cnn, criterion, optimizer, num_epochs, devic
     return best_weight, val_best_loss, val_best_epoch, loss_acc_dict
 
 
-def execute_epoch_multi(task, mlp, cnn, criterion, optimizer, num_epochs, device, label_list, train_loader, val_loader, model, val_best_loss, val_best_epoch, loss_acc_dict):
+def execute_epoch_multi_label(task, mlp, cnn, criterion, optimizer, num_epochs, device, label_list, train_loader, val_loader, model, val_best_loss, val_best_epoch, loss_acc_dict):
     for epoch in range(num_epochs):
         for phase in ['train', 'val']:
             if phase == 'train':
@@ -189,24 +190,24 @@ def execute_epoch_multi(task, mlp, cnn, criterion, optimizer, num_epochs, device
             running_loss = 0.0
             running_acc = 0
 
-            for i, (ids, labels_dict, inputs_values_normed, images, splits) in enumerate(dataloader):
+            for i, (ids, raw_outputs_dict, labels_dict, inputs_values_normed, images, splits) in enumerate(dataloader):
                 optimizer.zero_grad()
 
                 with torch.set_grad_enabled(phase == 'train'):
-                    if not(mlp is None) and (cnn is None):
-                            # When MLP only
+                    if (mlp is not None) and (cnn is None):
+                        # When MLP only
                         inputs_values_normed = inputs_values_normed.to(device)
                         labels_multi = { label_name: labels.to(device) for label_name, labels in labels_dict.items() }
                         outputs = model(inputs_values_normed)
 
-                    elif (mlp is None) and not(cnn is None):
-                            # When CNN only
+                    elif (mlp is None) and (cnn is not None):
+                        # When CNN only
                         images = images.to(device)
                         labels_multi = { label_name: labels.to(device) for label_name, labels in labels_dict.items() }
                         outputs = model(images)
 
                     else: # elif not(mlp is None) and not(cnn is None):
-                            # When MLP+CNN
+                        # When MLP+CNN
                         inputs_values_normed = inputs_values_normed.to(device)
                         images = images.to(device)
                         labels_multi = { label_name: labels.to(device) for label_name, labels in labels_dict.items() }
@@ -272,18 +273,18 @@ def execute_epoch_deepsurv(task, mlp, cnn, criterion, optimizer, num_epochs, dev
             running_loss = 0.0
             running_acc = 0
 
-            for i, (ids, labels, periods, inputs_values_normed, images, splits) in enumerate(dataloader):
+            for i, (ids, raw_outputs, labels, periods, inputs_values_normed, images, splits) in enumerate(dataloader):
                 optimizer.zero_grad()
 
                 with torch.set_grad_enabled(phase == 'train'):
-                    if not(mlp is None) and (cnn is None):
+                    if (mlp is not None) and (cnn is None):
                     # When MLP only
                         inputs_values_normed = inputs_values_normed.to(device)
                         labels = labels.float().to(device)
                         periods = periods.float().to(device)
                         outputs = model(inputs_values_normed)
 
-                    elif (mlp is None) and not(cnn is None):
+                    elif (mlp is None) and (cnn is not None):
                     # When CNN only
                         images = images.to(device)
                         labels = labels.to(device)
@@ -300,7 +301,7 @@ def execute_epoch_deepsurv(task, mlp, cnn, criterion, optimizer, num_epochs, dev
 
                     risk_preds = outputs   # Just rename for clarity
                     loss = criterion(risk_preds, periods.reshape(-1,1), labels.reshape(-1,1), model)
-
+                    
                     if (phase == 'train') and (torch.sum(labels).item() > 0):
                     # No backward when all labels are 0.
                     # To be specofic, loss(NegativeLogLikelihood) cannot be defined in this case.
@@ -327,10 +328,10 @@ else:
     # When classification or regression
     if len(label_list) > 1:
         # Multi-label outputs
-        best_weight, val_best_loss, val_best_epoch, loss_acc_dict = execute_epoch_multi(task, mlp, cnn, criterion, optimizer, num_epochs, device, label_list, train_loader, val_loader, model, val_best_loss, val_best_epoch, loss_acc_dict)
+        best_weight, val_best_loss, val_best_epoch, loss_acc_dict = execute_epoch_multi_label(task, mlp, cnn, criterion, optimizer, num_epochs, device, label_list, train_loader, val_loader, model, val_best_loss, val_best_epoch, loss_acc_dict)
     else:
         # Single-label output
-        best_weight, val_best_loss, val_best_epoch, loss_acc_dict = execute_epoch_single(task, mlp, cnn, criterion, optimizer, num_epochs, device, label_list, train_loader, val_loader, model, val_best_loss, val_best_epoch, loss_acc_dict)
+        best_weight, val_best_loss, val_best_epoch, loss_acc_dict = execute_epoch_single_label(task, mlp, cnn, criterion, optimizer, num_epochs, device, label_list, train_loader, val_loader, model, val_best_loss, val_best_epoch, loss_acc_dict)
 print('Training finished!')
 
 # Save misc

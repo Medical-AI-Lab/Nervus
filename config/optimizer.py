@@ -4,8 +4,7 @@
 import torch.optim as optim
 
 
-
-def Optimizer(optimizer_name, model, lr):
+def set_optimizer(optimizer_name, model, lr):
     """
     Usage:
     from lib.criterion import Optimizer
@@ -25,8 +24,7 @@ def Optimizer(optimizer_name, model, lr):
         optimizer = optim.RMSprop(model.parameters(), lr=lr)
 
     else:
-        print('No specified optimizer: {}.'.format(optimizer_name))
-        exit()
+        print(f"No specified optimizer: {optimizer_name}.")
 
     return optimizer
 
