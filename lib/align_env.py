@@ -4,29 +4,25 @@
 import os
 import numpy as np
 import pandas as pd
+import dataclasses
 
 
-def set_dirs():
-    dirs_dict = {}
-
-    data_root = '../materials'
-    dirs_dict['csvs_dir'] = os.path.join(data_root, 'csvs')
-    dirs_dict['images_dir'] = os.path.join(data_root, 'images')
-
-    dirs_dict['train_opt_log'] = './train_opt_logs'
-    dirs_dict['weight'] = './weights'
-
-    results_dir = './results'
-    dirs_dict['learning_curve'] = os.path.join(results_dir, 'learning_curve')
-    dirs_dict['likelihood'] = os.path.join(results_dir, 'likelihood')
-    dirs_dict['roc'] = os.path.join(results_dir, 'roc')
-    dirs_dict['roc_summary'] = os.path.join(dirs_dict['roc'], 'summary')
-    dirs_dict['yy'] = os.path.join(results_dir, 'yy')
-    dirs_dict['yy_summary'] = os.path.join(dirs_dict['yy'], 'summary')
-    dirs_dict['c_index'] = os.path.join(results_dir, 'c_index')
-    dirs_dict['c_index_summary'] = os.path.join(dirs_dict['c_index'], 'summary')
-    dirs_dict['visualization'] = os.path.join(results_dir, 'visualization')
-    return dirs_dict
+@dataclasses.dataclass
+class NervusEnv:
+    dataroot: str = '../materials'
+    csvs_dir: str = os.path.join(dataroot, 'csvs')
+    images_dir: str = os.path.join(dataroot, 'images')
+    reslts_dir: str = './results'
+    sets_dir: str = os.path.join(reslts_dir, 'sets')
+    summary_dir: str = os.path.join(reslts_dir, 'summary')
+    weight: str = 'weight.pt'
+    csv_hyperparameters: str = 'hyperparameters.csv'
+    csv_learning_curve: str = 'learning_curve.csv'
+    csv_likelihood: str = 'likelihood.csv'
+    roc: str = 'roc.png'
+    yy: str = 'yy.png'
+    csv_c_index: str = 'c_index.csv'
+    csv_summary: str = 'summary.csv'
 
 
 def parse_csv(csv_path, task):
@@ -95,9 +91,9 @@ def parse_csv(csv_path, task):
     if task == 'deepsurv':
         csv_dict['period_column'] = [column_name for column_name in column_names if column_name.startswith(prefix_period)][0]   # should be one
     else:
-        pass
+        csv_dict['period_column'] = None
 
-    # Cast
+    # Cacsvst
     # label_* : int
     # input_* : float
     cast_input_dict = {input: float for input in csv_dict['input_list']}

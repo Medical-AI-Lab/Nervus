@@ -14,22 +14,6 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from lib.util import *
 
 
-# Configure GPU or CPU
-def config_device(model, gpu_ids):
-    if gpu_ids:
-        assert torch.cuda.is_available(), 'No avalibale GPU on this machine. Use CPU.'
-
-        primary_gpu_id = gpu_ids[0]
-        device_name = f'cuda:{primary_gpu_id}'
-        torch.cuda.set_device(device_name)   # Set primary GPU
-        model.to(device_name)
-        model = torch.nn.DataParallel(model, gpu_ids)
-    else:
-        device = torch.device('cpu')
-        model = model.to(device)
-    return model
-
-
 # MLP
 class MLP(nn.Module):
     def __init__(self, num_inputs, num_outputs):
@@ -236,7 +220,7 @@ class MLPCNN_Net(nn.Module):
         self.label_list = list(self.label_num_classes.keys())
         self.num_inputs = num_inputs            # Not include image
         self.cnn_name = cnn_name
-        self.cnn_num_outputs_pass_to_mlp = 1
+        self.cnn_num_outputs_pass_to_mlp = 1   # POSITIVE
         self.mlp_cnn_num_inputs = self.num_inputs + self.cnn_num_outputs_pass_to_mlp
         self.dummy_label_num_classes = {'dummy_label': len(['pred_n_label_x', 'pred_p_label_x'])}  # Before passing to MLP, do binary classification
         self.cnn = conv_net(self.cnn_name, self.dummy_label_num_classes)          # Non multi-label output
@@ -267,24 +251,45 @@ class MLPCNN_Net(nn.Module):
         outputs = self.mlp(inputs_images)
         return outputs
 
+"""
+# Configure GPU or CPU
+def config_device(model, gpu_ids):
+    if gpu_ids:
+        assert torch.cuda.is_available(), 'No avalibale GPU on this machine. Use CPU.'
+        primary_gpu_id = gpu_ids[0]
+        device_name = f'cuda:{primary_gpu_id}'
+        torch.cuda.set_device(device_name)   # Set primary GPU
+        model.to(device_name)
+        model = torch.nn.DataParallel(model, gpu_ids)
+    else:
+        device = torch.device('cpu')
+        model = model.to(device)
+    return model
+"""
 
-def create_mlp_cnn(mlp, cnn, label_num_classes, num_inputs, device=[]):
+def create_mlp_cnn(mlp, cnn, label_num_classes, num_inputs, gpu_ids=[]):
     """
     num_input: number of inputs of MLP or MLP+CNN
     """
-    if not(mlp is None) and (cnn is None):
+    if (mlp is not None) and (cnn is None):
         # When MLP only
         model = mlp_net(label_num_classes, num_inputs)
-    elif (mlp is None) and not(cnn is None):
+    elif (mlp is None) and (cnn is not None):
         # When CNN only
         model = conv_net(cnn, label_num_classes)
     else:
         # When MLP+CNN
         # Set the number of outputs from CNN to MLP as 1, then
         # the shape of outputs from CNN is [batgch_size,1]
-
         model = MLPCNN_Net(label_num_classes, num_inputs, cnn)
-    model = config_device(model, device)
+
+    #model = config_device(model, gpu_ids)
+    device, gpu_ids = set_device(gpu_ids)
+    model.to(device)
+    if gpu_ids:
+        model = torch.nn.DataParallel(model, gpu_ids)
+    else:
+        pass
     return model
 
 

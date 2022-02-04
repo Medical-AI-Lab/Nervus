@@ -19,15 +19,11 @@ from options.metrics_options import MetricsOptions
 
 
 args = MetricsOptions().parse()
-
-dirs_dict = set_dirs()
-likelilhood_dir = dirs_dict['likelihood']
-yy_dir = dirs_dict['yy']
-yy_summary_dir = dirs_dict['yy_summary']
-path_likelihood = get_target(dirs_dict['likelihood'], args['likelihood_datetime'])
-df_likelihood = pd.read_csv(path_likelihood)
+nervusenv = NervusEnv()
+datetime_dir = get_target(nervusenv.sets_dir, args['likelihood_datetime'])   # args['likelihood_datetime'] if exists or the latest
+likelihood_path = os.path.join(datetime_dir, nervusenv.csv_likelihood)
+df_likelihood = pd.read_csv(likelihood_path)
 output_name_list = [column_name for column_name in df_likelihood.columns if column_name.startswith('output')]
-
 
 @dataclasses.dataclass
 class MetricsYY:
@@ -42,6 +38,7 @@ class LabelMetricsYY:
     test: MetricsYY
 
 def cal_label_metrics_yy(output_name, df_likelihood):
+    output_metrics_yy = LabelMetricsYY(val=None, test=None)
     pred_name = 'pred_' + output_name
     for split in ['val', 'test']:
         df_likelihood_split = get_column_value(df_likelihood, 'split', [split])
@@ -52,10 +49,9 @@ def cal_label_metrics_yy(output_name, df_likelihood):
         rmse = np.sqrt(mse)
         mae = metrics.mean_absolute_error(y_obs_split, y_pred_split)
         if split == 'val':
-            output_metrics_yy_val = MetricsYY(r2=r2, mse=mse, rmse=rmse, mae=mae)
+            output_metrics_yy.val = MetricsYY(r2=r2, mse=mse, rmse=rmse, mae=mae)
         else:
-            output_metrics_yy_test = MetricsYY(r2=r2, mse=mse, rmse=rmse, mae=mae)
-    output_metrics_yy = LabelMetricsYY(val=output_metrics_yy_val, test=output_metrics_yy_test)
+            output_metrics_yy.test = MetricsYY(r2=r2, mse=mse, rmse=rmse, mae=mae)
     print(output_name + ': ')
     print(f"{'val':>5}, R2: {output_metrics_yy.val.r2:>5.2f}, MSE: {output_metrics_yy.val.mse:.2f}, RMES: {output_metrics_yy.val.rmse:.2f}, MAE: {output_metrics_yy.val.mae:.2f}")
     print(f"{'test':>5}, R2: {output_metrics_yy.test.r2:>5.2f}, MSE: {output_metrics_yy.test.mse:.2f}, RMES: {output_metrics_yy.test.rmse:.2f}, MAE: {output_metrics_yy.test.mae:.2f}")
@@ -123,35 +119,27 @@ for i in range(len(output_name_list)):
 fig.tight_layout()
 
 # Save Fig
-os.makedirs(yy_dir, exist_ok=True)
-basename = get_basename(path_likelihood)
-yy_path = os.path.join(yy_dir, 'yy_' + basename) + '.png'
+yy_path = os.path.join(datetime_dir, nervusenv.yy)
 fig.savefig(yy_path)
 
+
 # Save metrics of yy
-date_name = basename.rsplit('_', 1)[-1]
-summary_new = {'datetime': [date_name]}
+datetime = os.path.basename(datetime_dir)
+summary_new = dict()
+summary_new['datetime'] = [datetime]
 for output_name in metrics_yy.keys():
-    summary_new[output_name+'_val_r2'] = [f"{metrics_yy[output_name].val.r2:.2f}"]
-    summary_new[output_name+'_val_mse'] = [f"{metrics_yy[output_name].val.mse:.2f}"]
-    summary_new[output_name+'_val_rmse'] = [f"{metrics_yy[output_name].val.rmse:.2f}"]
-    summary_new[output_name+'_val_mae'] = [f"{metrics_yy[output_name].val.mae:.2f}"]
+    output_metrics_yy = metrics_yy[output_name]
+    summary_new[output_name+'_val_r2'] = [f"{output_metrics_yy.val.r2:.2f}"]
+    summary_new[output_name+'_val_mse'] = [f"{output_metrics_yy.val.mse:.2f}"]
+    summary_new[output_name+'_val_rmse'] = [f"{output_metrics_yy.val.rmse:.2f}"]
+    summary_new[output_name+'_val_mae'] = [f"{output_metrics_yy.val.mae:.2f}"]
 
-    summary_new[output_name+'_test_r2'] = [f"{metrics_yy[output_name].test.r2:.2f}"]
-    summary_new[output_name+'_test_mse'] = [f"{metrics_yy[output_name].test.mse:.2f}"]
-    summary_new[output_name+'_test_rmse'] = [f"{metrics_yy[output_name].test.rmse:.2f}"]
-    summary_new[output_name+'_test_mae'] = [f"{metrics_yy[output_name].test.mae:.2f}"]
+    summary_new[output_name+'_test_r2'] = [f"{output_metrics_yy.test.r2:.2f}"]
+    summary_new[output_name+'_test_mse'] = [f"{output_metrics_yy.test.mse:.2f}"]
+    summary_new[output_name+'_test_rmse'] = [f"{output_metrics_yy.test.rmse:.2f}"]
+    summary_new[output_name+'_test_mae'] = [f"{output_metrics_yy.test.mae:.2f}"]
 df_summary_new = pd.DataFrame(summary_new)
-
-summary_path = os.path.join(yy_summary_dir, 'summary.csv')   # Previous summary
-if os.path.isfile(summary_path):
-    df_summary = pd.read_csv(summary_path, dtype=str)
-    df_summary = pd.concat([df_summary, df_summary_new], axis=0)
-else:
-    df_summary = df_summary_new
-os.makedirs(yy_summary_dir, exist_ok=True)
-yy_summary_path = os.path.join(yy_summary_dir, 'summary.csv')
-df_summary.to_csv(yy_summary_path, index=False)
+update_summary(nervusenv.summary_dir, nervusenv.csv_summary, df_summary_new)
 
 
 # ----- EOF -----

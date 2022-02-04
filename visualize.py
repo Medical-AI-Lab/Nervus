@@ -40,7 +40,7 @@ task = train_opt['task']
 mlp = train_opt['mlp']
 cnn = train_opt['cnn']
 gpu_ids = str2int(train_opt['gpu_ids'])
-device = set_device(gpu_ids)
+device, _ = set_device(gpu_ids)
 
 image_dir = os.path.join(dirs_dict['images_dir'], train_opt['image_dir'])
 

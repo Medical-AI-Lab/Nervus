@@ -5,7 +5,6 @@ set -eu
 gpu_ids="-1"
 hyperparameter_csv="./hyperparameters/hyperparameter.csv"
 
-
 train_log="./logs/train.log"
 test_log="./logs/test.log"
 roc_log="./logs/roc.log"

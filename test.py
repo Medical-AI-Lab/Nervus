@@ -15,25 +15,19 @@ from config.model import *
 
 
 args = TestOptions().parse()
+nervusenv = NervusEnv()
+datetime_dir = get_target(nervusenv.sets_dir, args['test_datetime'])   # args['test_datetime'] if exists or the latest
+hyperparameters_path = os.path.join(datetime_dir, nervusenv.csv_hyperparameters)
+train_hyperparameters = read_train_hyperparameters(hyperparameters_path)
+task = train_hyperparameters['task']
+mlp = train_hyperparameters['mlp']
+cnn = train_hyperparameters['cnn']
+gpu_ids = str2int(train_hyperparameters['gpu_ids'])
+device, _ = set_device(gpu_ids)
 
-dirs_dict = set_dirs()
-train_opt_log_dir = dirs_dict['train_opt_log']
-weight_dir = dirs_dict['weight']
-likelilhood_dir = dirs_dict['likelihood']
+image_dir = os.path.join(nervusenv.images_dir, train_hyperparameters['image_dir'])
+csv_dict = parse_csv(os.path.join(nervusenv.csvs_dir, train_hyperparameters['csv_name']), task)
 
-# Retrieve training options
-path_train_opt = get_target(dirs_dict['train_opt_log'], args['test_datetime'])  # the latest train_opt if test_datatime is None
-dt_name = get_dt_name(path_train_opt)
-train_opt = read_train_options(path_train_opt)
-task = train_opt['task']
-mlp = train_opt['mlp']
-cnn = train_opt['cnn']
-gpu_ids = str2int(train_opt['gpu_ids'])
-device = set_device(gpu_ids)
-
-image_dir = os.path.join(dirs_dict['images_dir'], train_opt['image_dir'])
-
-csv_dict = parse_csv(os.path.join(dirs_dict['csvs_dir'], train_opt['csv_name']), task)
 output_class_label = csv_dict['output_class_label']
 label_num_classes = csv_dict['label_num_classes']
 label_list = csv_dict['label_list']
@@ -42,16 +36,13 @@ output_list = csv_dict['output_list']
 num_inputs = csv_dict['num_inputs']
 id_column = csv_dict['id_column']
 split_column = csv_dict['split_column']
-if task == 'deepsurv':
-    period_column = csv_dict['period_column']
-else:
-    pass
+period_column = csv_dict['period_column']   # When classification or regression, None
 
 # Align option for test only
-test_weight = get_target(weight_dir, dt_name)
-test_batch_size = args['test_batch_size']                # Default: 64  No exixt in train_opt
-train_opt['preprocess'] = 'no'                           # No need of preprocess for image when test, Define no in test_options.py
-train_opt['normalize_image'] = args['normalize_image']   # Default: 'yes'
+test_weight = os.path.join(datetime_dir, nervusenv.weight)
+test_batch_size = args['test_batch_size']                            # Default: 64  No exixt in train_opt
+train_hyperparameters['preprocess'] = 'no'                           # No need of preprocess for image when test, Define no in test_options.py
+train_hyperparameters['normalize_image'] = args['normalize_image']   # Default: 'yes'
 
 
 # Data Loadar
@@ -63,11 +54,11 @@ else:
         from dataloader.dataloader_multi import *
     else:
         from dataloader.dataloader import *
-val_loader = dalaloader_mlp_cnn(train_opt, csv_dict, image_dir, split_list=['val'], batch_size=test_batch_size, sampler='no')
-test_loader = dalaloader_mlp_cnn(train_opt, csv_dict, image_dir, split_list=['test'], batch_size=test_batch_size, sampler='no')
+val_loader = dalaloader_mlp_cnn(train_hyperparameters, csv_dict, image_dir, split_list=['val'], batch_size=test_batch_size, sampler='no')
+test_loader = dalaloader_mlp_cnn(train_hyperparameters, csv_dict, image_dir, split_list=['test'], batch_size=test_batch_size, sampler='no')
 
 # Configure of model
-model = create_mlp_cnn(mlp, cnn, label_num_classes, num_inputs, device=gpu_ids)
+model = create_mlp_cnn(mlp, cnn, label_num_classes, num_inputs, gpu_ids=gpu_ids)
 weight = torch.load(test_weight)
 model.load_state_dict(weight)
 
@@ -279,11 +270,8 @@ else:
     pass
 print('Inference finished!')
 
-# Save inference result
-os.makedirs(likelilhood_dir, exist_ok=True)
-basename = get_basename(test_weight)
-likelihood_path = os.path.join(likelilhood_dir, basename) + '.csv'
+# Save likelohood
+likelihood_path = os.path.join(datetime_dir, nervusenv.csv_likelihood)
 df_result.to_csv(likelihood_path, index=False)
-
 
 # ----- EOF -----

@@ -32,20 +32,14 @@ num_epochs = args['epochs']
 batch_size = args['batch_size']
 sampler = args['sampler']
 gpu_ids = args['gpu_ids']
-device = set_device(gpu_ids)
+device, _ = set_device(gpu_ids)
 
-dirs_dict = set_dirs()
-train_opt_log_dir = dirs_dict['train_opt_log']
-weight_dir = dirs_dict['weight']
-learning_curve_dir = dirs_dict['learning_curve']
-
-image_dir = os.path.join(dirs_dict['images_dir'], args['image_dir'])
-
-csv_dict = parse_csv(os.path.join(dirs_dict['csvs_dir'], args['csv_name']), task)
+nervusenv = NervusEnv()
+image_dir = os.path.join(nervusenv.images_dir , args['image_dir'])
+csv_dict = parse_csv(os.path.join(nervusenv.csvs_dir, args['csv_name']), task)
 label_num_classes = csv_dict['label_num_classes']
 label_list = csv_dict['label_list']
 num_inputs = csv_dict['num_inputs']
-
 
 # Data Loadar
 if task == 'deepsurv':
@@ -60,8 +54,7 @@ train_loader = dalaloader_mlp_cnn(args, csv_dict, image_dir, split_list=['train'
 val_loader = dalaloader_mlp_cnn(args, csv_dict, image_dir, split_list=['val'], batch_size=batch_size, sampler=sampler)
 
 # Configure of training
-#model = CreateModel_MLPCNN(mlp, cnn, label_list, num_inputs, num_classes, device=gpu_ids)
-model = create_mlp_cnn(mlp, cnn, label_num_classes, num_inputs, device=gpu_ids)
+model = create_mlp_cnn(mlp, cnn, label_num_classes, num_inputs, gpu_ids=gpu_ids)
 criterion = set_criterion(criterion, device)
 optimizer = set_optimizer(optimizer, model, lr)
 
@@ -334,23 +327,25 @@ else:
         best_weight, val_best_loss, val_best_epoch, loss_acc_dict = execute_epoch_single_label(task, mlp, cnn, criterion, optimizer, num_epochs, device, label_list, train_loader, val_loader, model, val_best_loss, val_best_epoch, loss_acc_dict)
 print('Training finished!')
 
-# Save misc
+
+# Save
 date_now = datetime.datetime.now()
 date_name = date_now.strftime('%Y-%m-%d-%H-%M-%S')
-basename = make_basename(args, val_best_epoch, val_best_loss, date_name)
+save_dir = os.path.join(nervusenv.sets_dir, date_name)
+os.makedirs(save_dir, exist_ok=True)
 
-# Options
-os.makedirs(train_opt_log_dir, exist_ok=True)
-save_train_options(args, train_opt_log_dir, date_name)
+# Hyperparameters
+df_opt = pd.DataFrame(list(args.items()), columns=['option', 'value'])
+hyperparameters_path = os.path.join(save_dir, nervusenv.csv_hyperparameters)
+df_opt.to_csv(hyperparameters_path, index=False)
 
 # Weight
-os.makedirs(weight_dir, exist_ok=True)
-weight_path = os.path.join(weight_dir, basename) + '.pt'
+weight_path = os.path.join(save_dir, nervusenv.weight)
 torch.save(best_weight, weight_path)
 
 # Learning curve
-os.makedirs(learning_curve_dir, exist_ok=True)
-learning_curve_path = os.path.join(learning_curve_dir, basename) + '.csv'
+csv_learning_curve = nervusenv.csv_learning_curve.replace('.csv', '') + '_val-best-epoch-' + str(val_best_epoch) + '_val-best-loss-' + f"{val_best_loss:.4f}" + '.csv'
+learning_curve_path = os.path.join(save_dir, csv_learning_curve)
 df_learning_curve = pd.DataFrame(loss_acc_dict)
 df_learning_curve.to_csv(learning_curve_path, index=False)
 
