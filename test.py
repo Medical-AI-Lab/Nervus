@@ -23,16 +23,14 @@ task = train_hyperparameters['task']
 mlp = train_hyperparameters['mlp']
 cnn = train_hyperparameters['cnn']
 gpu_ids = str2int(train_hyperparameters['gpu_ids'])
-device, _ = set_device(gpu_ids)
+device = set_device(gpu_ids)
 
 image_dir = os.path.join(nervusenv.images_dir, train_hyperparameters['image_dir'])
 csv_dict = parse_csv(os.path.join(nervusenv.csvs_dir, train_hyperparameters['csv_name']), task)
-
 output_class_label = csv_dict['output_class_label']
 label_num_classes = csv_dict['label_num_classes']
 label_list = csv_dict['label_list']
 output_list = csv_dict['output_list']
-
 num_inputs = csv_dict['num_inputs']
 id_column = csv_dict['id_column']
 split_column = csv_dict['split_column']
@@ -58,7 +56,7 @@ val_loader = dalaloader_mlp_cnn(train_hyperparameters, csv_dict, image_dir, spli
 test_loader = dalaloader_mlp_cnn(train_hyperparameters, csv_dict, image_dir, split_list=['test'], batch_size=test_batch_size, sampler='no')
 
 # Configure of model
-model = create_mlp_cnn(mlp, cnn, label_num_classes, num_inputs, gpu_ids=gpu_ids)
+model = create_mlp_cnn(mlp, cnn, num_inputs, label_num_classes, gpu_ids=gpu_ids)
 weight = torch.load(test_weight)
 model.load_state_dict(weight)
 

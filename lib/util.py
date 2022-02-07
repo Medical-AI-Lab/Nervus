@@ -20,7 +20,7 @@ def set_device(gpu_ids):
         device = torch.device(device_name)
     else:
         device = torch.device('cpu')
-    return device, gpu_ids
+    return device
 
 
 def get_column_value(df, column_name:str, value_list:list):

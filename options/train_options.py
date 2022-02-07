@@ -69,7 +69,6 @@ class TrainOptions():
                 self.args.cnn = self.args.cnn[0]
             else:
                 self.args.cnn = None
-
         else:
             pass
             #Check the case of when no specifying model later

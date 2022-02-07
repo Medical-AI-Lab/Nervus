@@ -32,7 +32,7 @@ num_epochs = args['epochs']
 batch_size = args['batch_size']
 sampler = args['sampler']
 gpu_ids = args['gpu_ids']
-device, _ = set_device(gpu_ids)
+device = set_device(gpu_ids)
 
 nervusenv = NervusEnv()
 image_dir = os.path.join(nervusenv.images_dir , args['image_dir'])
@@ -54,7 +54,7 @@ train_loader = dalaloader_mlp_cnn(args, csv_dict, image_dir, split_list=['train'
 val_loader = dalaloader_mlp_cnn(args, csv_dict, image_dir, split_list=['val'], batch_size=batch_size, sampler=sampler)
 
 # Configure of training
-model = create_mlp_cnn(mlp, cnn, label_num_classes, num_inputs, gpu_ids=gpu_ids)
+model = create_mlp_cnn(mlp, cnn, num_inputs, label_num_classes, gpu_ids=gpu_ids)
 criterion = set_criterion(criterion, device)
 optimizer = set_optimizer(optimizer, model, lr)
 
