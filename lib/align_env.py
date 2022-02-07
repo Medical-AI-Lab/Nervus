@@ -92,7 +92,7 @@ def parse_csv(csv_path, task):
     else:
         csv_dict['period_column'] = None
 
-    # Cacsvst
+    # Cast
     # label_* : int
     # input_* : float
     cast_input_dict = {input: float for input in csv_dict['input_list']}
