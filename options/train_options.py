@@ -22,7 +22,7 @@ class TrainOptions():
         self.parser.add_argument('--model', type=str, default=None, help='model: MLP, CNN, MLP+CNN (Default: None)')
 
         # Training and Internal validation
-        self.parser.add_argument('--criterion', type=str,   default=None,               help='criterion: CrossEntropyLoss, MSE, RMSE, MAE (Default: None)')
+        self.parser.add_argument('--criterion', type=str,   default=None,               help='criterion: CEL, MSE, RMSE, MAE (Default: None)')
         self.parser.add_argument('--optimizer', type=str,   default=None,               help='optimzer:SGD, Adadelta, Adam, RMSprop (Default: None)')
         self.parser.add_argument('--lr',        type=float, default=0.001, metavar='N', help='learning rate: (Default: 0.001)')
         self.parser.add_argument('--epochs',    type=int,   default=10,    metavar='N', help='number of epochs (Default: 10)')
@@ -69,7 +69,6 @@ class TrainOptions():
                 self.args.cnn = self.args.cnn[0]
             else:
                 self.args.cnn = None
-
         else:
             pass
             #Check the case of when no specifying model later

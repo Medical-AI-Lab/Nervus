@@ -62,7 +62,7 @@ class NegativeLogLikelihood(nn.Module):
 
 
 def set_criterion(criterion_name, device):
-    if criterion_name == 'CrossEntropyLoss':
+    if criterion_name == 'CEL':
         criterion = nn.CrossEntropyLoss()
 
     elif criterion_name == 'MSE':

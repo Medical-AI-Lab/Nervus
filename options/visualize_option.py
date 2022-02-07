@@ -16,7 +16,6 @@ class VisualizeOptions():
 
     def parse(self):
         self.args = self.parser.parse_args()
-
         return vars(self.args)
 
 # ----- EOF -----
