@@ -6,10 +6,11 @@ can handle the following task:
 
 # Preparing
 ## CSV
-CSV must contain columns named 'id_XXX', 'filename', 'dir_to_image', 'input_XXX', 'label_XXX', and 'split'.
+CSV must contain columns named 'id_XXX', 'filename', 'filepath', 'label_XXX', and 'split'.
 
 Note 'id_XXX' must be unique.
 
+When you use inputs other than image, 'input_XXX' is needed. 
 When you use deepsurv, 'periords_XXX' is needed as well.
 ## Model development
 For training, validation, and testing, `hyperparameter.csv` and `work_all.sh` should be modified.
