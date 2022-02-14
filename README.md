@@ -7,7 +7,11 @@ Nervus can handle the following task:
 
 # Preparing
 ## CSV
+<<<<<<< HEAD
 CSV must contain columns named 'id_XXX', 'filepath', 'output_XXX', and 'split'.
+=======
+CSV must contain columns named 'id_XXX', 'filename', 'filepath', 'output_XXX', and 'split'.
+>>>>>>> a968d889195bbec3e74d199485154d3ec6fea19d
 
 Note 'id_XXX' must be unique.
 
