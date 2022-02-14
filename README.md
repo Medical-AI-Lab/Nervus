@@ -23,7 +23,7 @@ Other parameters are defined in the `hyperparameter.csv`.
 
 # Task
 ## Single-label/Multi-label output classification, regression, or deepsurv.
-Use `train.py`, `test.py` for all task. And also, `evaluation/roc.py`, `evaluation/yy.py` or `evaluation/c_index.py` are used depending on task.
+For all task, `train.py` and `test.py` are used. And also, `evaluation/roc.py`, `evaluation/yy.py` or `evaluation/c_index.py` are used depending on task.
 
 
 # Debugging
