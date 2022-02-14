@@ -67,7 +67,7 @@ for output_name, class_label_dict in output_class_label.items():
     column_class_label_names = []
     if task == 'classification':
         for class_name in class_label_dict.keys():
-            column_class_label_names.append('pred_' + output_name + '_' + class_name)
+            column_class_label_names.append('pred_' + output_name + '_' + str(class_name))
     else:
     # When regression or deepsurv
         column_class_label_names.append('pred_' + output_name)

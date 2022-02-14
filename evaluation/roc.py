@@ -56,7 +56,7 @@ def cal_roc_binary_class(output_name, df_likelihood):
         df_likelihood_split = df_likelihood[df_likelihood['split']==split]
         y_true_split = df_likelihood_split[output_name]
         y_score_split = df_likelihood_split[pred_positive_name]
-        fpr_split, tpr_split, thresholds_split = metrics.roc_curve(y_true_split, y_score_split, pos_label=positive_class)
+        fpr_split, tpr_split, thresholds_split = metrics.roc_curve(y_true_split.astype('str'), y_score_split, pos_label=positive_class)
         if split == 'val':
             output_roc.val = ROC(fpr=AverageType(micro=fpr_split),
                                  tpr=AverageType(micro=tpr_split),
