@@ -6,7 +6,7 @@ can handle the following task:
 
 # Preparing
 ## CSV
-CSV must contain columns named 'id_XXX', 'filename', 'filepath', 'label_XXX', and 'split'.
+CSV must contain columns named 'id_XXX', 'filename', 'filepath', 'output_XXX', and 'split'.
 
 Note 'id_XXX' must be unique.
 
