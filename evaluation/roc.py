@@ -43,15 +43,16 @@ class OutputROC:
     val: ROC
     test: ROC
 
+
 # ROC for single-output-binary-class
 def cal_roc_binary_class(output_name, df_likelihood):
     output_roc = OutputROC(val=None, test=None)
     POSITIVE = 1
-    pred_name_list = [column_name for column_name in df_likelihood.columns if column_name.startswith('pred')]
+    pred_name_list = [column_name for column_name in df_likelihood.columns if column_name.startswith('pred_'+output_name)]
     pred_positive_name = pred_name_list[POSITIVE]
-    class_list = [column_name.rsplit('_', 1)[1] for column_name in pred_name_list]   # ['pred_output_1_discharge', pred_output_decease] -> ['discharge', 'decease']
+    class_list = [column_name.rsplit('_', 1)[1] for column_name in pred_name_list]   # [pred_output_discharge, pred_output_decease] -> ['discharge', 'decease']
     positive_class = class_list[POSITIVE]
-    print(pred_positive_name)
+    #print(pred_positive_name)
     for split in ['val', 'test']:
         df_likelihood_split = df_likelihood[df_likelihood['split']==split]
         y_true_split = df_likelihood_split[output_name]
@@ -71,8 +72,8 @@ def cal_roc_binary_class(output_name, df_likelihood):
 
 # Macro-average ROC for single-output-multi-class
 def cal_roc_multi_class(output_name, df_likelihood):
-    pred_name_list = [column_name for column_name in df_likelihood if column_name.startswith('pred')]
-    class_list = [column_name.rsplit('_', 1)[1] for column_name in pred_name_list]   # ['pred_output_1_discharge', ...] -> ['discharge', ...]
+    pred_name_list = [column_name for column_name in df_likelihood if column_name.startswith('pred_'+output_name)]
+    class_list = [column_name.rsplit('_', 1)[1] for column_name in pred_name_list]   # ['pred_output_discharge', ...] -> ['discharge', ...]
     num_classes = len(class_list)
 
     for split in ['val', 'test']:
@@ -182,7 +183,9 @@ plt.savefig(roc_path)
 datetime = os.path.basename(datetime_dir)
 summary_new = dict()
 summary_new['datetime'] = [datetime]
-for output_name in metrics_roc.keys():
+for output_name, output_roc in metrics_roc.items():
+    auc_val = output_roc.val.auc.micro if (output_roc.val.auc.micro is not None) else output_roc.val.auc.macro
+    auc_test = output_roc.test.auc.micro if (output_roc.test.auc.micro is not None) else output_roc.test.auc.macro
     summary_new[output_name+'_val_auc'] = [f"{auc_val:.2f}"]
     summary_new[output_name+'_test_auc'] = [f"{auc_test:.2f}"]
 df_summary_new = pd.DataFrame(summary_new)
