@@ -35,14 +35,18 @@ Set directories as follows.
 CSV must contain columns named `id_XXX`, `filepath`, `output_XXX`, and `split`.
 
 Examples:
-id_uniq, filepath, output_cancer, split
-0001, png/AAA.png, malignant, train
-0002, png/BBB.png, bening, val
-0003, png/CCC.png, bening, test
-0004, png/DDD.png, malignant, train
-:
-:
-:
+| id_uniq | filepath | output_cancer | split |
+| -----| ----------- | --------- | ----- |
+| 0001 | png_128/AAA.png | malignant | train |
+| 0002 | png_128/BBB.png | bening | val |
+| 0003 | png_128/CCC.png | malignant | train |
+| 0004 | png_128/DDD.png | malignant | test |
+| 0005 | png_128/EEE.png | bening | train |
+| 0006 | png_128/FFF.png | malignant | train |
+| 0007 | png_128/GGG.png | bening | train |
+| 0008 | png_128/HHH.png | bening | val |
+| 0009 | png_128/III.png | malignant | test |
+| :  | : | : | : |
 
 Note `id_XXX` must be unique.
 `filepath` should have a path to images for the model.
