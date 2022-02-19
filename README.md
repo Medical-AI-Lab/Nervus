@@ -47,8 +47,8 @@ id_uniq, filepath, output_cancer, split
 Note `id_XXX` must be unique.
 `filepath` should have a path to images for the model.
 `output_XXX` should have a classification target. Any name is available. If you use more than two `output_XXX`, it will be automatically recognize multi-label classification and automatically prepare a proper number of classifiers (FCs). 
-When you use inputs other than image, 'input_XXX' is needed. 
-When you use deepsurv, 'periords_XXX' is needed as well.
+When you use inputs other than image, `input_XXX` is needed. 
+When you use deepsurv, `periords_XXX` is needed as well.
 
 ## Model development
 For training, validation, and testing, `hyperparameter.csv` and `work_all.sh` should be modified.
