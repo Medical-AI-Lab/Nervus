@@ -4,8 +4,31 @@ Nervus can handle the following task:
 - Single/Multi-label-output regression with any of MLP, CNN, or MLP+CNN.
 - DeepSurv with any of MLP, CNN, or MLP+CNN.
 
+# Overview
+This is an AI model used for single/multi-label and/or single/multi-class tasks with image and/or tabular data.
+Although this has a possibility to apply wide range of fields, we inteded to use this model for medical imaging classification task.
 
-# Preparing
+Additionally, we merged DeepSurv model [citation] into this model, which is a model that merges Cox proportional hazard model with deep learning. It is a useful model for prognosis estimation by dealing with binary variables such as deseace or not, and the period until the event. The original DeepSurv model could only handle tabular data, but we have added images to it.
+
+## Beief Usage
+- Directory tree
+┌Nervus (this repository)
+└materials
+  └images
+  └csvs
+    └trials.csv (any name is available if you change hyperparameters/hyperparameters.csv)
+
+- Brief modification for your taks
+  - hyperparameters/hyperparameters.csv
+    CSV must contain columns named 'id_XXX', 'filepath', 'output_XXX', and 'split'.
+    Detailed explanation is shown in below.
+  - work_all.sh
+    Change gpu_ids depending on how many GPUs you can use. Default is "-1" which means to use CPU only.
+
+- To work
+$bash work_all.sh
+
+# Detailed Preparation
 ## CSV
 CSV must contain columns named 'id_XXX', 'filepath', 'output_XXX', and 'split'.
 
