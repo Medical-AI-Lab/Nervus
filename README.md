@@ -38,13 +38,13 @@ Examples:
 | id_uniq | filepath | output_cancer | split |
 | -----| ----------- | --------- | ----- |
 | 0001 | png_128/AAA.png | malignant | train |
-| 0002 | png_128/BBB.png | bening | val |
+| 0002 | png_128/BBB.png | benign | val |
 | 0003 | png_128/CCC.png | malignant | train |
 | 0004 | png_128/DDD.png | malignant | test |
-| 0005 | png_128/EEE.png | bening | train |
+| 0005 | png_128/EEE.png | benign | train |
 | 0006 | png_128/FFF.png | malignant | train |
-| 0007 | png_128/GGG.png | bening | train |
-| 0008 | png_128/HHH.png | bening | val |
+| 0007 | png_128/GGG.png | benign | train |
+| 0008 | png_128/HHH.png | benign | val |
 | 0009 | png_128/III.png | malignant | test |
 | :  | : | : | : |
 
