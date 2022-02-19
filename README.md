@@ -13,9 +13,13 @@ Additionally, we merged DeepSurv model [citation] into this model, which is a mo
 ## Beief Usage
 - Directory tree
 ┌Nervus (this repository)
+
 └materials
+
   └images
+  
   └csvs
+  
     └trials.csv (any name is available if you change hyperparameters/hyperparameters.csv)
 
 - Brief modification for your taks
