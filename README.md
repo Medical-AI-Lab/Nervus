@@ -11,11 +11,11 @@ Although this has a possibility to apply wide range of fields, we inteded to use
 Additionally, we merged DeepSurv model [citation] into this model, which is a model that merges Cox proportional hazard model with deep learning. It is a useful model for prognosis estimation by dealing with binary variables such as deseace or not, and the period until the event. The original DeepSurv model could only handle tabular data, but we have added images to it.
 
 # Beief Usage
-- Directory tree
+- Directory tree  
 Set directories as follows.  
 
 ┌Nervus (this repository)  
-└materials  
+└materials   
 　└images (this repository has image files for CNN.)  
 　└csvs  
 　　　 └trials.csv (any name is available if you change `hyperparameters/hyperparameters.csv`)
@@ -27,7 +27,7 @@ Set directories as follows.
   - work_all.sh
     Change `gpu_ids` depending on how many GPUs you can use. Default is "-1" which means to use CPU only.
 
-- To work and evaluate   
+- To work and evaluate  
 `$bash work_all.sh`
 
 # Detailed Preparation
