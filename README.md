@@ -53,6 +53,7 @@ Examples:
 Note `id_XXX` must be unique.
 `filepath` should have a path to images for the model.
 `output_XXX` should have a classification target. Any name is available. If you use more than two `output_XXX`, it will be automatically recognize multi-label classification and automatically prepare a proper number of classifiers (FCs). 
+`split` shoudld have `train`, `val`, and `test`.
 When you use inputs other than image, `input_XXX` is needed. 
 When you use deepsurv, `periords_XXX` is needed as well.
 
