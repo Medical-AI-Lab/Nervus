@@ -1,14 +1,13 @@
 # Nervus
+This is an AI model used for single/multi-label and/or single/multi-class tasks with image and/or tabular data.
+Although this has a possibility to apply wide range of fields, we inteded to use this model for medical imaging classification task.
+
+Additionally, we merged DeepSurv model [citation] into this model, which is a model that merges Cox proportional hazard model with deep learning. It is a useful model for prognosis estimation by dealing with binary variables such as deseace or not, and the period until the event. The original DeepSurv model could only handle tabular data, but we have added images to it.  
+
 Nervus can handle the following task:
 - Single/Multi-label-output classification with any of MLP, CNN, or MLP+CNN.
 - Single/Multi-label-output regression with any of MLP, CNN, or MLP+CNN.
 - DeepSurv with any of MLP, CNN, or MLP+CNN.
-
-# Overview
-This is an AI model used for single/multi-label and/or single/multi-class tasks with image and/or tabular data.
-Although this has a possibility to apply wide range of fields, we inteded to use this model for medical imaging classification task.
-
-Additionally, we merged DeepSurv model [citation] into this model, which is a model that merges Cox proportional hazard model with deep learning. It is a useful model for prognosis estimation by dealing with binary variables such as deseace or not, and the period until the event. The original DeepSurv model could only handle tabular data, but we have added images to it.
 
 # Beief Usage
 - Directory tree  
