@@ -29,6 +29,8 @@ Set directories as follows.
 - To work and evaluate  
 `$bash work_all.sh`
 
+See Google Colab codes.
+
 # Detailed Preparation
 ## CSV
 This is the csv which we show as trials.csv in the brief usage section.  
