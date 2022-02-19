@@ -12,12 +12,13 @@ Additionally, we merged DeepSurv model [citation] into this model, which is a mo
 
 ## Beief Usage
 - Directory tree
+Set directories as follows.  
 
 ┌Nervus (this repository)  
 └materials  
-　└images (this has image files for CNN.)  
+　└images (this repository has image files for CNN.)  
 　└csvs  
-　　　└trials.csv (any name is available if you change `hyperparameters/hyperparameters.csv`)
+　　　 └trials.csv (any name is available if you change `hyperparameters/hyperparameters.csv`)
 
 - Brief modification for your taks
   - hyperparameters/hyperparameters.csv
