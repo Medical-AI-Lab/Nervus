@@ -31,6 +31,7 @@ Set directories as follows.
 
 # Detailed Preparation
 ## CSV
+This is the csv which we show as trials.csv in the brief usage section.  
 CSV must contain columns named `id_XXX`, `filepath`, `output_XXX`, and `split`.
 
 Examples:
