@@ -13,25 +13,21 @@ Additionally, we merged DeepSurv model [citation] into this model, which is a mo
 ## Beief Usage
 - Directory tree
 
-┌Nervus (this repository)
-
-└materials
-
-  └images
-  
-  └csvs
-  
-    └trials.csv (any name is available if you change hyperparameters/hyperparameters.csv)
+┌Nervus (this repository)  
+└materials  
+　└images (this has image files for CNN.)  
+　└csvs  
+　　　└trials.csv (any name is available if you change `hyperparameters/hyperparameters.csv`)
 
 - Brief modification for your taks
   - hyperparameters/hyperparameters.csv
-    CSV must contain columns named 'id_XXX', 'filepath', 'output_XXX', and 'split'.
+    CSV must contain columns named `id_XXX`, `filepath`, `output_XXX`, and `split`.  
     Detailed explanation is shown in below.
   - work_all.sh
-    Change gpu_ids depending on how many GPUs you can use. Default is "-1" which means to use CPU only.
+    Change `gpu_ids` depending on how many GPUs you can use. Default is "-1" which means to use CPU only.
 
 - To work
-$bash work_all.sh
+`$bash work_all.sh`
 
 # Detailed Preparation
 ## CSV
