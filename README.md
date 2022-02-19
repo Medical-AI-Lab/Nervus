@@ -27,15 +27,26 @@ Set directories as follows.
   - work_all.sh
     Change `gpu_ids` depending on how many GPUs you can use. Default is "-1" which means to use CPU only.
 
-- To work
+- To work and evaluate   
 `$bash work_all.sh`
 
 # Detailed Preparation
 ## CSV
-CSV must contain columns named 'id_XXX', 'filepath', 'output_XXX', and 'split'.
+CSV must contain columns named `id_XXX`, `filepath`, `output_XXX`, and `split`.
 
-Note 'id_XXX' must be unique.
+Examples:
+id_uniq, filepath, output_cancer, split
+0001, png/AAA.png, malignant, train
+0002, png/BBB.png, bening, val
+0003, png/CCC.png, bening, test
+0004, png/DDD.png, malignant, train
+:
+:
+:
 
+Note `id_XXX` must be unique.
+`filepath` should have a path to images for the model.
+`output_XXX` should have a classification target. Any name is available. If you use more than two `output_XXX`, it will be automatically recognize multi-label classification and automatically prepare a proper number of classifiers (FCs). 
 When you use inputs other than image, 'input_XXX' is needed. 
 When you use deepsurv, 'periords_XXX' is needed as well.
 
