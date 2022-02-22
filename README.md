@@ -1,15 +1,15 @@
 # Nervus
 This is an AI model used for single/multi-label and/or single/multi-class tasks with image and/or tabular data.
-Although this has a possibility to apply wide range of fields, we inteded to use this model for medical imaging classification task.
+Although this has a possibility to apply wide range of fields, we intended to use this model for medical imaging classification task.
 
-Additionally, we merged DeepSurv model [citation] into this model, which is a model that merges Cox proportional hazard model with deep learning. It is a useful model for prognosis estimation by dealing with binary variables such as deseace or not, and the period until the event. The original DeepSurv model could only handle tabular data, but we have added images to it.  
+Additionally, we merged DeepSurv model [citation] into this model, which is a model that merges Cox proportional hazard model with deep learning. It is a useful model for prognosis estimation by dealing with binary variables such as decease or not, and the period until the event. The original DeepSurv model could only handle tabular data, but we have added images to it.  
 
 Nervus can handle the following task:
 - Single/Multi-label-output classification with any of MLP, CNN, or MLP+CNN.
 - Single/Multi-label-output regression with any of MLP, CNN, or MLP+CNN.
 - DeepSurv with any of MLP, CNN, or MLP+CNN.
 
-# Beief Usage
+# Brief Usage
 - Directory tree  
 Set directories as follows.  
 
@@ -19,7 +19,7 @@ Set directories as follows.
 　└csvs  
 　　　 └trials.csv (any name is available if you change `hyperparameters/hyperparameters.csv`)
 
-- Brief modification for your taks
+- Brief modification for your task
   - hyperparameters/hyperparameters.csv
     CSV must contain columns named `id_XXX`, `filepath`, `output_XXX`, and `split`.  
     Detailed explanation is shown in below.
@@ -29,7 +29,8 @@ Set directories as follows.
 - To work and evaluate  
 `$bash work_all.sh`
 
-See Google Colab codes.
+See Google Colab codes.  
+https://colab.research.google.com/drive/1vpP-veRHPnTEwzDOzRZ0cXcHHY0u7-oJ
 
 # Detailed Preparation
 ## CSV
@@ -53,7 +54,7 @@ Examples:
 Note `id_XXX` must be unique.
 `filepath` should have a path to images for the model.
 `output_XXX` should have a classification target. Any name is available. If you use more than two `output_XXX`, it will be automatically recognize multi-label classification and automatically prepare a proper number of classifiers (FCs). 
-`split` shoudld have `train`, `val`, and `test`.
+`split` should have `train`, `val`, and `test`.
 When you use inputs other than image, `input_XXX` is needed. 
 When you use deepsurv, `periords_XXX` is needed as well.
 
@@ -97,9 +98,7 @@ For all task, `train.py` and `test.py` are used. And also, `evaluation/roc.py`, 
 Edit Makefile according to task.
 
 ## env
-'''
-~/lib/align_env.py
-'''
+`~/lib/align_env.py`
 
 # CUDA VERSION
 CUDA Version = 11.3, 11.4
