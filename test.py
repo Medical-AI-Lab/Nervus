@@ -128,9 +128,10 @@ def execute_test_single_label(task, mlp, cnn, device, id_column, split_column, v
                 df_raw_output = pd.DataFrame({output_name: raw_outputs})
                 df_likelihood = pd.DataFrame(likelihood_ratio, columns=column_output_class_names_dict[output_name])
                 df_tmp = pd.concat([df_id, df_raw_output, df_likelihood, df_split], axis=1)
-                df_result = df_result.append(df_tmp, ignore_index=True)
+                df_result = pd.concat([df_result, df_tmp], ignore_index=True)
 
     return val_acc, test_acc, df_result
+
 
 def execute_test_multi_label(task, mlp, cnn, device, id_column, split_column, val_loader, test_loader, model, column_output_class_names_dict):
     model.eval()
@@ -192,8 +193,9 @@ def execute_test_multi_label(task, mlp, cnn, device, id_column, split_column, va
                     df_likelihood_tmp = pd.concat([df_likelihood_tmp, df_raw_output, df_likelihood], axis=1)
 
                 df_tmp = pd.concat([df_id, df_likelihood_tmp, df_split], axis=1)
-                df_result = df_result.append(df_tmp, ignore_index=True)
+                df_result = pd.concat([df_result, df_tmp], ignore_index=True)
     return val_acc, test_acc, df_result
+
 
 def execute_test_deepsurv(mlp, cnn, device, id_column, split_column, period_column, val_loader, test_loader, model, column_output_class_names_dict):
     model.eval()
@@ -237,12 +239,12 @@ def execute_test_deepsurv(mlp, cnn, device, id_column, split_column, period_colu
                 df_likelihood = pd.DataFrame(likelihood_ratio, columns=column_output_class_names_dict[output_name])
                 df_period = pd.DataFrame({period_column: periods})
                 df_tmp = pd.concat([df_id, df_raw_output, df_label, df_period, df_likelihood, df_split], axis=1)
-                df_result = df_result.append(df_tmp, ignore_index=True)
+                df_result = pd.concat([df_result, df_tmp], ignore_index=True)
     return df_result
 
 
 # Inference
-print ('Inference started...')
+print('Inference started...')
 val_total = len(val_loader.dataset)
 test_total = len(test_loader.dataset)
 print(f" val_data = {val_total}")
