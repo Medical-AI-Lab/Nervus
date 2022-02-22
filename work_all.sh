@@ -28,6 +28,14 @@ rm -f "$roc_log"
 rm -f "$yy_log"
 rm -f "$c_index_log"
 
+while getopts ":g" optKey; do
+  case "$optKey" in
+    g)
+      gpu_ids="0"
+      ;;
+  esac
+done
+
 #1 task,
 #2 csv_name,
 #3 image_dir,
