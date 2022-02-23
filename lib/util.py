@@ -27,8 +27,8 @@ def get_column_value(df, column_name:str, value_list:list):
     assert (value_list!=[]), 'The list of values is empty list.' #  ie. When value_list==[], raise AssertionError.
     df_result = pd.DataFrame([])
     for value in value_list:
-        df_tmp = df[df[column_name]==value]
-        df_result = df_result.append(df_tmp, ignore_index=True)
+        df_tmp = df[df[column_name] == value]
+        df_result = pd.concat([df_result, df_tmp], ignore_index=True)
     return df_result
 
 
