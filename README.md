@@ -15,9 +15,9 @@ Set directories as follows.
 
 ┌Nervus (this repository)  
 └materials   
-　└images (this repository has image files for CNN.)  
-　└csvs  
-　　　 └trials.csv (any name is available if you change `hyperparameters/hyperparameters.csv`)
+　　└images (this repository has image files for CNN.)  
+　　└csvs  
+　　　　 └trials.csv (any name is available if you change `hyperparameters/hyperparameters.csv`)
 
 - Brief modification for your task
   - hyperparameters/hyperparameters.csv  
