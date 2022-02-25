@@ -20,10 +20,10 @@ Set directories as follows.
 　　　 └trials.csv (any name is available if you change `hyperparameters/hyperparameters.csv`)
 
 - Brief modification for your task
-  - hyperparameters/hyperparameters.csv
+  - hyperparameters/hyperparameters.csv  
     CSV must contain columns named `id_XXX`, `filepath`, `output_XXX`, and `split`.  
     Detailed explanation is shown in below.
-  - work_all.sh
+  - work_all.sh  
     Change `gpu_ids` depending on how many GPUs you can use. Default is "-1" which means to use CPU only.
 
 - To work and evaluate  
