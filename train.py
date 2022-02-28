@@ -41,15 +41,23 @@ label_num_classes = csv_dict['label_num_classes']
 label_list = csv_dict['label_list']
 num_inputs = csv_dict['num_inputs']
 
-# Data Loadar
+## choice dataloader and function to execute
 if task == 'deepsurv':
     from dataloader.dataloader_deepsurv import *
-else:
-    # when classification or regression
+    def execute(*args):
+        return execute_epoch_deepsurv(*args)
+else: # classification or regression
     if len(label_list) > 1:
+        # Multi-label outputs
         from dataloader.dataloader_multi import *
+        def execute(*args):
+            return execute_epoch_multi_label(*args)
     else:
+        # Single-label output
         from dataloader.dataloader import *
+        def execute(*args):
+            return execute_epoch_single_label(*args)
+
 train_loader = dataloader_mlp_cnn(args, csv_dict, image_dir, split_list=['train'], batch_size=batch_size, sampler=sampler)
 val_loader = dataloader_mlp_cnn(args, csv_dict, image_dir, split_list=['val'], batch_size=batch_size, sampler=sampler)
 
@@ -67,47 +75,6 @@ if task == 'classification':
 else:
     # When regression or deepsurv
     loss_acc_dict = {'train_loss': [], 'val_loss': []}
-
-def update_loss_acc_dict(task, num_epochs, loss_acc_dict, epoch, phase, running_loss, running_acc, len_dataloader, len_label_list, val_best_loss, val_best_epoch):
-    update_comment = None
-    update_flag = None
-
-    if task == 'classification':
-        epoch_loss = running_loss / (len_dataloader * len_label_list)
-        epoch_acc = running_acc / (len_dataloader * len_label_list)
-        if phase == 'train':
-            loss_acc_dict['train_loss'].append(epoch_loss)
-            loss_acc_dict['train_acc'].append(epoch_acc)
-        else: # elif phase == 'val':
-            loss_acc_dict['val_loss'].append(epoch_loss)
-            loss_acc_dict['val_acc'].append(epoch_acc)
-    else:
-        # When regression or deepsurv
-        epoch_loss = running_loss / (len_dataloader * len_label_list)
-        if phase == 'train':
-            loss_acc_dict['train_loss'].append(epoch_loss)
-        else: # elif phase == 'val':
-            loss_acc_dict['val_loss'].append(epoch_loss)
-
-    # Check if val_best_loss
-    if (phase == 'val') and ((val_best_loss is None) or (epoch_loss < val_best_loss)):
-        val_best_loss = epoch_loss
-        val_best_epoch = epoch + 1
-        update_comment = ' Updated val_best_loss!'
-        update_flag = True
-    else:
-        update_comment = ''
-        update_flag = False
-
-    # Print loss and acc at lats epoch
-    if phase == 'val':
-        if task == 'classification':
-            print(f"epoch [{epoch+1:>3}/{num_epochs:<3}], train_loss: {loss_acc_dict['train_loss'][-1]:.4f}, val_loss: {loss_acc_dict['val_loss'][-1]:.4f}, val_acc: {loss_acc_dict['val_acc'][-1]:.4f}" + update_comment)
-        else:
-            # When regression or deepsurv
-            print(f"epoch [{epoch+1:>3}/{num_epochs:<3}], train_loss: {loss_acc_dict['train_loss'][-1]:.4f}, val_loss: {loss_acc_dict['val_loss'][-1]:.4f}" + update_comment)
-
-    return loss_acc_dict, val_best_loss, val_best_epoch, update_flag
 
 
 def execute_epoch_single_label(task, mlp, cnn, criterion, optimizer, num_epochs, device, label_list, train_loader, val_loader, model, val_best_loss, val_best_epoch, loss_acc_dict):
@@ -310,6 +277,47 @@ def execute_epoch_deepsurv(task, mlp, cnn, criterion, optimizer, num_epochs, dev
                 best_weight = copy.deepcopy(model.state_dict())
     return best_weight,val_best_loss,val_best_epoch,loss_acc_dict
 
+def update_loss_acc_dict(task, num_epochs, loss_acc_dict, epoch, phase, running_loss, running_acc, len_dataloader, len_label_list, val_best_loss, val_best_epoch):
+    update_comment = None
+    update_flag = None
+
+    if task == 'classification':
+        epoch_loss = running_loss / (len_dataloader * len_label_list)
+        epoch_acc = running_acc / (len_dataloader * len_label_list)
+        if phase == 'train':
+            loss_acc_dict['train_loss'].append(epoch_loss)
+            loss_acc_dict['train_acc'].append(epoch_acc)
+        else: # elif phase == 'val':
+            loss_acc_dict['val_loss'].append(epoch_loss)
+            loss_acc_dict['val_acc'].append(epoch_acc)
+    else:
+        # When regression or deepsurv
+        epoch_loss = running_loss / (len_dataloader * len_label_list)
+        if phase == 'train':
+            loss_acc_dict['train_loss'].append(epoch_loss)
+        else: # elif phase == 'val':
+            loss_acc_dict['val_loss'].append(epoch_loss)
+
+    # Check if val_best_loss
+    if (phase == 'val') and ((val_best_loss is None) or (epoch_loss < val_best_loss)):
+        val_best_loss = epoch_loss
+        val_best_epoch = epoch + 1
+        update_comment = ' Updated val_best_loss!'
+        update_flag = True
+    else:
+        update_comment = ''
+        update_flag = False
+
+    # Print loss and acc at lats epoch
+    if phase == 'val':
+        if task == 'classification':
+            print(f"epoch [{epoch+1:>3}/{num_epochs:<3}], train_loss: {loss_acc_dict['train_loss'][-1]:.4f}, val_loss: {loss_acc_dict['val_loss'][-1]:.4f}, val_acc: {loss_acc_dict['val_acc'][-1]:.4f}" + update_comment)
+        else:
+            # When regression or deepsurv
+            print(f"epoch [{epoch+1:>3}/{num_epochs:<3}], train_loss: {loss_acc_dict['train_loss'][-1]:.4f}, val_loss: {loss_acc_dict['val_loss'][-1]:.4f}" + update_comment)
+
+    return loss_acc_dict, val_best_loss, val_best_epoch, update_flag
+
 def save_result(best_weight, val_best_loss, val_best_epoch, loss_acc_dict):
     # Save
     date_now = datetime.datetime.now()
@@ -339,16 +347,8 @@ if __name__=="__main__":
     print(f"train_data = {len(train_loader.dataset)}")
     print(f"  val_data = {len(val_loader.dataset)}")
 
-    if task == 'deepsurv':
-        best_weight, val_best_loss, val_best_epoch, loss_acc_dict = execute_epoch_deepsurv(task, mlp, cnn, criterion, optimizer, num_epochs, device, label_list, train_loader, val_loader, model, val_best_loss, val_best_epoch, loss_acc_dict)
-    else:
-        # When classification or regression
-        if len(label_list) > 1:
-            # Multi-label outputs
-            best_weight, val_best_loss, val_best_epoch, loss_acc_dict = execute_epoch_multi_label(task, mlp, cnn, criterion, optimizer, num_epochs, device, label_list, train_loader, val_loader, model, val_best_loss, val_best_epoch, loss_acc_dict)
-        else:
-            # Single-label output
-            best_weight, val_best_loss, val_best_epoch, loss_acc_dict = execute_epoch_single_label(task, mlp, cnn, criterion, optimizer, num_epochs, device, label_list, train_loader, val_loader, model, val_best_loss, val_best_epoch, loss_acc_dict)
+    best_weight, val_best_loss, val_best_epoch, loss_acc_dict = execute(task, mlp, cnn, criterion, optimizer, num_epochs, device, label_list, train_loader, val_loader, model, val_best_loss, val_best_epoch, loss_acc_dict)
+
     print('Training finished!')
 
     save_result(best_weight, val_best_loss, val_best_epoch, loss_acc_dict)
