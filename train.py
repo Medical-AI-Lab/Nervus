@@ -50,8 +50,8 @@ else:
         from dataloader.dataloader_multi import *
     else:
         from dataloader.dataloader import *
-train_loader = dalaloader_mlp_cnn(args, csv_dict, image_dir, split_list=['train'], batch_size=batch_size, sampler=sampler)
-val_loader = dalaloader_mlp_cnn(args, csv_dict, image_dir, split_list=['val'], batch_size=batch_size, sampler=sampler)
+train_loader = dataloader_mlp_cnn(args, csv_dict, image_dir, split_list=['train'], batch_size=batch_size, sampler=sampler)
+val_loader = dataloader_mlp_cnn(args, csv_dict, image_dir, split_list=['val'], batch_size=batch_size, sampler=sampler)
 
 # Configure of training
 model = create_mlp_cnn(mlp, cnn, num_inputs, label_num_classes, gpu_ids=gpu_ids)

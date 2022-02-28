@@ -124,9 +124,9 @@ class LoadDataSet_MLP_CNN(Dataset):
         return id, raw_output_dict, label_dict, inputs_value_normed, image, split
 
 
-def dalaloader_mlp_cnn(args, csv_dict, images_dir, split_list=None, batch_size=None, sampler=None):
+def dataloader_mlp_cnn(args, csv_dict, images_dir, split_list=None, batch_size=None, sampler=None):
     assert (split_list is not None), 'Specify split to make dataloader.'
-    assert (args['sampler'] == 'no'), 'samper should be no when multi-ouputs classification, but yes was specified.'
+    assert (sampler == 'no'), 'samper should be no when multi-ouputs classification or multi-outputs regresson, but yes was specified.'
 
     split_data = LoadDataSet_MLP_CNN(args, csv_dict, images_dir, split_list)
     split_loader = DataLoader(

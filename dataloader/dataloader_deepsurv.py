@@ -128,13 +128,13 @@ class LoadDataSet_DeepSurv(Dataset):
 
 
 
-def dalaloader_mlp_cnn(args, csv_dict, images_dir, split_list=None, batch_size=None, sampler=None):
+def dataloader_mlp_cnn(args, csv_dict, images_dir, split_list=None, batch_size=None, sampler=None):
     assert (split_list is not None), 'Specify split to make dataloader.'
 
     split_data = LoadDataSet_DeepSurv(args, csv_dict, images_dir, split_list)
 
     # Make sampler
-    if args['sampler'] == 'yes':
+    if sampler == 'yes':
         target = []
         for _, (_, _, label, _, _, _, _) in enumerate(split_data):
             target.append(label)
