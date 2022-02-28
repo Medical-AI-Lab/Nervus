@@ -17,10 +17,10 @@ from config.optimizer import set_optimizer
 from config.model import *
 
 
-args = TrainOptions().parse()
-
+train_option_parser = TrainOptions()
+args = train_option_parser.parse()
 #TrainOptions().is_option_valid(args)
-TrainOptions().print_options(args)
+train_option_parser.print_options()
 
 task = args['task']
 mlp = args['mlp']
