@@ -294,7 +294,7 @@ def execute_epoch_deepsurv(task, mlp, cnn, criterion, optimizer, num_epochs, dev
 
                     risk_preds = outputs   # Just rename for clarity
                     loss = criterion(risk_preds, periods.reshape(-1,1), labels.reshape(-1,1), model)
-                    
+
                     if (phase == 'train') and (torch.sum(labels).item() > 0):
                     # No backward when all labels are 0.
                     # To be specofic, loss(NegativeLogLikelihood) cannot be defined in this case.
@@ -310,44 +310,45 @@ def execute_epoch_deepsurv(task, mlp, cnn, criterion, optimizer, num_epochs, dev
                 best_weight = copy.deepcopy(model.state_dict())
     return best_weight,val_best_loss,val_best_epoch,loss_acc_dict
 
-# Training
-print ('Training started...')
-print(f"train_data = {len(train_loader.dataset)}")
-print(f"  val_data = {len(val_loader.dataset)}")
+def save_result(best_weight, val_best_loss, val_best_epoch, loss_acc_dict):
+    # Save
+    date_now = datetime.datetime.now()
+    date_name = date_now.strftime('%Y-%m-%d-%H-%M-%S')
+    save_dir = os.path.join(nervusenv.sets_dir, date_name)
+    os.makedirs(save_dir, exist_ok=True)
 
-if task == 'deepsurv':
-    best_weight, val_best_loss, val_best_epoch, loss_acc_dict = execute_epoch_deepsurv(task, mlp, cnn, criterion, optimizer, num_epochs, device, label_list, train_loader, val_loader, model, val_best_loss, val_best_epoch, loss_acc_dict)
-else:    
-    # When classification or regression
-    if len(label_list) > 1:
-        # Multi-label outputs
-        best_weight, val_best_loss, val_best_epoch, loss_acc_dict = execute_epoch_multi_label(task, mlp, cnn, criterion, optimizer, num_epochs, device, label_list, train_loader, val_loader, model, val_best_loss, val_best_epoch, loss_acc_dict)
+    # Hyperparameters
+    df_opt = pd.DataFrame(list(args.items()), columns=['option', 'value'])
+    hyperparameters_path = os.path.join(save_dir, nervusenv.csv_hyperparameters)
+    df_opt.to_csv(hyperparameters_path, index=False)
+
+    # Weight
+    weight_path = os.path.join(save_dir, nervusenv.weight)
+    torch.save(best_weight, weight_path)
+
+    # Learning curve
+    csv_learning_curve = nervusenv.csv_learning_curve.replace('.csv', '') + '_val-best-epoch-' + str(val_best_epoch) + '_val-best-loss-' + f"{val_best_loss:.4f}" + '.csv'
+    learning_curve_path = os.path.join(save_dir, csv_learning_curve)
+    df_learning_curve = pd.DataFrame(loss_acc_dict)
+    df_learning_curve.to_csv(learning_curve_path, index=False)
+
+
+if __name__=="__main__":
+    # Training
+    print ('Training started...')
+    print(f"train_data = {len(train_loader.dataset)}")
+    print(f"  val_data = {len(val_loader.dataset)}")
+
+    if task == 'deepsurv':
+        best_weight, val_best_loss, val_best_epoch, loss_acc_dict = execute_epoch_deepsurv(task, mlp, cnn, criterion, optimizer, num_epochs, device, label_list, train_loader, val_loader, model, val_best_loss, val_best_epoch, loss_acc_dict)
     else:
-        # Single-label output
-        best_weight, val_best_loss, val_best_epoch, loss_acc_dict = execute_epoch_single_label(task, mlp, cnn, criterion, optimizer, num_epochs, device, label_list, train_loader, val_loader, model, val_best_loss, val_best_epoch, loss_acc_dict)
-print('Training finished!')
+        # When classification or regression
+        if len(label_list) > 1:
+            # Multi-label outputs
+            best_weight, val_best_loss, val_best_epoch, loss_acc_dict = execute_epoch_multi_label(task, mlp, cnn, criterion, optimizer, num_epochs, device, label_list, train_loader, val_loader, model, val_best_loss, val_best_epoch, loss_acc_dict)
+        else:
+            # Single-label output
+            best_weight, val_best_loss, val_best_epoch, loss_acc_dict = execute_epoch_single_label(task, mlp, cnn, criterion, optimizer, num_epochs, device, label_list, train_loader, val_loader, model, val_best_loss, val_best_epoch, loss_acc_dict)
+    print('Training finished!')
 
-
-# Save
-date_now = datetime.datetime.now()
-date_name = date_now.strftime('%Y-%m-%d-%H-%M-%S')
-save_dir = os.path.join(nervusenv.sets_dir, date_name)
-os.makedirs(save_dir, exist_ok=True)
-
-# Hyperparameters
-df_opt = pd.DataFrame(list(args.items()), columns=['option', 'value'])
-hyperparameters_path = os.path.join(save_dir, nervusenv.csv_hyperparameters)
-df_opt.to_csv(hyperparameters_path, index=False)
-
-# Weight
-weight_path = os.path.join(save_dir, nervusenv.weight)
-torch.save(best_weight, weight_path)
-
-# Learning curve
-csv_learning_curve = nervusenv.csv_learning_curve.replace('.csv', '') + '_val-best-epoch-' + str(val_best_epoch) + '_val-best-loss-' + f"{val_best_loss:.4f}" + '.csv'
-learning_curve_path = os.path.join(save_dir, csv_learning_curve)
-df_learning_curve = pd.DataFrame(loss_acc_dict)
-df_learning_curve.to_csv(learning_curve_path, index=False)
-
-
-# ---- EOF --------
+    save_result(best_weight, val_best_loss, val_best_epoch, loss_acc_dict)
