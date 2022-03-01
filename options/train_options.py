@@ -10,7 +10,7 @@ import argparse
 class TrainOptions():
     def __init__(self):
         self.parser = argparse.ArgumentParser(description='Train options')
-        
+
         # Materials
         self.parser.add_argument('--csv_name',  type=str, default=None, help='csv namefilename(Default: None)')
         self.parser.add_argument('--image_dir', type=str, default=None, help='directory name contaning images(Default: None)')
@@ -45,9 +45,12 @@ class TrainOptions():
         self.parser.add_argument('--gpu_ids', type=str, default='-1', help='gpu ids: e.g. 0  0,1,2, 0,2. use -1 for CPU (Default: -1)')
 
 
+    def _get_args(self):
+        return vars(self.args)
+
+
     def parse(self):
         self.args = self.parser.parse_args()
-
         # Get MLP and CNN name when training
         # 'MLP', 'ResNet18', 'MLP+ResNet18' -> ['MLP'], ['ResNet18'], ['MLP', 'ResNet18']
         #
@@ -83,8 +86,7 @@ class TrainOptions():
             if id >= 0:
                 self.args.gpu_ids.append(id)
 
-        return vars(self.args)
-
+        return self._get_args()
 
 
     def is_option_valid(self, args:dict):
@@ -92,7 +94,7 @@ class TrainOptions():
         must_base_opts = ['task', 'csv_name', 'model', 'criterion', 'optimizer', 'epochs', 'batch_size','sampler']
         if not(args['cnn'] is None):
             must_base_opts = must_base_opts + ['image_dir', 'normalize_image']
-        
+
         for opt in must_base_opts:
             if args[opt] is None:
                 print('\nSpecify {}.\n'.format(opt))
@@ -102,16 +104,13 @@ class TrainOptions():
         print('\nOptions have been cheked.\n')
 
 
-
-    def print_options(self, opt:dict):
-        self.args = self.parser.parse_args()
-
+    def print_options(self):
         ignore = ['mlp', 'cnn']
 
         message = ''
         message += '-------------------- Options --------------------\n'
 
-        for k, v in (opt.items()):
+        for k, v in (self._get_args().items()):
             if k not in ignore:
                 comment = ''
                 default = self.parser.get_default(k)
