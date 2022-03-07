@@ -8,6 +8,9 @@ import numpy as np
 import pandas as pd
 import torch
 import copy
+from dataloader.dataloader_single import SingleLabelDataSet
+from dataloader.dataloader_deepsurv import DeepSurvDataSet
+from dataloader.dataloader_multi import MultiLabelDataSet
 
 from lib.util import *
 from lib.align_env import *
@@ -15,7 +18,6 @@ from options.train_options import TrainOptions
 from config.criterion import set_criterion
 from config.optimizer import set_optimizer
 from config.model import *
-
 
 train_option_parser = TrainOptions()
 args = train_option_parser.parse()
@@ -43,15 +45,15 @@ num_inputs = csv_dict['num_inputs']
 
 # Data Loadar
 if task == 'deepsurv':
-    from dataloader.dataloader_deepsurv import *
+    dataset_handler = DeepSurvDataSet
 else:
     # when classification or regression
     if len(label_list) > 1:
-        from dataloader.dataloader_multi import *
+        dataset_handler = MultiLabelDataSet
     else:
-        from dataloader.dataloader import *
-train_loader = dataloader_mlp_cnn(args, csv_dict, image_dir, split_list=['train'], batch_size=batch_size, sampler=sampler)
-val_loader = dataloader_mlp_cnn(args, csv_dict, image_dir, split_list=['val'], batch_size=batch_size, sampler=sampler)
+        dataset_handler = SingleLabelDataSet
+train_loader = dataset_handler.create_dataloader(args, csv_dict, image_dir, split_list=['train'], batch_size=batch_size, sampler=sampler)
+val_loader = dataset_handler.create_dataloader(args, csv_dict, image_dir, split_list=['val'], batch_size=batch_size, sampler=sampler)
 
 # Configure of training
 model = create_mlp_cnn(mlp, cnn, num_inputs, label_num_classes, gpu_ids=gpu_ids)
@@ -294,7 +296,7 @@ def execute_epoch_deepsurv(task, mlp, cnn, criterion, optimizer, num_epochs, dev
 
                     risk_preds = outputs   # Just rename for clarity
                     loss = criterion(risk_preds, periods.reshape(-1,1), labels.reshape(-1,1), model)
-                    
+
                     if (phase == 'train') and (torch.sum(labels).item() > 0):
                     # No backward when all labels are 0.
                     # To be specofic, loss(NegativeLogLikelihood) cannot be defined in this case.
@@ -317,7 +319,7 @@ print(f"  val_data = {len(val_loader.dataset)}")
 
 if task == 'deepsurv':
     best_weight, val_best_loss, val_best_epoch, loss_acc_dict = execute_epoch_deepsurv(task, mlp, cnn, criterion, optimizer, num_epochs, device, label_list, train_loader, val_loader, model, val_best_loss, val_best_epoch, loss_acc_dict)
-else:    
+else:
     # When classification or regression
     if len(label_list) > 1:
         # Multi-label outputs

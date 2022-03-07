@@ -7,6 +7,9 @@ import sys
 import numpy as np
 import pandas as pd
 import torch
+from dataloader.dataloader_deepsurv import DeepSurvDataSet
+from dataloader.dataloader_multi import MultiLabelDataSet
+from dataloader.dataloader_single import SingleLabelDataSet
 
 from lib.util import *
 from lib.align_env import *
@@ -46,25 +49,25 @@ print('preprocess', train_parameters['preprocess'])
 
 # Data Loadar
 if task == 'deepsurv':
-    from dataloader.dataloader_deepsurv import *
+    dataset_handler = DeepSurvDataSet
 elif (task == 'classification') | (task == 'regression'): # when classification or regression
     if len(label_list) > 1: #multi
-        from dataloader.dataloader_multi import *
+        dataset_handler = MultiLabelDataSet
     else: #single
-        from dataloader.dataloader import *    
+        dataset_handler = SingleLabelDataSet
 else:
     print('task error!')
 
-train_loader = dataloader_mlp_cnn(train_parameters, csv_dict, image_dir, split_list=['train'], batch_size=test_batch_size, sampler='no')
-val_loader = dataloader_mlp_cnn(train_parameters, csv_dict, image_dir, split_list=['val'], batch_size=test_batch_size, sampler='no')
-test_loader = dataloader_mlp_cnn(train_parameters, csv_dict, image_dir, split_list=['test'], batch_size=test_batch_size, sampler='no')
+train_loader = dataset_handler.create_dataloader(train_parameters, csv_dict, image_dir, split_list=['train'], batch_size=test_batch_size, sampler='no')
+val_loader = dataset_handler.create_dataloader(train_parameters, csv_dict, image_dir, split_list=['val'], batch_size=test_batch_size, sampler='no')
+test_loader = dataset_handler.create_dataloader(train_parameters, csv_dict, image_dir, split_list=['test'], batch_size=test_batch_size, sampler='no')
 
 # Configure of model
 model = create_mlp_cnn(mlp, cnn, num_inputs, label_num_classes, gpu_ids=gpu_ids)
 weight = torch.load(test_weight)
 model.load_state_dict(weight)
 
-# Make column name of 
+# Make column name of
 # {output_XXX: {A:1, B:2, C:3}, ...} -> {output_XXX: [pred_XXX_A, pred_XXX_B, pred_XXX_C], ...}
 column_output_class_names_dict = {}
 for output_name, class_label_dict in output_class_label.items():

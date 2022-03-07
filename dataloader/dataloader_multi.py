@@ -12,7 +12,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from lib.util import *
 
 
-class LoadDataSet_MLP_CNN(NervusDataSet):
+class MultiLabelDataSet(NervusDataSet):
     def __init__(self, args, csv_dict, image_dir, split_list):
         #super(LoadDataSet_MLP_CNN, self).__init__()
         multi_label = True
@@ -34,18 +34,16 @@ class LoadDataSet_MLP_CNN(NervusDataSet):
         return id, raw_output_dict, label_dict, inputs_value_normed, image, split
 
 
-def dataloader_mlp_cnn(args, csv_dict, images_dir, split_list=None, batch_size=None, sampler=None):
-    assert (split_list is not None), 'Specify split to make dataloader.'
-    assert (sampler == 'no'), 'samper should be no when multi-ouputs classification or multi-outputs regresson, but yes was specified.'
+    @classmethod
+    def create_dataloader(cls, args, csv_dict, images_dir, split_list=None, batch_size=None, sampler=None):
+        assert (split_list is not None), 'Specify split to make dataloader.'
+        assert (sampler == 'no'), 'samper should be no when multi-ouputs classification or multi-outputs regresson, but yes was specified.'
 
-    split_data = LoadDataSet_MLP_CNN(args, csv_dict, images_dir, split_list)
-    split_loader = DataLoader(
-                            dataset = split_data,
-                            batch_size = batch_size,
-                            shuffle = True,
-                            num_workers = 0,
-                            sampler = None)
-    return split_loader
-
-
-# ----- EOF -----
+        split_data = cls(args, csv_dict, images_dir, split_list)
+        split_loader = DataLoader(
+                                dataset = split_data,
+                                batch_size = batch_size,
+                                shuffle = True,
+                                num_workers = 0,
+                                sampler = None)
+        return split_loader

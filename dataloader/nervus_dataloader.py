@@ -137,3 +137,9 @@ class NervusDataSet(Dataset, ABC):
     @abstractmethod
     def __getitem__(self, idx):
         pass
+
+
+    @classmethod
+    @abstractmethod
+    def create_dataloader(cls, args, csv_dict, images_dir, split_list=None, batch_size=None, sampler=None):
+        pass
