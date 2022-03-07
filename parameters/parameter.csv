@@ -1,0 +1,4 @@
+task,csv_name,image_dir,model,criterion,optimizer,epochs,batch_size,sampler,augmentation
+classification,clean.csv,128,MLP+ResNet18,CEL,Adam,50,64,yes,yes
+regression,clean.csv,128,MLP+ResNet18,MSE,Adam,50,64,yes,yes
+deepsurv,clean.csv,128,MLP+ResNet18,NLL,Adam,50,64,yes,yes

@@ -1,4 +1,0 @@
-task,csv_name,image_dir,model,criterion,optimizer,epochs,batch_size,sampler
-classification,clean.csv,128,MLP+ResNet18,CrossEntropyLoss,Adam,50,64,yes
-regression,clean.csv,128,MLP+ResNet18,MSE,Adam,50,64,yes
-deepsurv,clean.csv,128,MLP+ResNet18,NLL,Adam,50,64,yes
