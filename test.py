@@ -54,17 +54,17 @@ if task == 'deepsurv':
     from dataloader.dataloader_deepsurv import *
     def _execute_test(*args):
         return _execute_test_deepsurv(*args)
-elif (task == 'classification') | (task == 'regression'): # when classification or regression
-    if len(label_list) > 1: #multi
+else: # classification or regression
+    if len(label_list) > 1:
+        # Multi-label outputs
         from dataloader.dataloader_multi import *
         def _execute_test(*args):
             return _execute_test_multi_label(*args)
-    else: #single
+    else:
+        # Single-label output
         from dataloader.dataloader import *
         def _execute_test(*args):
             return _execute_test_single_label(*args)
-else:
-    print('task error!')
 
 train_loader = dataloader_mlp_cnn(train_parameters, csv_dict, image_dir, split_list=['train'], batch_size=test_batch_size, sampler='no')
 val_loader = dataloader_mlp_cnn(train_parameters, csv_dict, image_dir, split_list=['val'], batch_size=test_batch_size, sampler='no')
