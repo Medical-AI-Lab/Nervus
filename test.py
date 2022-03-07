@@ -7,6 +7,9 @@ import sys
 import numpy as np
 import pandas as pd
 import torch
+from dataloader.dataloader_deepsurv import DeepSurvDataSet
+from dataloader.dataloader_multi import MultiLabelDataSet
+from dataloader.dataloader_single import SingleLabelDataSet
 
 from lib.util import *
 from lib.align_env import *
@@ -39,23 +42,23 @@ train_parameters['normalize_image'] = args['normalize_image']   # Default: 'yes'
 
 # Data Loadar
 if task == 'deepsurv':
-    from dataloader.dataloader_deepsurv import *
+    dataset_handler = DeepSurvDataSet
 else:
-    # when classification or regression
-    if len(label_list) > 1:
-        from dataloader.dataloader_multi import *
-    else:
-        from dataloader.dataloader import *
-train_loader = dataloader_mlp_cnn(train_parameters, sp, image_dir, split_list=['train'], batch_size=test_batch_size, sampler='no')
-val_loader = dataloader_mlp_cnn(train_parameters, sp, image_dir, split_list=['val'], batch_size=test_batch_size, sampler='no')
-test_loader = dataloader_mlp_cnn(train_parameters, sp, image_dir, split_list=['test'], batch_size=test_batch_size, sampler='no')
+    if len(label_list) > 1: #multi
+        dataset_handler = MultiLabelDataSet
+    else: #single
+        dataset_handler = SingleLabelDataSet
+
+train_loader = dataset_handler.create_dataloader(train_parameters, sp, image_dir, split_list=['train'], batch_size=test_batch_size, sampler='no')
+val_loader = dataset_handler.create_dataloader(train_parameters, sp, image_dir, split_list=['val'], batch_size=test_batch_size, sampler='no')
+test_loader = dataset_handler.create_dataloader(train_parameters, sp, image_dir, split_list=['test'], batch_size=test_batch_size, sampler='no')
 
 # Configure of model
 model = create_mlp_cnn(mlp, cnn, sp.num_inputs, sp.num_classes_in_internal_label, gpu_ids=gpu_ids)
 weight = torch.load(test_weight)
 model.load_state_dict(weight)
 
-# Make column name of 
+# Make column name of
 # {label_XXX: {A:1, B:2, C:3}, ...} -> {label_XXX: [pred_label_XXX_A, pred_label_XXX_B, pred_label_XXX_C], ...}
 column_pred_names_in_label_dict = {}
 for raw_label_name, class_dict in sp.class_name_in_raw_label.items():
