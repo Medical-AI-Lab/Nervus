@@ -66,9 +66,9 @@ elif (task == 'classification') | (task == 'regression'): # when classification 
 else:
     print('task error!')
 
-train_loader = dalaloader_mlp_cnn(train_hyperparameters, csv_dict, image_dir, split_list=['train'], batch_size=test_batch_size, sampler='no')
-val_loader = dalaloader_mlp_cnn(train_hyperparameters, csv_dict, image_dir, split_list=['val'], batch_size=test_batch_size, sampler='no')
-test_loader = dalaloader_mlp_cnn(train_hyperparameters, csv_dict, image_dir, split_list=['test'], batch_size=test_batch_size, sampler='no')
+train_loader = dataloader_mlp_cnn(train_parameters, csv_dict, image_dir, split_list=['train'], batch_size=test_batch_size, sampler='no')
+val_loader = dataloader_mlp_cnn(train_parameters, csv_dict, image_dir, split_list=['val'], batch_size=test_batch_size, sampler='no')
+test_loader = dataloader_mlp_cnn(train_parameters, csv_dict, image_dir, split_list=['test'], batch_size=test_batch_size, sampler='no')
 
 # Configure of model
 model = create_mlp_cnn(mlp, cnn, num_inputs, label_num_classes, gpu_ids=gpu_ids)
