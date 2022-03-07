@@ -42,6 +42,10 @@ label_num_classes = csv_dict['label_num_classes']
 label_list = csv_dict['label_list']
 num_inputs = csv_dict['num_inputs']
 
+## bool of using neural network
+hasMLP = mlp is not None
+hasCNN = cnn is not None
+
 ## choice dataloader and function to execute
 if task == 'deepsurv':
     from dataloader.dataloader_deepsurv import *
@@ -110,24 +114,9 @@ def _execute_single_label(phase:str, dataloader:Dataset) -> Tuple[float, float]:
         optimizer.zero_grad()
 
         with torch.set_grad_enabled(phase == 'train'):
-            if (mlp is not None) and (cnn is None):
-            # When MLP only
-                inputs_values_normed = inputs_values_normed.to(device)
-                labels = labels.to(device)
-                outputs = model(inputs_values_normed)
+            outputs = predict_by_model(model, hasMLP, hasCNN, device, inputs_values_normed, images)
 
-            elif (mlp is None) and (cnn is not None):
-            # When CNN only
-                images = images.to(device)
-                labels = labels.to(device)
-                outputs = model(images)
-
-            else: # elif not(mlp is None) and not(cnn is None):
-            # When MLP+CNN
-                inputs_values_normed = inputs_values_normed.to(device)
-                images = images.to(device)
-                labels = labels.to(device)
-                outputs = model(inputs_values_normed, images)
+            labels = labels.to(device)
 
             if task == 'classification':
                 _, preds = torch.max(outputs, 1)
@@ -155,24 +144,9 @@ def _execute_multi_label(phase:str, dataloader:Dataset) -> Tuple[float, float]:
         optimizer.zero_grad()
 
         with torch.set_grad_enabled(phase == 'train'):
-            if (mlp is not None) and (cnn is None):
-                # When MLP only
-                inputs_values_normed = inputs_values_normed.to(device)
-                labels_multi = { label_name: labels.to(device) for label_name, labels in labels_dict.items() }
-                outputs = model(inputs_values_normed)
+            outputs = predict_by_model(model, hasMLP, hasCNN, device, inputs_values_normed, images)
 
-            elif (mlp is None) and (cnn is not None):
-                # When CNN only
-                images = images.to(device)
-                labels_multi = { label_name: labels.to(device) for label_name, labels in labels_dict.items() }
-                outputs = model(images)
-
-            else: # elif not(mlp is None) and not(cnn is None):
-                # When MLP+CNN
-                inputs_values_normed = inputs_values_normed.to(device)
-                images = images.to(device)
-                labels_multi = { label_name: labels.to(device) for label_name, labels in labels_dict.items() }
-                outputs = model(inputs_values_normed, images)
+            labels_multi = {label_name: labels.to(device) for label_name, labels in labels_dict.items()}
 
             # Initialize every iteration
             preds_multi = {}
@@ -223,27 +197,13 @@ def _execute_deepsurv(phase:str, dataloader:Dataset) -> Tuple[float, float]:
         optimizer.zero_grad()
 
         with torch.set_grad_enabled(phase == 'train'):
-            if (mlp is not None) and (cnn is None):
-            # When MLP only
-                inputs_values_normed = inputs_values_normed.to(device)
-                labels = labels.float().to(device)
-                periods = periods.float().to(device)
-                outputs = model(inputs_values_normed)
+            outputs = predict_by_model(model, hasMLP, hasCNN, device, inputs_values_normed, images)
 
-            elif (mlp is None) and (cnn is not None):
-            # When CNN only
-                images = images.to(device)
+            periods = periods.float().to(device)
+            if hasMLP:
+                labels = labels.float().to(device)
+            else:
                 labels = labels.to(device)
-                periods = periods.float().to(device)
-                outputs = model(images)
-
-            else: # elif not(mlp is None) and not(cnn is None):
-            # When MLP+CNN
-                inputs_values_normed = inputs_values_normed.to(device)
-                images = images.to(device)
-                labels = labels.float().to(device)
-                periods = periods.float().to(device)
-                outputs = model(inputs_values_normed, images)
 
             risk_preds = outputs   # Just rename for clarity
             loss = criterion(risk_preds, periods.reshape(-1,1), labels.reshape(-1,1), model)

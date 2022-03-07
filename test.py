@@ -43,6 +43,9 @@ test_batch_size = args['test_batch_size']                            # Default: 
 train_hyperparameters['preprocess'] = 'no'                           # No need of preprocess for image when test, Define no in test_options.py
 train_hyperparameters['normalize_image'] = args['normalize_image']   # Default: 'yes'
 
+## bool of using neural network
+hasMLP = mlp is not None
+hasCNN = cnn is not None
 
 ## choose dataloader and function to execute test
 if task == 'deepsurv':
@@ -109,24 +112,7 @@ def _execute_test_single_label(split:str, dataloader:Dataset) -> Tuple[float, fl
     df_result = pd.DataFrame([])
 
     for i, (ids, raw_outputs, labels, inputs_values_normed, images, splits) in enumerate(dataloader):
-        if (mlp is not None) and (cnn is None):
-        # When MLP only
-            inputs_values_normed = inputs_values_normed.to(device)
-            labels = labels.to(device)
-            outputs = model(inputs_values_normed)
-
-        elif (mlp is None) and (cnn is not None):
-        # When CNN only
-            images = images.to(device)
-            labels = labels.to(device)
-            outputs = model(images)
-
-        else: # elif not(mlp is None) and not(cnn is None):
-        # When MLP+CNN
-            inputs_values_normed = inputs_values_normed.to(device)
-            images = images.to(device)
-            labels = labels.to(device)
-            outputs = model(inputs_values_normed, images)
+        outputs = predict_by_model(model, hasMLP, hasCNN, device, inputs_values_normed, images)
 
         likelihood_ratio = outputs   # No softmax
 
@@ -159,24 +145,7 @@ def _execute_test_multi_label(split:str, dataloader:Dataset) -> Tuple[float, flo
     df_result = pd.DataFrame([])
 
     for i, (ids, raw_outputs_dict, labels_dict, inputs_values_normed, images, splits) in enumerate(dataloader):
-        if (mlp is not None) and (cnn is None):
-        # When MLP only
-            inputs_values_normed = inputs_values_normed.to(device)
-            labels_multi = {label_name: labels.to(device) for label_name, labels in labels_dict.items()}
-            outputs = model(inputs_values_normed)
-
-        elif (mlp is None) and (cnn is not None):
-        # When CNN only
-            images = images.to(device)
-            labels_multi = {label_name: labels.to(device) for label_name, labels in labels_dict.items()}
-            outputs = model(images)
-
-        else: # elif not(mlp is None) and not(cnn is None):
-        # When MLP+CNN
-            inputs_values_normed = inputs_values_normed.to(device)
-            images = images.to(device)
-            labels_multi = {label_name: labels.to(device) for label_name, labels in labels_dict.items()}
-            outputs = model(inputs_values_normed, images)
+        outputs = predict_by_model(model, hasMLP, hasCNN, device, inputs_values_normed, images)
 
         likelihood_multi = {}
         preds_multi = {}
@@ -216,21 +185,7 @@ def _execute_test_deepsurv(split:str, dataloader:Dataset) -> Tuple[float, float,
     df_result = pd.DataFrame([])
 
     for i, (ids, raw_outputs, labels, periods, inputs_values_normed, images, splits) in enumerate(dataloader):
-        if (mlp is not None) and (cnn is None):
-        # When MLP only
-            inputs_values_normed = inputs_values_normed.to(device)
-            outputs = model(inputs_values_normed)
-
-        elif (mlp is None) and (cnn is not None):
-        # When CNN only
-            images = images.to(device)
-            outputs = model(images)
-
-        else: # elif not(mlp is None) and not(cnn is None):
-        # When MLP+CNN
-            inputs_values_normed = inputs_values_normed.to(device)
-            images = images.to(device)
-            outputs = model(inputs_values_normed, images)
+        outputs = predict_by_model(model, hasMLP, hasCNN, device, inputs_values_normed, images)
 
         likelihood_ratio = outputs   # No softmax
         labels = labels.to('cpu').detach().numpy().copy()

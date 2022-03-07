@@ -283,3 +283,21 @@ def get_layer_output(outputs_multi, label_name):
     layer_name = [output_layer_name for output_layer_name in output_layer_names if output_layer_name.endswith(label_name)][0]
     output_layer = outputs_multi[layer_name]
     return output_layer
+
+
+def predict_by_model(model, hasMLP, hasCNN, device, inputs_values_normed, images) -> torch.Tensor:
+    if hasMLP and hasCNN: # elif not(mlp is None) and not(cnn is None):
+    # When MLP+CNN
+        inputs_values_normed = inputs_values_normed.to(device)
+        images = images.to(device)
+        outputs = model(inputs_values_normed, images)
+    elif hasMLP:
+    # When MLP only
+        inputs_values_normed = inputs_values_normed.to(device)
+        outputs = model(inputs_values_normed)
+    elif hasCNN:
+    # When CNN only
+        images = images.to(device)
+        outputs = model(images)
+
+    return outputs
