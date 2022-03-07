@@ -37,7 +37,7 @@ device = set_device(gpu_ids)
 
 nervusenv = NervusEnv()
 image_dir = os.path.join(nervusenv.images_dir , args['image_dir'])
-csv_dict = parse_csv(os.path.join(nervusenv.csvs_dir, args['csv_name']), task)
+csv_dict = parse_csv(os.path.join(nervusenv.splits_dir, args['csv_name']), task)
 label_num_classes = csv_dict['label_num_classes']
 label_list = csv_dict['label_list']
 num_inputs = csv_dict['num_inputs']
@@ -266,10 +266,10 @@ def save_result(best_weight, val_best_loss, val_best_epoch, loss_acc_dict):
     save_dir = os.path.join(nervusenv.sets_dir, date_name)
     os.makedirs(save_dir, exist_ok=True)
 
-    # Hyperparameters
+    # Parameters
     df_opt = pd.DataFrame(list(args.items()), columns=['option', 'value'])
-    hyperparameters_path = os.path.join(save_dir, nervusenv.csv_hyperparameters)
-    df_opt.to_csv(hyperparameters_path, index=False)
+    parameters_path = os.path.join(save_dir, nervusenv.csv_parameters)
+    df_opt.to_csv(parameters_path, index=False)
 
     # Weight
     weight_path = os.path.join(save_dir, nervusenv.weight)
@@ -280,7 +280,6 @@ def save_result(best_weight, val_best_loss, val_best_epoch, loss_acc_dict):
     learning_curve_path = os.path.join(save_dir, csv_learning_curve)
     df_learning_curve = pd.DataFrame(loss_acc_dict)
     df_learning_curve.to_csv(learning_curve_path, index=False)
-
 
 if __name__=="__main__":
     # Training

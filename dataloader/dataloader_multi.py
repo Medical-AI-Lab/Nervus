@@ -55,28 +55,14 @@ class LoadDataSet_MLP_CNN(Dataset):
         # Preprocess for image
         if not(self.args['cnn'] is None):
             self.transform = self._make_transforms()
-
+            self.augmentation = self._make_augmentations()
+            
         # index of each column
         self.index_dict = {column_name: self.df_split.columns.get_loc(column_name) for column_name in self.df_split.columns}
 
 
     def _make_transforms(self):
         _transforms = []
-
-        if self.args['preprocess'] == 'yes':
-            if self.args['random_horizontal_flip'] == 'yes':
-                _transforms.append(transforms.RandomHorizontalFlip())
-
-            if self.args['random_rotation'] == 'yes':
-                _transforms.append(transforms.RandomRotation((-10, 10)))
-
-            if self.args['color_jitter'] == 'yes':
-                # If img is PIL Image, mode “1”, “I”, “F” and modes with transparency (alpha channel) are not supported.
-                # When open Grayscle with "RGB" mode
-                _transforms.append(transforms.ColorJitter())
-
-            if self.args['random_apply'] == 'yes':
-                _transforms = transforms.RandomApply(_transforms)
 
         # MUST: Always convert to Tensor
         _transforms.append(transforms.ToTensor())   # PIL -> Tensor
@@ -86,8 +72,26 @@ class LoadDataSet_MLP_CNN(Dataset):
             _transforms.append(transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]))
 
         _transforms = transforms.Compose(_transforms)
-
         return _transforms
+
+
+    def _make_augmentations(self):
+        _augmentation = []
+
+        if self.args['preprocess'] == 'yes':
+            if self.args['random_horizontal_flip'] == 'yes':
+                _augmentation.append(transforms.RandomHorizontalFlip())
+
+            if self.args['random_rotation'] == 'yes':
+                _augmentation.append(transforms.RandomRotation((-10, 10)))
+
+            if self.args['color_jitter'] == 'yes':
+                # If img is PIL Image, mode “1”, “I”, “F” and modes with transparency (alpha channel) are not supported.
+                # When open Grayscle with "RGB" mode
+                _augmentation.append(transforms.ColorJitter())
+
+        _augmentation = transforms.Compose(_augmentation)
+        return _augmentation
 
 
     def __len__(self):
@@ -116,7 +120,8 @@ class LoadDataSet_MLP_CNN(Dataset):
             filepath = self.df_split.iat[idx, self.index_dict[self.filepath_column]]
             image_path = os.path.join(self.image_dir, filepath)
             image = Image.open(image_path).convert('RGB')
-            image = self.transform(image)
+            image = self.augmentation(image)   # augmentation
+            image = self.transform(image)      # transform, ie. To_Tensor() and Normalization
         else:
             image = ''
 

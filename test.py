@@ -18,16 +18,16 @@ from config.model import *
 args = TestOptions().parse()
 nervusenv = NervusEnv()
 datetime_dir = get_target(nervusenv.sets_dir, args['test_datetime'])   # args['test_datetime'] if exists or the latest
-hyperparameters_path = os.path.join(datetime_dir, nervusenv.csv_hyperparameters)
-train_hyperparameters = read_train_hyperparameters(hyperparameters_path)
-task = train_hyperparameters['task']
-mlp = train_hyperparameters['mlp']
-cnn = train_hyperparameters['cnn']
-gpu_ids = str2int(train_hyperparameters['gpu_ids'])
+parameters_path = os.path.join(datetime_dir, nervusenv.csv_parameters)
+train_parameters = read_train_parameters(parameters_path)
+task = train_parameters['task']
+mlp = train_parameters['mlp']
+cnn = train_parameters['cnn']
+gpu_ids = str2int(train_parameters['gpu_ids'])
 device = set_device(gpu_ids)
 
-image_dir = os.path.join(nervusenv.images_dir, train_hyperparameters['image_dir'])
-csv_dict = parse_csv(os.path.join(nervusenv.csvs_dir, train_hyperparameters['csv_name']), task)
+image_dir = os.path.join(nervusenv.images_dir, train_parameters['image_dir'])
+csv_dict = parse_csv(os.path.join(nervusenv.splits_dir, train_parameters['csv_name']), task)
 output_class_label = csv_dict['output_class_label']
 label_num_classes = csv_dict['label_num_classes']
 label_list = csv_dict['label_list']
@@ -40,31 +40,35 @@ period_column = csv_dict['period_column']   # When classification or regression,
 # Align option for test only
 test_weight = os.path.join(datetime_dir, nervusenv.weight)
 test_batch_size = args['test_batch_size']                            # Default: 64  No exixt in train_opt
-train_hyperparameters['preprocess'] = 'no'                           # No need of preprocess for image when test, Define no in test_options.py
-train_hyperparameters['normalize_image'] = args['normalize_image']   # Default: 'yes'
+train_parameters['preprocess'] = 'no'                           # MUST: Stop augumentation, No need of preprocess for image when test
+train_parameters['normalize_image'] = args['normalize_image']   # Default: 'yes'
 
 ## bool of using neural network
 hasMLP = mlp is not None
 hasCNN = cnn is not None
+
+print('preprocess', train_parameters['preprocess'])
 
 ## choose dataloader and function to execute test
 if task == 'deepsurv':
     from dataloader.dataloader_deepsurv import *
     def _execute_test(*args):
         return _execute_test_deepsurv(*args)
-else:
-    # when classification or regression
-    if len(label_list) > 1:
+elif (task == 'classification') | (task == 'regression'): # when classification or regression
+    if len(label_list) > 1: #multi
         from dataloader.dataloader_multi import *
         def _execute_test(*args):
             return _execute_test_multi_label(*args)
-    else:
+    else: #single
         from dataloader.dataloader import *
         def _execute_test(*args):
             return _execute_test_single_label(*args)
+else:
+    print('task error!')
 
-val_loader = dataloader_mlp_cnn(train_hyperparameters, csv_dict, image_dir, split_list=['val'], batch_size=test_batch_size, sampler='no')
-test_loader = dataloader_mlp_cnn(train_hyperparameters, csv_dict, image_dir, split_list=['test'], batch_size=test_batch_size, sampler='no')
+train_loader = dalaloader_mlp_cnn(train_hyperparameters, csv_dict, image_dir, split_list=['train'], batch_size=test_batch_size, sampler='no')
+val_loader = dalaloader_mlp_cnn(train_hyperparameters, csv_dict, image_dir, split_list=['val'], batch_size=test_batch_size, sampler='no')
+test_loader = dalaloader_mlp_cnn(train_hyperparameters, csv_dict, image_dir, split_list=['test'], batch_size=test_batch_size, sampler='no')
 
 # Configure of model
 model = create_mlp_cnn(mlp, cnn, num_inputs, label_num_classes, gpu_ids=gpu_ids)
@@ -85,28 +89,35 @@ for output_name, class_label_dict in output_class_label.items():
     column_output_class_names_dict[output_name] = column_class_label_names
 
 def execute():
-    val_acc = 0.0
-    test_acc = 0.0
-    df_result = pd.DataFrame([])
     model.eval()
-
     with torch.no_grad():
-        for _split in ['val', 'test']:
-            if _split == 'val':
+        train_acc = 0.0
+        val_acc = 0.0
+        test_acc = 0.0
+        df_result = pd.DataFrame([])
+
+        for _split in ['train', 'val', 'test']:
+            if _split == 'train':
+                _dataloader = train_loader
+            elif _split == 'val':
                 _dataloader = val_loader
-            else: # elif split == 'test':
+            elif _split == 'test':
                 _dataloader = test_loader
+            else: #
+                print('Split in dataloader error.')
 
             # execute test: _execute_test_single_label, _execute_test_multi_label, _execute_test_deepsurv
-            _val_acc, _test_acc, _df_result = _execute_test(_split, _dataloader)
+            _train_acc, _val_acc, _test_acc, _df_result = _execute_test(_split, _dataloader)
             # merge result of test
+            train_acc += _train_acc
             val_acc += _val_acc
             test_acc += _test_acc
             df_result = pd.concat([df_result, _df_result], ignore_index=True)
 
-    return val_acc, test_acc, df_result
+    return train_acc, val_acc, test_acc, df_result
 
 def _execute_test_single_label(split:str, dataloader:Dataset) -> Tuple[float, float, pd.DataFrame]:
+    train_acc = 0.0
     val_acc = 0.0
     test_acc = 0.0
     df_result = pd.DataFrame([])
@@ -121,7 +132,9 @@ def _execute_test_single_label(split:str, dataloader:Dataset) -> Tuple[float, fl
             split_acc = (torch.sum(preds == labels.data)).item()
             if split == 'val':
                 val_acc += split_acc
-            else: #elif split == 'test':
+            elif split == 'val':
+                val_acc += split_acc
+            elif split == 'test':
                 test_acc += split_acc
         else:
             pass
@@ -137,9 +150,10 @@ def _execute_test_single_label(split:str, dataloader:Dataset) -> Tuple[float, fl
         df_tmp = pd.concat([df_id, df_raw_output, df_likelihood, df_split], axis=1)
         df_result = pd.concat([df_result, df_tmp], ignore_index=True)
 
-    return val_acc, test_acc, df_result
+    return train_acc, val_acc, test_acc, df_result
 
 def _execute_test_multi_label(split:str, dataloader:Dataset) -> Tuple[float, float, pd.DataFrame]:
+    train_acc = 0.0
     val_acc = 0.0
     test_acc = 0.0
     df_result = pd.DataFrame([])
@@ -154,9 +168,11 @@ def _execute_test_multi_label(split:str, dataloader:Dataset) -> Tuple[float, flo
             if task == 'classification':
                 preds_multi[label_name] = torch.max(likelihood_multi[label_name], 1)[1]
                 split_acc_label_name = torch.sum(preds_multi[label_name] == labels.data).item()
-                if split == 'val':
+                if split == 'train':
+                    train_acc += split_acc_label_name
+                elif split == 'val':
                     val_acc += split_acc_label_name
-                else: #elif split == 'test':
+                elif split == 'test':
                     test_acc += split_acc_label_name
             else:
                 pass
@@ -176,10 +192,10 @@ def _execute_test_multi_label(split:str, dataloader:Dataset) -> Tuple[float, flo
         df_tmp = pd.concat([df_id, df_likelihood_tmp, df_split], axis=1)
         df_result = pd.concat([df_result, df_tmp], ignore_index=True)
 
-    return val_acc, test_acc, df_result
+    return train_acc, val_acc, test_acc, df_result
 
-
-def _execute_test_deepsurv(split:str, dataloader:Dataset) -> Tuple[float, float, pd.DataFrame]:
+def _execute_test_deepsurv(_, dataloader:Dataset) -> Tuple[float, float, pd.DataFrame]:
+    train_acc = 0.0 # dummy value: not use in deepsurv
     val_acc = 0.0 # dummy value: not use in deepsurv
     test_acc = 0.0 # dummy value: not use in deepsurv
     df_result = pd.DataFrame([])
@@ -203,23 +219,27 @@ def _execute_test_deepsurv(split:str, dataloader:Dataset) -> Tuple[float, float,
         df_tmp = pd.concat([df_id, df_raw_output, df_label, df_period, df_likelihood, df_split], axis=1)
         df_result = pd.concat([df_result, df_tmp], ignore_index=True)
 
-    return val_acc, test_acc, df_result
+    return train_acc, val_acc, test_acc, df_result
 
 if __name__=="__main__":
     # Inference
     print('Inference started...')
+    train_total = len(train_loader.dataset)
     val_total = len(val_loader.dataset)
     test_total = len(test_loader.dataset)
+    print(f"train_data = {train_total}")
     print(f" val_data = {val_total}")
     print(f"test_data = {test_total}")
 
-    val_acc, test_acc, df_result = execute()
+    train_acc, val_acc, test_acc, df_result = execute()
 
     if task == 'classification':
+        train_acc = (train_acc / (train_total * len(label_list))) * 100
         val_acc = (val_acc / (val_total * len(label_list))) * 100
         test_acc = (test_acc / (test_total * len(label_list))) * 100
-        print(f" val: Inference_accuracy: {val_acc:.4f} %")
-        print(f"test: Inference_accuracy: {test_acc:.4f} %")
+        print(f"train: Inference_accuracy: {train_acc:.4f} %")
+        print(f"  val: Inference_accuracy: {val_acc:.4f} %")
+        print(f" test: Inference_accuracy: {test_acc:.4f} %")
     else:
         # When regresson or deepsurv
         pass

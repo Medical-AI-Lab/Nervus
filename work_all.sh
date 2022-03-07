@@ -3,7 +3,7 @@
 set -eu
 
 gpu_ids="-1"
-hyperparameter_csv="./hyperparameters/hyperparameter.csv"
+parameter_csv="./parameters/parameter.csv"
 
 train_log="./logs/train.log"
 test_log="./logs/test.log"
@@ -36,18 +36,19 @@ while getopts ":g" optKey; do
   esac
 done
 
-#1 task,
-#2 csv_name,
-#3 image_dir,
-#4 model,
-#5 criterion,
-#6 optimizer,
-#7 epochs,
-#8 batch_size,
-#9 sampler
-total=$(tail -n +2 "$hyperparameter_csv" | wc -l)
+#1  task,
+#2  csv_name,
+#3  image_dir,
+#4  model,
+#5  criterion,
+#6  optimizer,
+#7  epochs,
+#8  batch_size,
+#9  sampler,
+#10 augmtntation
+total=$(tail -n +2 "$parameter_csv" | wc -l)
 i=1
-for row in $(tail -n +2 "$hyperparameter_csv"); do
+for row in $(tail -n +2 "$parameter_csv"); do
   task=$(echo "$row" | cut -d "," -f1)
   csv_name=$(echo "$row" | cut -d "," -f2)
   image_dir=$(echo "$row" | cut -d "," -f3)
@@ -57,15 +58,15 @@ for row in $(tail -n +2 "$hyperparameter_csv"); do
   epochs=$(echo "$row" | cut -d "," -f7)
   batch_size=$(echo "$row" | cut -d "," -f8)
   sampler=$(echo "$row" | cut -d "," -f9)
-
+  augmentation=$(echo "$row" | cut -d "," -f10)
 
   echo "$i/$total: Training starts..."
 
   echo ""
 
   # Traning
-  echo "$python $train_code --task $task --csv_name $csv_name --image_dir $image_dir --model $model --criterion $criterion --optimizer $optimizer --epochs $epochs --batch_size $batch_size --sampler $sampler --gpu_ids $gpu_ids"
-  "$python" "$train_code" --task "$task" --csv_name "$csv_name" --image_dir "$image_dir" --model "$model" --criterion "$criterion" --optimizer "$optimizer" --epochs "$epochs" --batch_size "$batch_size" --sampler "$sampler" --gpu_ids "$gpu_ids" 2>&1 | tee -a "$train_log"
+  echo "$python $train_code --task $task --csv_name $csv_name --image_dir $image_dir --model $model --criterion $criterion --optimizer $optimizer --epochs $epochs --batch_size $batch_size --sampler $sampler --augmentation $augmentation --gpu_ids $gpu_ids"
+  "$python" "$train_code" --task "$task" --csv_name "$csv_name" --image_dir "$image_dir" --model "$model" --criterion "$criterion" --optimizer "$optimizer" --epochs "$epochs" --batch_size "$batch_size" --sampler "$sampler" --augmentation $augmentation --gpu_ids "$gpu_ids" 2>&1 | tee -a "$train_log"
 
   echo ""
 
