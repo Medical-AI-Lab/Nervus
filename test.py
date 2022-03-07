@@ -17,16 +17,16 @@ from config.model import *
 args = TestOptions().parse()
 nervusenv = NervusEnv()
 datetime_dir = get_target(nervusenv.sets_dir, args['test_datetime'])   # args['test_datetime'] if exists or the latest
-hyperparameters_path = os.path.join(datetime_dir, nervusenv.csv_hyperparameters)
-train_hyperparameters = read_train_hyperparameters(hyperparameters_path)
-task = train_hyperparameters['task']
-mlp = train_hyperparameters['mlp']
-cnn = train_hyperparameters['cnn']
-gpu_ids = str2int(train_hyperparameters['gpu_ids'])
+parameters_path = os.path.join(datetime_dir, nervusenv.csv_parameters)
+train_parameters = read_train_parameters(parameters_path)
+task = train_parameters['task']
+mlp = train_parameters['mlp']
+cnn = train_parameters['cnn']
+gpu_ids = str2int(train_parameters['gpu_ids'])
 device = set_device(gpu_ids)
 
-image_dir = os.path.join(nervusenv.images_dir, train_hyperparameters['image_dir'])
-csv_dict = parse_csv(os.path.join(nervusenv.csvs_dir, train_hyperparameters['csv_name']), task)
+image_dir = os.path.join(nervusenv.images_dir, train_parameters['image_dir'])
+csv_dict = parse_csv(os.path.join(nervusenv.splits_dir, train_parameters['csv_name']), task)
 output_class_label = csv_dict['output_class_label']
 label_num_classes = csv_dict['label_num_classes']
 label_list = csv_dict['label_list']
@@ -39,9 +39,10 @@ period_column = csv_dict['period_column']   # When classification or regression,
 # Align option for test only
 test_weight = os.path.join(datetime_dir, nervusenv.weight)
 test_batch_size = args['test_batch_size']                            # Default: 64  No exixt in train_opt
-train_hyperparameters['preprocess'] = 'no'                           # No need of preprocess for image when test, Define no in test_options.py
-train_hyperparameters['normalize_image'] = args['normalize_image']   # Default: 'yes'
+train_parameters['preprocess'] = 'no'                           # MUST: Stop augumentation, No need of preprocess for image when test
+train_parameters['normalize_image'] = args['normalize_image']   # Default: 'yes'
 
+print('preprocess', train_parameters['preprocess'])
 
 # Data Loadar
 if task == 'deepsurv':
@@ -54,9 +55,9 @@ elif (task == 'classification') | (task == 'regression'): # when classification 
 else:
     print('task error!')
 
-train_loader = dalaloader_mlp_cnn(train_hyperparameters, csv_dict, image_dir, split_list=['train'], batch_size=test_batch_size, sampler='no')
-val_loader = dalaloader_mlp_cnn(train_hyperparameters, csv_dict, image_dir, split_list=['val'], batch_size=test_batch_size, sampler='no')
-test_loader = dalaloader_mlp_cnn(train_hyperparameters, csv_dict, image_dir, split_list=['test'], batch_size=test_batch_size, sampler='no')
+train_loader = dataloader_mlp_cnn(train_parameters, csv_dict, image_dir, split_list=['train'], batch_size=test_batch_size, sampler='no')
+val_loader = dataloader_mlp_cnn(train_parameters, csv_dict, image_dir, split_list=['val'], batch_size=test_batch_size, sampler='no')
+test_loader = dataloader_mlp_cnn(train_parameters, csv_dict, image_dir, split_list=['test'], batch_size=test_batch_size, sampler='no')
 
 # Configure of model
 model = create_mlp_cnn(mlp, cnn, num_inputs, label_num_classes, gpu_ids=gpu_ids)

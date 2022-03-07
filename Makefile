@@ -6,7 +6,7 @@
 # CRITERION = CEL | MSE | NLL
 # SAMPLER = yes | no    # should be no when regression or multi-label
 #GPU_IDS = -1 | 0,1,2
-CSV_NAME := clean_cla_single_output_bin_class.csv
+CSV_NAME := clean.csv
 IMAGE_DIR := 128
 TASK := deepsurv
 MODEL := MLP
@@ -40,7 +40,7 @@ C_INDEX_CODE := ./evaluation/c_index.py
 GRADCAM_CODE := visualize.py
 
 # Directory
-HYPERPARAMETER_DIR := ./hyperparameters
+PARAMETER_DIR := ./parameters
 RESULTS_DIR := ./results
 SETS_DIR := $(RESULTS_DIR)/sets
 SUMMARY_DIR := $(RESULTS_DIR)/summary
@@ -54,13 +54,13 @@ temp:
 	-mkdir -p $(SETS_DIR)/$(TMP_DIR)
 	-mkdir -p $(SUMMARY_DIR)/$(TMP_DIR)
 	-mkdir -p $(LOG_DIR)/$(TMP_DIR)
-#	@#-mkdir -p $(HYPERPARAMETER_DIR)/$(TMP_DIR)
+#	@#-mkdir -p $(PARAMETER_DIR)/$(TMP_DIR)
 
 clean:
 	-mv $(LOG_DATETIME) $(SETS_DIR)/$(TMP_DIR)
 	-mv $(SUMMARY_DIR)/summary.csv $(SUMMARY_DIR)/$(TMP_DIR)/summary_$(DATETIME).csv
 	-mv $(LOG_DIR)/*.log $(LOG_DIR)/$(TMP_DIR)
-#	@#-mv $(HYPERPARAMETER_DIR)/*.csv $(HYPERPARAMETER_DIR)/$(TMP_DIR)
+#	@#-mv $(PARAMETER_DIR)/*.csv $(PARAMETER_DIR)/$(TMP_DIR)
 
 
 active:

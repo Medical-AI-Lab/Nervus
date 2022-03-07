@@ -51,6 +51,7 @@ class LoadDataSet_MLP_CNN(Dataset):
         # Preprocess for image
         if not(self.args['cnn'] is None):
             self.transform = self._make_transforms()
+            self.augmentation = self._make_augmentations()
 
         # index of each column
         self.index_dict = {column_name: self.df_split.columns.get_loc(column_name) for column_name in self.df_split.columns}
@@ -58,21 +59,6 @@ class LoadDataSet_MLP_CNN(Dataset):
 
     def _make_transforms(self):
         _transforms = []
-
-        if self.args['preprocess'] == 'yes':
-            if self.args['random_horizontal_flip'] == 'yes':
-                _transforms.append(transforms.RandomHorizontalFlip())
-
-            if self.args['random_rotation'] == 'yes':
-                _transforms.append(transforms.RandomRotation((-10, 10)))
-
-            if self.args['color_jitter'] == 'yes':
-                # If img is PIL Image, mode “1”, “I”, “F” and modes with transparency (alpha channel) are not supported.
-                # When open Grayscle with "RGB" mode
-                _transforms.append(transforms.ColorJitter())
-
-            if self.args['random_apply'] == 'yes':
-                _transforms = transforms.RandomApply(_transforms)
 
         # MUST: Always convert to Tensor
         _transforms.append(transforms.ToTensor())   # PIL -> Tensor
@@ -83,6 +69,25 @@ class LoadDataSet_MLP_CNN(Dataset):
 
         _transforms = transforms.Compose(_transforms)
         return _transforms
+
+
+    def _make_augmentations(self):
+        _augmentation = []
+
+        if self.args['preprocess'] == 'yes':
+            if self.args['random_horizontal_flip'] == 'yes':
+                _augmentation.append(transforms.RandomHorizontalFlip())
+
+            if self.args['random_rotation'] == 'yes':
+                _augmentation.append(transforms.RandomRotation((-10, 10)))
+
+            if self.args['color_jitter'] == 'yes':
+                # If img is PIL Image, mode “1”, “I”, “F” and modes with transparency (alpha channel) are not supported.
+                # When open Grayscle with "RGB" mode
+                _augmentation.append(transforms.ColorJitter())
+
+        _augmentation = transforms.Compose(_augmentation)
+        return _augmentation
 
 
     def __len__(self):
@@ -111,7 +116,8 @@ class LoadDataSet_MLP_CNN(Dataset):
             filepath = self.df_split.iat[idx, self.index_dict[self.filepath_column]]
             image_path = os.path.join(self.image_dir, filepath)
             image = Image.open(image_path).convert('RGB')
-            image = self.transform(image)
+            image = self.augmentation(image)   # augmentation
+            image = self.transform(image)      # transform, ie. To_Tensor() and Normalization
         else:
             image = ''
         return id, raw_output, label, inputs_value_normed, image, split
@@ -127,6 +133,7 @@ def dataloader_mlp_cnn(args, csv_dict, images_dir, split_list=None, batch_size=N
     # Make sampler
     if sampler == 'yes':
         target = []
+
         for _, (_, _, label, _, _, _) in enumerate(split_data):
             target.append(label)
 
@@ -134,6 +141,7 @@ def dataloader_mlp_cnn(args, csv_dict, images_dir, split_list=None, batch_size=N
         weight = 1. / class_sample_count
         samples_weight = np.array([weight[t] for t in target])
         sampler = WeightedRandomSampler(samples_weight, len(samples_weight))
+        
         split_loader = DataLoader(
                             dataset = split_data,
                             batch_size = batch_size,

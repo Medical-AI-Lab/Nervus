@@ -10,12 +10,12 @@ import dataclasses
 @dataclasses.dataclass
 class NervusEnv:
     dataroot: str = '../materials'
-    csvs_dir: str = os.path.join(dataroot, 'csvs')
+    splits_dir: str = os.path.join(dataroot, 'splits')
     images_dir: str = os.path.join(dataroot, 'images')
     reslts_dir: str = './results'
     sets_dir: str = os.path.join(reslts_dir, 'sets')
     weight: str = 'weight.pt'
-    csv_hyperparameters: str = 'hyperparameters.csv'
+    csv_parameters: str = 'perparameter.csv'
     csv_learning_curve: str = 'learning_curve.csv'
     csv_likelihood: str = 'likelihood.csv'
     roc: str = 'roc.png'

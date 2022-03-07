@@ -16,11 +16,11 @@ Set directories as follows.
 ┌Nervus (this repository)  
 └materials   
 　　└images (this repository has image files for CNN.)  
-　　└csvs  
-　　　　 └trials.csv (any name is available if you change `hyperparameters/hyperparameters.csv`)
+　　└splits  
+　　　　 └trials.csv (any name is available if you change `parameters/parameters.csv`)
 
 - Brief modification for your task
-  - hyperparameters/hyperparameters.csv  
+  - parameters/parameters.csv  
     CSV must contain columns named `id_XXX`, `filepath`, `output_XXX`, and `split`.  
     Detailed explanation is shown in below.
   - work_all.sh  
@@ -59,16 +59,16 @@ When you use inputs other than image, `input_XXX` is needed.
 When you use deepsurv, `periords_XXX` is needed as well.
 
 ## Model development
-For training, validation, and testing, `hyperparameter.csv` and `work_all.sh` should be modified.
+For training, validation, and testing, `parameter.csv` and `work_all.sh` should be modified.
 
-GPU and path to `hyperparameter.csv` should be defined in the `work_all.sh`.
-Other parameters are defined in the `hyperparameter.csv`. 
+GPU and path to `parameter.csv` should be defined in the `work_all.sh`.
+Other parameters are defined in the `parameter.csv`. 
 
-### hyperparameter.csv items
+### parameter.csv items
 - task: task name
   - example: classification, regression, deepsurv
 - csv_name: csv file name contains labeled training data, validation data, and test data
-  - default path: ../materials/csvs/ (see: align_env.py)
+  - default path: ../materials/splits/ (see: align_env.py)
 - image_dir: image dataset directory name
   - default path: ../materials/images/ (see: align_env.py)
 - model: model name

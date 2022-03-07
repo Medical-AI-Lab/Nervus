@@ -50,11 +50,11 @@ def get_target(source_dir, target):
     return target_dir
 
 
-def read_train_hyperparameters(hyperparameters_path):
-    df_hyperparameters = pd.read_csv(hyperparameters_path, index_col=0)
-    df_hyperparameters = df_hyperparameters.fillna(np.nan).replace([np.nan],[None])
-    hyperparameters_dict = df_hyperparameters.to_dict()['value']
-    return hyperparameters_dict
+def read_train_parameters(parameters_path):
+    df_parameters = pd.read_csv(parameters_path, index_col=0)
+    df_parameters = df_parameters.fillna(np.nan).replace([np.nan],[None])
+    parameters_dict = df_parameters.to_dict()['value']
+    return parameters_dict
 
 
 def str2int(gpu_ids_str:str):

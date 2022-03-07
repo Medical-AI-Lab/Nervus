@@ -31,11 +31,11 @@ class TrainOptions():
         self.parser.add_argument('--batch_size',      type=int, default=None, metavar='N', help='batch size for training (Default: None)')
 
         # Preprocess for image
-        self.parser.add_argument('--preprocess',             type=str, default=None,  help='preprocess for image, yes or no (Default: None)')
+        self.parser.add_argument('--preprocess',             type=str, default=None,  help='preprocess for image, yes or no (Default: None)')        
         self.parser.add_argument('--random_horizontal_flip', type=str, default=None,  help='RandomHorizontalFlip, yes or no (Default: None)')
         self.parser.add_argument('--random_rotation',        type=str, default=None,  help='RandomRotation, yes or no (Default: None)')
         self.parser.add_argument('--color_jitter',           type=str, default=None,  help='ColorJitter, yes or no (Default: None)')
-        self.parser.add_argument('--random_apply',           type=str, default=None,  help='transform randomly applies, yes or no (Default: None)')
+        self.parser.add_argument('--augmentation',           type=str, default=None,  help='Apply all augumentation except normalize_image, yes or no (Default: None)')
         self.parser.add_argument('--normalize_image',        type=str, default='yes', help='image nomalization, yes no no (Default: yes)')
 
         # Sampler
@@ -75,6 +75,15 @@ class TrainOptions():
         else:
             pass
             #Check the case of when no specifying model later
+
+        if self.args.augmentation == 'yes':
+            # Apply all augmentation forcedly
+            self.args.preprocess = 'yes'
+            self.args.random_horizontal_flip = 'yes'
+            self.args.random_rotation = 'yes'
+            self.args.color_jitter = 'yes'
+        else:
+            pass
 
 
         # Align gpu_ids
