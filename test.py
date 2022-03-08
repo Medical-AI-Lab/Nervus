@@ -2,10 +2,8 @@
 # -*- coding: utf-8 -*-
 
 import os
-import sys
 from typing import Tuple
 
-import numpy as np
 import pandas as pd
 import torch
 
@@ -46,8 +44,6 @@ train_parameters['normalize_image'] = args['normalize_image']   # Default: 'yes'
 ## bool of using neural network
 hasMLP = mlp is not None
 hasCNN = cnn is not None
-
-print('preprocess', train_parameters['preprocess'])
 
 ## choose dataloader and function to execute test
 if task == 'deepsurv':
@@ -130,8 +126,8 @@ def _execute_test_single_label(split:str, dataloader:Dataset) -> Tuple[float, fl
         if task == 'classification':
             _, preds = torch.max(outputs, 1)
             split_acc = (torch.sum(preds == labels.data)).item()
-            if split == 'val':
-                val_acc += split_acc
+            if split == 'train':
+                train_acc += split_acc
             elif split == 'val':
                 val_acc += split_acc
             elif split == 'test':
@@ -163,6 +159,7 @@ def _execute_test_multi_label(split:str, dataloader:Dataset) -> Tuple[float, flo
 
         likelihood_multi = {}
         preds_multi = {}
+        labels_multi = {label_name: labels.to(device) for label_name, labels in labels_dict.items()}
         for label_name, labels in labels_multi.items():
             likelihood_multi[label_name] = get_layer_output(outputs, label_name)   # No softmax
             if task == 'classification':
