@@ -7,9 +7,7 @@ import sys
 import numpy as np
 import pandas as pd
 import torch
-from dataloader.dataloader_deepsurv import DeepSurvDataSet
-from dataloader.dataloader_multi import MultiLabelDataSet
-from dataloader.dataloader_single import SingleLabelDataSet
+from dataloader.dataloaderfactory import DataLoaderFactory
 
 from lib.util import *
 from lib.align_env import *
@@ -49,18 +47,19 @@ print('preprocess', train_parameters['preprocess'])
 
 # Data Loadar
 if task == 'deepsurv':
-    dataset_handler = DeepSurvDataSet
+    dataloader_type = 'deepsurv'
 elif (task == 'classification') | (task == 'regression'): # when classification or regression
     if len(label_list) > 1: #multi
-        dataset_handler = MultiLabelDataSet
+        dataloader_type= 'multilabel'
     else: #single
-        dataset_handler = SingleLabelDataSet
+        dataloader_type = 'singlelabel'
 else:
     print('task error!')
 
-train_loader = dataset_handler.create_dataloader(train_parameters, csv_dict, image_dir, split_list=['train'], batch_size=test_batch_size, sampler='no')
-val_loader = dataset_handler.create_dataloader(train_parameters, csv_dict, image_dir, split_list=['val'], batch_size=test_batch_size, sampler='no')
-test_loader = dataset_handler.create_dataloader(train_parameters, csv_dict, image_dir, split_list=['test'], batch_size=test_batch_size, sampler='no')
+dataloader_handler = DataLoaderFactory(dataloader_type, train_parameters, csv_dict, image_dir, batch_size=test_batch_size, sampler='no')
+train_loader = dataloader_handler.create(split_list=['train'])
+val_loader = dataloader_handler.create(split_list=['val'])
+test_loader = dataloader_handler.create(split_list=['test'])
 
 # Configure of model
 model = create_mlp_cnn(mlp, cnn, num_inputs, label_num_classes, gpu_ids=gpu_ids)

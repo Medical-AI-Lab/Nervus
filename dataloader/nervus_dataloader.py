@@ -18,7 +18,6 @@ from sklearn.preprocessing import MinMaxScaler
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 from lib.util import *
 
-
 class NervusDataSet(Dataset, ABC):
     def __init__(self, args, csv_dict, image_dir, split_list, multi_label=False):
         # super(LoadDataSet_MLP_CNN, self).__init__()
@@ -137,7 +136,6 @@ class NervusDataSet(Dataset, ABC):
     @abstractmethod
     def __getitem__(self, idx):
         pass
-
 
     @classmethod
     @abstractmethod

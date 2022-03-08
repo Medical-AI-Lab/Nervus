@@ -45,7 +45,7 @@ class DeepSurvDataSet(NervusDataSet):
 
 
     @classmethod
-    def create_dataloader(cls, args, csv_dict, images_dir, split_list=None, batch_size=None, sampler=None):
+    def create_dataloader(cls, args, csv_dict, images_dir, batch_size=None, sampler=None, split_list=None):
         assert (split_list is not None), 'Specify split to make dataloader.'
 
         split_data = cls(args, csv_dict, images_dir, split_list)

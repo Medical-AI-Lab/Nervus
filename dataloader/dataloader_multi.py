@@ -35,7 +35,7 @@ class MultiLabelDataSet(NervusDataSet):
 
 
     @classmethod
-    def create_dataloader(cls, args, csv_dict, images_dir, split_list=None, batch_size=None, sampler=None):
+    def create_dataloader(cls, args, csv_dict, images_dir, batch_size=None, sampler=None, split_list=None):
         assert (split_list is not None), 'Specify split to make dataloader.'
         assert (sampler == 'no'), 'samper should be no when multi-ouputs classification or multi-outputs regresson, but yes was specified.'
 

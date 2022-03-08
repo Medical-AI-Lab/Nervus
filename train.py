@@ -8,9 +8,7 @@ import numpy as np
 import pandas as pd
 import torch
 import copy
-from dataloader.dataloader_single import SingleLabelDataSet
-from dataloader.dataloader_deepsurv import DeepSurvDataSet
-from dataloader.dataloader_multi import MultiLabelDataSet
+from dataloader.dataloaderfactory import DataLoaderFactory
 
 from lib.util import *
 from lib.align_env import *
@@ -45,15 +43,17 @@ num_inputs = csv_dict['num_inputs']
 
 # Data Loadar
 if task == 'deepsurv':
-    dataset_handler = DeepSurvDataSet
+    dataloader_type = 'deepsurv'
 else:
     # when classification or regression
     if len(label_list) > 1:
-        dataset_handler = MultiLabelDataSet
+        dataloader_type= 'multilabel'
     else:
-        dataset_handler = SingleLabelDataSet
-train_loader = dataset_handler.create_dataloader(args, csv_dict, image_dir, split_list=['train'], batch_size=batch_size, sampler=sampler)
-val_loader = dataset_handler.create_dataloader(args, csv_dict, image_dir, split_list=['val'], batch_size=batch_size, sampler=sampler)
+        dataloader_type = 'singlelabel'
+
+dataloader_handler = DataLoaderFactory(dataloader_type, args, csv_dict, image_dir, batch_size=batch_size, sampler=sampler)
+train_loader = dataloader_handler.create(split_list=['train'])
+val_loader = dataloader_handler.create(split_list=['val'])
 
 # Configure of training
 model = create_mlp_cnn(mlp, cnn, num_inputs, label_num_classes, gpu_ids=gpu_ids)

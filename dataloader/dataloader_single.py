@@ -34,7 +34,7 @@ class SingleLabelDataSet(NervusDataSet):
 
 
     @classmethod
-    def create_dataloader(cls, args, csv_dict, images_dir, split_list=None, batch_size=None, sampler=None):
+    def create_dataloader(cls, args, csv_dict, images_dir, batch_size=None, sampler=None, split_list=None):
         assert (split_list is not None), 'Specify split to make dataloader.'
         if (args['task'] == 'regression'):
             assert (sampler == 'no'), 'samper should be no when regression, but yes was specified.'
