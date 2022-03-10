@@ -19,27 +19,27 @@ from lib.util import *
 
 
 class LoadDataSet_MLP_CNN(Dataset):
-    def __init__(self, args, csv_dict, image_dir, split_list):
+    def __init__(self, args, split_provider, image_dir, split_list):
         #super(LoadDataSet_MLP_CNN, self).__init__()
         super().__init__()
 
         self.args = args
-        self.csv_dict = csv_dict
+        self.split_provider = split_provider
         self.image_dir = image_dir
-        self.split_list = split_list   # ['train'], ['val'], ['val', 'test'], ['train', 'val', 'test']        
+        self.split_list = split_list   # ['train'], ['val'], ['val', 'test'], ['train', 'val', 'test']
 
-        self.df_source = self.csv_dict['source']
-        self.id_column = self.csv_dict['id_column']
-        self.output_name = csv_dict['output_list'][0]      # should be one because single-output
-        self.label_name = self.csv_dict['label_list'][0]   # shoule be one because single-output
-        self.input_list = self.csv_dict['input_list']
-        self.filepath_column = self.csv_dict['filepath_column']
-        self.split_column = self.csv_dict['split_column']
+        self.df_source = self.split_provider.df_source
+        self.id_column = self.split_provider.id_column
+        self.raw_label_name = self.split_provider.raw_label_list[0]             # should be one because single-output
+        self.internal_label_name = self.split_provider.internal_label_list[0]   # shoule be one because single-output
+        self.input_list = self.split_provider.input_list
+        self.filepath_column = self.split_provider.filepath_column
+        self.split_column = self.split_provider.split_column
         self.df_split = get_column_value(self.df_source, self.split_column, self.split_list)
 
         # Nomalize input variables
         if not(self.args['mlp'] is None):
-            self.input_list_normed = [ 'normed_' + input for input in self.input_list ]
+            self.input_list_normed = ['normed_' + input for input in self.input_list]
             self.scaler = MinMaxScaler()
             self.df_train = get_column_value(self.df_source, self.split_column, ['train'])  # should be normalized with min and max of training data
             _ = self.scaler.fit(self.df_train[self.input_list])                             # fit only
@@ -96,8 +96,8 @@ class LoadDataSet_MLP_CNN(Dataset):
 
     def __getitem__(self, idx):
         id = self.df_split.iat[idx, self.index_dict[self.id_column]]
-        raw_output = self.df_split.iat[idx, self.index_dict[self.output_name]]
-        label = self.df_split.iat[idx, self.index_dict[self.label_name]]
+        raw_label = self.df_split.iat[idx, self.index_dict[self.raw_label_name]]
+        internal_label = self.df_split.iat[idx, self.index_dict[self.internal_label_name]]
         split = self.df_split.iat[idx, self.index_dict[self.split_column]]
 
         # Convert normalized values to a single Tensor
@@ -120,22 +120,22 @@ class LoadDataSet_MLP_CNN(Dataset):
             image = self.transform(image)      # transform, ie. To_Tensor() and Normalization
         else:
             image = ''
-        return id, raw_output, label, inputs_value_normed, image, split
+        return id, raw_label, internal_label, inputs_value_normed, image, split
 
 
-def dataloader_mlp_cnn(args, csv_dict, images_dir, split_list=None, batch_size=None, sampler=None):
+def dataloader_mlp_cnn(args, split_provider, images_dir, split_list=None, batch_size=None, sampler=None):
     assert (split_list is not None), 'Specify split to make dataloader.'
     if (args['task'] == 'regression'):
         assert (sampler == 'no'), 'samper should be no when regression, but yes was specified.'
 
-    split_data = LoadDataSet_MLP_CNN(args, csv_dict, images_dir, split_list)
+    split_data = LoadDataSet_MLP_CNN(args, split_provider, images_dir, split_list)
 
     # Make sampler
     if sampler == 'yes':
         target = []
 
-        for _, (_, _, label, _, _, _) in enumerate(split_data):
-            target.append(label)
+        for _, (_, _, internal_label, _, _, _) in enumerate(split_data):
+            target.append(internal_label)
 
         class_sample_count = np.array([len(np.where(target == t)[0]) for t in np.unique(target)])
         weight = 1. / class_sample_count
@@ -156,6 +156,3 @@ def dataloader_mlp_cnn(args, csv_dict, images_dir, split_list=None, batch_size=N
                             num_workers = 0,
                             sampler = None)
     return split_loader
-
-
-# ----- EOF -----

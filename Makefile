@@ -1,16 +1,16 @@
 # ----- Define variables -----
-# CSV_NAME = clean.csv
+# CSV_NAME = trials.csv
 # IMAGE_DIR = 128 | covid | png256
 # TASK = classification | regression | deepsurv
 # MODEL = MLP | ResNet18 | MLP+ResNet18
 # CRITERION = CEL | MSE | NLL
 # SAMPLER = yes | no    # should be no when regression or multi-label
-#GPU_IDS = -1 | 0,1,2
-CSV_NAME := clean.csv
+# GPU_IDS = -1 | 0,1,2
+CSV_NAME := trials.csv
 IMAGE_DIR := 128
-TASK := deepsurv
-MODEL := MLP
-CRITERION := NLL
+TASK := classification
+MODEL := MLP+ResNet18
+CRITERION := CEL
 OPTIMIZER := Adam
 EPOCHS := 3
 BATCH_SIZE := 64
@@ -37,7 +37,6 @@ TEST_CODE := test.py
 ROC_CODE := ./evaluation/roc.py
 YY_CODE := ./evaluation/yy.py
 C_INDEX_CODE := ./evaluation/c_index.py
-GRADCAM_CODE := visualize.py
 
 # Directory
 PARAMETER_DIR := ./parameters
@@ -80,6 +79,3 @@ yy:
 
 c_index:
 	$(PYTHON) $(C_INDEX_CODE)
-
-gradcam:
-	$(PYTHON) $(GRADCAM_CODE)
