@@ -19,28 +19,28 @@ from lib.util import *
 
 
 class LoadDataSet_DeepSurv(Dataset):
-    def __init__(self, args, csv_dict, image_dir, split_list):
+    def __init__(self, args, split_provider, image_dir, split_list):
         #super(LoadDataSet_MLP_CNN, self).__init__()
         super().__init__()
 
         self.args = args
-        self.csv_dict = csv_dict
+        self.split_provider = split_provider
         self.image_dir = image_dir
         self.split_list = split_list   # ['train'], ['val'], ['val', 'test'], ['train', 'val', 'test']
-        
-        self.df_source = self.csv_dict['source']
-        self.id_column = self.csv_dict['id_column']
-        self.output_name = csv_dict['output_list'][0]       # should be one because single-output
-        self.label_name = self.csv_dict['label_list'][0]    # should be one because single-output
-        self.input_list = self.csv_dict['input_list']
-        self.filepath_column = self.csv_dict['filepath_column']
-        self.split_column = self.csv_dict['split_column']
+
+        self.df_source = self.split_provider.df_source
+        self.id_column = self.split_provider.id_column
+        self.raw_label_name = self.split_provider.raw_label_list[0]             # should be one because single-output
+        self.internal_label_name = self.split_provider.internal_label_list[0]   # should be one because single-output
+        self.input_list = self.split_provider.input_list
+        self.filepath_column = self.split_provider.filepath_column
+        self.split_column = self.split_provider.split_column
         self.df_split = get_column_value(self.df_source, self.split_column, self.split_list)
-        self.period_columns = self.csv_dict['period_column']
+        self.period_columns = self.split_provider.period_column
 
         # Nomalize input variables
         if not(self.args['mlp'] is None):
-            self.input_list_normed = [ 'normed_' + input for input in self.input_list ]
+            self.input_list_normed = ['normed_' + input for input in self.input_list]
             self.scaler = MinMaxScaler()
             self.df_train = get_column_value(self.df_source, self.split_column, ['train'])   # should be normalized with min and max of training data
             _ = self.scaler.fit(self.df_train[self.input_list])                              # fit only
@@ -98,14 +98,14 @@ class LoadDataSet_DeepSurv(Dataset):
 
     def __getitem__(self, idx):
         id = self.df_split.iat[idx, self.index_dict[self.id_column]]
-        raw_output = self.df_split.iat[idx, self.index_dict[self.output_name]]
-        label = self.df_split.iat[idx, self.index_dict[self.label_name]]
+        raw_label = self.df_split.iat[idx, self.index_dict[self.raw_label_name]]
+        internal_label = self.df_split.iat[idx, self.index_dict[self.internal_label_name]]
         split = self.df_split.iat[idx, self.index_dict[self.split_column]]
-        period = self.df_split.iloc[idx, self.index_dict[self.period_columns]]        
+        period = self.df_split.iloc[idx, self.index_dict[self.period_columns]]
 
-        label = np.array(label, dtype=np.float64)
-        label = torch.from_numpy(label.astype(np.float32)).clone()
-        #label = label.reshape(-1, 1)
+        internal_label = np.array(internal_label, dtype=np.float64)
+        internal_label = torch.from_numpy(internal_label.astype(np.float32)).clone()
+        #internal_label = internal_label.reshape(-1, 1)
 
         period = np.array(period, dtype=np.float64)
         period = torch.from_numpy(period.astype(np.float32)).clone()
@@ -131,20 +131,20 @@ class LoadDataSet_DeepSurv(Dataset):
             image = self.transform(image)      # transform, ie. To_Tensor() and Normalization
         else:
             image = ''
-        return id, raw_output, label, period, inputs_value_normed, image, split
+        return id, raw_label, internal_label, period, inputs_value_normed, image, split
 
 
 
-def dataloader_mlp_cnn(args, csv_dict, images_dir, split_list=None, batch_size=None, sampler=None):
+def dataloader_mlp_cnn(args, split_provider, images_dir, split_list=None, batch_size=None, sampler=None):
     assert (split_list is not None), 'Specify split to make dataloader.'
 
-    split_data = LoadDataSet_DeepSurv(args, csv_dict, images_dir, split_list)
+    split_data = LoadDataSet_DeepSurv(args, split_provider, images_dir, split_list)
 
     # Make sampler
     if sampler == 'yes':
         target = []
-        for _, (_, _, label, _, _, _, _) in enumerate(split_data):
-            target.append(label)
+        for _, (_, _, internal_label, _, _, _, _) in enumerate(split_data):
+            target.append(internal_label)
 
         target = [int(t.item()) for t in target]   # Tensor -> int
         class_sample_count = np.array( [ len(np.where(target == t)[0]) for t in np.unique(target) ] )

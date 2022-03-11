@@ -250,22 +250,21 @@ class MLPCNN_Net(nn.Module):
         outputs = self.mlp(inputs_images)
         return outputs
 
-
-def create_mlp_cnn(mlp, cnn, num_inputs, label_num_classes, gpu_ids=[]):
+def create_mlp_cnn(mlp, cnn, num_inputs, num_classes_in_label, gpu_ids=[]):
     """
     num_input: number of inputs of MLP or MLP+CNN
     """
     if (mlp is not None) and (cnn is None):
         # When MLP only
-        model = mlp_net(num_inputs, label_num_classes)
+        model = mlp_net(num_inputs, num_classes_in_label)
     elif (mlp is None) and (cnn is not None):
         # When CNN only
-        model = conv_net(cnn, label_num_classes)
+        model = conv_net(cnn, num_classes_in_label)
     else:
         # When MLP+CNN
         # Set the number of outputs from CNN to MLP as 1, then
         # the shape of outputs from CNN is [batgch_size,1]
-        model = MLPCNN_Net(cnn, num_inputs, label_num_classes)
+        model = MLPCNN_Net(cnn, num_inputs, num_classes_in_label)
 
     #model = config_device(model, gpu_ids)
     device = set_device(gpu_ids)

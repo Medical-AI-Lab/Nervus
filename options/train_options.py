@@ -12,7 +12,7 @@ class TrainOptions():
         self.parser = argparse.ArgumentParser(description='Train options')
 
         # Materials
-        self.parser.add_argument('--csv_name',  type=str, default=None, help='csv namefilename(Default: None)')
+        self.parser.add_argument('--csv_name',  type=str, default=None, help='csv filename(Default: None)')
         self.parser.add_argument('--image_dir', type=str, default=None, help='directory name contaning images(Default: None)')
 
         # Task
@@ -31,7 +31,6 @@ class TrainOptions():
         self.parser.add_argument('--batch_size',      type=int, default=None, metavar='N', help='batch size for training (Default: None)')
 
         # Preprocess for image
-        self.parser.add_argument('--preprocess',             type=str, default=None,  help='preprocess for image, yes or no (Default: None)')        
         self.parser.add_argument('--random_horizontal_flip', type=str, default=None,  help='RandomHorizontalFlip, yes or no (Default: None)')
         self.parser.add_argument('--random_rotation',        type=str, default=None,  help='RandomRotation, yes or no (Default: None)')
         self.parser.add_argument('--color_jitter',           type=str, default=None,  help='ColorJitter, yes or no (Default: None)')
@@ -76,15 +75,34 @@ class TrainOptions():
             pass
             #Check the case of when no specifying model later
 
-        if self.args.augmentation == 'yes':
-            # Apply all augmentation forcedly
-            self.args.preprocess = 'yes'
-            self.args.random_horizontal_flip = 'yes'
-            self.args.random_rotation = 'yes'
-            self.args.color_jitter = 'yes'
-        else:
-            pass
 
+        # Align options for augmentation
+        # Note: Add transfomrtation to this list
+        _augmentation_list = [self.args.random_horizontal_flip, self.args.random_rotation, self.args.color_jitter]
+        num_partial_aug = _augmentation_list.count('yes')
+        is_partial_aug = (0 < num_partial_aug) and (num_partial_aug < len(_augmentation_list))   # Not all
+        is_all_aug = (self.args.augmentation == 'yes')                 # All
+
+        if num_partial_aug == len(_augmentation_list):
+            print('Specify --augumentaion yes only if apply all augmention.\n')
+            exit()
+
+        if is_partial_aug or is_all_aug:
+            self.args.preprocess = 'yes'
+            if is_partial_aug and (not is_all_aug):
+                # Not all
+                pass
+            elif (not is_partial_aug) and is_all_aug:
+                # Apply all augmentation forcedly
+                self.args.random_horizontal_flip = 'yes'
+                self.args.random_rotation = 'yes'
+                self.args.color_jitter = 'yes'
+            else:
+                # When is_partial_aug and is_all_aug, contradiction.
+                print('Apply not all augmentation, or Apply all augmentation?\n')
+                exit()
+        else:
+            self.args.preprocess = 'no'
 
         # Align gpu_ids
         str_ids = self.args.gpu_ids.split(',')

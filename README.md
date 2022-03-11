@@ -21,7 +21,7 @@ Set directories as follows.
 
 - Brief modification for your task
   - parameters/parameters.csv  
-    CSV must contain columns named `id_XXX`, `filepath`, `output_XXX`, and `split`.  
+    CSV must contain columns named `id_XXX`, `filepath`, `label_XXX`, and `split`.  
     Detailed explanation is shown in below.
   - work_all.sh  
     Change `gpu_ids` depending on how many GPUs you can use. Default is "-1" which means to use CPU only.
@@ -35,10 +35,10 @@ https://colab.research.google.com/drive/1vpP-veRHPnTEwzDOzRZ0cXcHHY0u7-oJ
 # Detailed Preparation
 ## CSV
 This is the csv which we show as trials.csv in the brief usage section.  
-CSV must contain columns named `id_XXX`, `filepath`, `output_XXX`, and `split`.
+CSV must contain columns named `id_XXX`, `filepath`, `label_XXX`, and `split`.
 
 Examples:
-| id_uniq | filepath | output_cancer | split |
+| id_uniq | filepath | label_cancer | split |
 | -----| ----------- | --------- | ----- |
 | 0001 | png_128/AAA.png | malignant | train |
 | 0002 | png_128/BBB.png | benign | val |
@@ -53,7 +53,7 @@ Examples:
 
 Note `id_XXX` must be unique.
 `filepath` should have a path to images for the model.
-`output_XXX` should have a classification target. Any name is available. If you use more than two `output_XXX`, it will be automatically recognize multi-label classification and automatically prepare a proper number of classifiers (FCs). 
+`label_XXX` should have a classification target. Any name is available. If you use more than two `label_XXX`, it will be automatically recognize multi-label classification and automatically prepare a proper number of classifiers (FCs). 
 `split` should have `train`, `val`, and `test`.
 When you use inputs other than image, `input_XXX` is needed. 
 When you use deepsurv, `periords_XXX` is needed as well.

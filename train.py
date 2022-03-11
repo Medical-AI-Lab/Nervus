@@ -17,6 +17,7 @@ from config.optimizer import set_optimizer
 from config.model import *
 
 
+nervusenv = NervusEnv()
 train_option_parser = TrainOptions()
 args = train_option_parser.parse()
 #TrainOptions().is_option_valid(args)
@@ -34,12 +35,9 @@ sampler = args['sampler']
 gpu_ids = args['gpu_ids']
 device = set_device(gpu_ids)
 
-nervusenv = NervusEnv()
 image_dir = os.path.join(nervusenv.images_dir , args['image_dir'])
-csv_dict = parse_csv(os.path.join(nervusenv.splits_dir, args['csv_name']), task)
-label_num_classes = csv_dict['label_num_classes']
-label_list = csv_dict['label_list']
-num_inputs = csv_dict['num_inputs']
+sp = SplitProvider(os.path.join(nervusenv.splits_dir, args['csv_name']), task)
+label_list = sp.internal_label_list   # Reagrd internal label as just label
 
 # Data Loadar
 if task == 'deepsurv':
@@ -50,11 +48,11 @@ else:
         from dataloader.dataloader_multi import *
     else:
         from dataloader.dataloader import *
-train_loader = dataloader_mlp_cnn(args, csv_dict, image_dir, split_list=['train'], batch_size=batch_size, sampler=sampler)
-val_loader = dataloader_mlp_cnn(args, csv_dict, image_dir, split_list=['val'], batch_size=batch_size, sampler=sampler)
+train_loader = dataloader_mlp_cnn(args, sp, image_dir, split_list=['train'], batch_size=batch_size, sampler=sampler)
+val_loader = dataloader_mlp_cnn(args, sp, image_dir, split_list=['val'], batch_size=batch_size, sampler=sampler)
 
 # Configure of training
-model = create_mlp_cnn(mlp, cnn, num_inputs, label_num_classes, gpu_ids=gpu_ids)
+model = create_mlp_cnn(mlp, cnn, sp.num_inputs, sp.num_classes_in_internal_label, gpu_ids=gpu_ids)
 criterion = set_criterion(criterion, device)
 optimizer = set_optimizer(optimizer, model, lr)
 
@@ -123,7 +121,8 @@ def execute_epoch_single_label(task, mlp, cnn, criterion, optimizer, num_epochs,
             running_loss = 0.0
             running_acc = 0.0
 
-            for i, (ids, raw_outputs, labels, inputs_values_normed, images, splits) in enumerate(dataloader):
+            # Reagrd internal label as just label
+            for i, (ids, raw_labels, labels, inputs_values_normed, images, splits) in enumerate(dataloader):
                 optimizer.zero_grad()
 
                 with torch.set_grad_enabled(phase == 'train'):
@@ -183,33 +182,33 @@ def execute_epoch_multi_label(task, mlp, cnn, criterion, optimizer, num_epochs, 
             running_loss = 0.0
             running_acc = 0
 
-            for i, (ids, raw_outputs_dict, labels_dict, inputs_values_normed, images, splits) in enumerate(dataloader):
+            # Reagrd internal label as just label
+            for i, (ids, raw_labels_dict, labels_dict, inputs_values_normed, images, splits) in enumerate(dataloader):
                 optimizer.zero_grad()
 
                 with torch.set_grad_enabled(phase == 'train'):
                     if (mlp is not None) and (cnn is None):
                         # When MLP only
                         inputs_values_normed = inputs_values_normed.to(device)
-                        labels_multi = { label_name: labels.to(device) for label_name, labels in labels_dict.items() }
+                        labels_multi = {label_name: labels.to(device) for label_name, labels in labels_dict.items()}
                         outputs = model(inputs_values_normed)
 
                     elif (mlp is None) and (cnn is not None):
                         # When CNN only
                         images = images.to(device)
-                        labels_multi = { label_name: labels.to(device) for label_name, labels in labels_dict.items() }
+                        labels_multi = {label_name: labels.to(device) for label_name, labels in labels_dict.items()}
                         outputs = model(images)
 
                     else: # elif not(mlp is None) and not(cnn is None):
                         # When MLP+CNN
                         inputs_values_normed = inputs_values_normed.to(device)
                         images = images.to(device)
-                        labels_multi = { label_name: labels.to(device) for label_name, labels in labels_dict.items() }
+                        labels_multi = {label_name: labels.to(device) for label_name, labels in labels_dict.items()}
                         outputs = model(inputs_values_normed, images)
 
                     # Initialize every iteration
                     preds_multi = {}
                     loss_multi = {}
-
                     for label_name, labels in labels_multi.items():
                         layer_outputs = get_layer_output(outputs, label_name)
 
@@ -266,7 +265,8 @@ def execute_epoch_deepsurv(task, mlp, cnn, criterion, optimizer, num_epochs, dev
             running_loss = 0.0
             running_acc = 0
 
-            for i, (ids, raw_outputs, labels, periods, inputs_values_normed, images, splits) in enumerate(dataloader):
+            # Reagrd internal label as just label
+            for i, (ids, raw_labels, labels, periods, inputs_values_normed, images, splits) in enumerate(dataloader):
                 optimizer.zero_grad()
 
                 with torch.set_grad_enabled(phase == 'train'):
@@ -335,9 +335,9 @@ save_dir = os.path.join(nervusenv.sets_dir, date_name)
 os.makedirs(save_dir, exist_ok=True)
 
 # Parameters
-df_opt = pd.DataFrame(list(args.items()), columns=['option', 'value'])
+df_parameter = pd.DataFrame(list(args.items()), columns=['option', 'value'])
 parameters_path = os.path.join(save_dir, nervusenv.csv_parameters)
-df_opt.to_csv(parameters_path, index=False)
+df_parameter.to_csv(parameters_path, index=False)
 
 # Weight
 weight_path = os.path.join(save_dir, nervusenv.weight)
@@ -348,6 +348,3 @@ csv_learning_curve = nervusenv.csv_learning_curve.replace('.csv', '') + '_val-be
 learning_curve_path = os.path.join(save_dir, csv_learning_curve)
 df_learning_curve = pd.DataFrame(loss_acc_dict)
 df_learning_curve.to_csv(learning_curve_path, index=False)
-
-
-# ---- EOF --------
