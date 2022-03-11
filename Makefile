@@ -4,7 +4,7 @@
 # TASK = classification | regression | deepsurv
 # MODEL = MLP | ResNet18 | MLP+ResNet18
 # CRITERION = CEL | MSE | NLL
-# SAMPLER = yes | no    # should be no when regression or multi-label
+# SAMPLER = yes | no   # should be no when regression or multi-label
 # GPU_IDS = -1 | 0,1,2
 CSV_NAME := trials.csv
 IMAGE_DIR := 128
@@ -15,6 +15,7 @@ OPTIMIZER := Adam
 EPOCHS := 3
 BATCH_SIZE := 64
 SAMPLER := no
+AUGMENTATION := yes
 GPU_IDS := -1
 
 TRAIN_OPT := \
@@ -27,7 +28,9 @@ TRAIN_OPT := \
 --epochs $(EPOCHS) \
 --batch_size $(BATCH_SIZE) \
 --sampler $(SAMPLER) \
+--augmentation $(AUGMENTATION) \
 --gpu_ids $(GPU_IDS)
+
 
 PYTHON := python -i
 #PYTHON := python

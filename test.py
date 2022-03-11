@@ -32,8 +32,8 @@ label_list = sp.internal_label_list   # Reagrd internal label as label
 
 # Align option for test only
 test_weight = os.path.join(datetime_dir, nervusenv.weight)
-test_batch_size = args['test_batch_size']                            # Default: 64  No exixt in train_opt
-train_parameters['preprocess'] = 'no'                           # MUST: Stop augumentation, No need of preprocess for image when test
+test_batch_size = args['test_batch_size']                       # Default: 64  No exixt in train_opt
+train_parameters['preprocess'] = 'no'                           # MUST: Stop augmentaion, No need when test
 train_parameters['normalize_image'] = args['normalize_image']   # Default: 'yes'
 
 
