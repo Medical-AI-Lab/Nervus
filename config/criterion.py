@@ -4,6 +4,9 @@
 import torch
 import torch.nn as nn
 
+from lib.util import NervusLogger
+
+logger = NervusLogger.get_logger('config.criterion')
 
 class RMSELoss(nn.Module):
     def __init__(self):
@@ -78,7 +81,7 @@ def set_criterion(criterion_name, device):
         criterion = NegativeLogLikelihood(device).to(device)
 
     else:
-        print(f"No specified criterion: {criterion_name}.")
+        logger.error(f"No specified criterion: {criterion_name}.")
 
     return criterion
 

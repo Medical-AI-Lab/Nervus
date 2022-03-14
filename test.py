@@ -15,6 +15,9 @@ from lib.align_env import *
 from options.test_options import TestOptions
 from config.model import *
 
+logger = NervusLogger.get_logger('test')
+## remove comment out when debug
+# NervusLogger.set_level(logging.DEBUG)
 
 nervusenv = NervusEnv()
 args = TestOptions().parse()
@@ -94,7 +97,7 @@ def execute():
             elif _split == 'test':
                 _dataloader = test_loader
             else: #
-                print('Split in dataloader error.')
+                logger.error('Split in dataloader error.')
 
             # execute test: _execute_test_single_label, _execute_test_multi_label, _execute_test_deepsurv
             _train_acc, _val_acc, _test_acc, _df_result = _execute_test(_split, _dataloader)
@@ -217,13 +220,13 @@ def _execute_test_deepsurv(_, dataloader:Dataset) -> Tuple[float, float, pd.Data
 
 if __name__=="__main__":
     # Inference
-    print('Inference started...')
+    logger.info('Inference started...')
     train_total = len(train_loader.dataset)
     val_total = len(val_loader.dataset)
     test_total = len(test_loader.dataset)
-    print(f"train_data = {train_total}")
-    print(f"  val_data = {val_total}")
-    print(f" test_data = {test_total}")
+    logger.info(f"train_data = {train_total}")
+    logger.info(f"  val_data = {val_total}")
+    logger.info(f" test_data = {test_total}")
 
     train_acc, val_acc, test_acc, df_result = execute()
 
@@ -231,13 +234,13 @@ if __name__=="__main__":
         train_acc = (train_acc / (train_total * len(label_list))) * 100
         val_acc = (val_acc / (val_total * len(label_list))) * 100
         test_acc = (test_acc / (test_total * len(label_list))) * 100
-        print(f"train: Inference_accuracy: {train_acc:.4f} %")
-        print(f"  val: Inference_accuracy: {val_acc:.4f} %")
-        print(f" test: Inference_accuracy: {test_acc:.4f} %")
+        logger.info(f"train: Inference_accuracy: {train_acc:.4f} %")
+        logger.info(f"  val: Inference_accuracy: {val_acc:.4f} %")
+        logger.info(f" test: Inference_accuracy: {test_acc:.4f} %")
     else:
         # When regresson or deepsurv
         pass
-    print('Inference finished!')
+    logger.info('Inference finished!')
 
     # Save likelohood
     likelihood_path = os.path.join(datetime_dir, nervusenv.csv_likelihood)

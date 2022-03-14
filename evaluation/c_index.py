@@ -17,6 +17,7 @@ from lib.util import *
 from lib.align_env import *
 from options.metrics_options import MetricsOptions
 
+logger = NervusLogger.get_logger('evaluation.c_index')
 
 nervusenv = NervusEnv()
 args = MetricsOptions().parse()
@@ -45,7 +46,7 @@ def cal_c_index(df_likelihood, label_name, period_name):
         else:
             c_index_test = c_index_split
     label_c_index = LabelCIndex(val=c_index_val, test=c_index_test)
-    print(f"{label_name}, val: {label_c_index.val:.2f}, test: {label_c_index.test:.2f}")
+    logger.info(f"{label_name}, val: {label_c_index.val:.2f}, test: {label_c_index.test:.2f}")
     return label_c_index
 
 

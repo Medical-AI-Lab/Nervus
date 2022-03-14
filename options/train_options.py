@@ -5,7 +5,10 @@
 import os
 import argparse
 
+from lib.util import NervusLogger
 
+
+logger = NervusLogger.get_logger('options.train_options')
 
 class TrainOptions():
     def __init__(self):
@@ -65,7 +68,7 @@ class TrainOptions():
 
             # Check validyty of specification of CNN
             if len(self.args.cnn) >= 2:
-                print('Cannot identify a single CNN ' + str(self.args.cnn) + '\n')
+                logger.error('Cannot identify a single CNN ' + str(self.args.cnn) + '\n')
                 exit()
             elif len(self.args.cnn) == 1:
                 self.args.cnn = self.args.cnn[0]
@@ -84,7 +87,7 @@ class TrainOptions():
         is_all_aug = (self.args.augmentation == 'yes')                 # All
 
         if num_partial_aug == len(_augmentation_list):
-            print('Specify --augumentaion yes only if apply all augmention.\n')
+            logger.error('Specify --augumentaion yes only if apply all augmention.\n')
             exit()
 
         if is_partial_aug or is_all_aug:
@@ -99,7 +102,7 @@ class TrainOptions():
                 self.args.color_jitter = 'yes'
             else:
                 # When is_partial_aug and is_all_aug, contradiction.
-                print('Apply not all augmentation, or Apply all augmentation?\n')
+                logger.error('Apply not all augmentation, or Apply all augmentation?\n')
                 exit()
         else:
             self.args.preprocess = 'no'
@@ -124,11 +127,11 @@ class TrainOptions():
 
         for opt in must_base_opts:
             if args[opt] is None:
-                print('\nSpecify {}.\n'.format(opt))
+                logger.error('\nSpecify {}.\n'.format(opt))
                 exit()
             else:
                 pass
-        print('\nOptions have been cheked.\n')
+        logger.info('\nOptions have been cheked.\n')
 
 
     def print_options(self):
@@ -158,7 +161,7 @@ class TrainOptions():
                 pass
 
         message += '------------------- End --------------------------'
-        print(message)
+        logger.info(message)
 
 
 # ----- EOF -----

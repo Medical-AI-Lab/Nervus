@@ -19,6 +19,7 @@ from lib.util import *
 from lib.align_env import *
 from options.metrics_options import MetricsOptions
 
+logger = NervusLogger.get_logger('evaluation.roc')
 
 nervusenv = NervusEnv()
 args = MetricsOptions().parse()
@@ -52,6 +53,7 @@ def cal_roc_binary_class(label_name, df_likelihood):
     pred_positive_name = pred_name_list[POSITIVE]
     class_list = [column_name.rsplit('_', 1)[1] for column_name in pred_name_list]   # [pred_label_discharge, pred_label_decease] -> ['discharge', 'decease']
     positive_class = class_list[POSITIVE]
+
     for split in ['val', 'test']:
         df_likelihood_split = df_likelihood[df_likelihood['split']==split]
         y_true_split = df_likelihood_split[label_name]
@@ -65,7 +67,7 @@ def cal_roc_binary_class(label_name, df_likelihood):
             label_roc.test = ROC(fpr=AverageType(micro=fpr_split),
                                   tpr=AverageType(micro=tpr_split),
                                   auc=AverageType(micro=metrics.auc(fpr_split, tpr_split)))
-    print(f"{label_name}, val: {label_roc.val.auc.micro:.2f}, test: {label_roc.test.auc.micro:.2f}")
+    logger.info(f"{label_name}, val: {label_roc.val.auc.micro:.2f}, test: {label_roc.test.auc.micro:.2f}")
     return label_roc
 
 
@@ -114,7 +116,7 @@ def cal_roc_multi_class(label_name, df_likelihood):
                                   auc=AverageType(macro=metrics.auc(label_all_fpr_split, label_mean_tpr_split)))
 
     label_roc = LabelROC(val=label_roc_val, test=label_roc_test)
-    print(f"{label_name}, val: {label_roc.val.auc.macro:.2f}, test: {label_roc.test.auc.macro:.2f}")
+    logger.info(f"{label_name}, val: {label_roc.val.auc.macro:.2f}, test: {label_roc.test.auc.macro:.2f}")
     return label_roc
 
 
@@ -134,7 +136,7 @@ num_rows = 1
 num_cols = len(label_list)
 base_size = 7
 height = num_rows * base_size
-width = num_cols * height 
+width = num_cols * height
 
 fig = plt.figure(figsize=(width, height))
 for i in range(len(label_list)):

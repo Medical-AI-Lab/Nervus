@@ -13,6 +13,8 @@ from collections import OrderedDict
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from lib.util import *
 
+logger = NervusLogger.get_logger('config.model')
+
 #model = mlp_net(label_num_classes, num_inputs)
 # MLP
 class MLP(nn.Module):
@@ -76,7 +78,7 @@ class MLP_Multi(nn.Module):
 class ResNet_Multi(nn.Module):
     def __init__(self, base_model, label_num_classes):
         super().__init__()
-        self.extractor = base_model 
+        self.extractor = base_model
         self.label_num_classes = label_num_classes
         self.label_list = list(label_num_classes.keys())
         self.fc_names = [('fc_' + label_name) for label_name in self.label_list]
@@ -123,7 +125,7 @@ class DenseNet_Multi(nn.Module):
         output_multi =  {fc_name : self.fc_multi[fc_name](x) for fc_name in self.fc_names}
         return output_multi
 
-  
+
 # For EfficientNet family
 class EfficientNet_Multi(nn.Module):
     def __init__(self, base_model, label_num_classes):
@@ -141,7 +143,7 @@ class EfficientNet_Multi(nn.Module):
         self.fc_multi = nn.ModuleDict({
                             ('block_'+label_name) : nn.Sequential(
                                                         OrderedDict([
-                                                        ('0_'+label_name, self._dropout),  
+                                                        ('0_'+label_name, self._dropout),
                                                         ('1_'+label_name, nn.Linear(self.input_size_fc, num_outputs))
                                                     ]))
                             for label_name, num_outputs in self.label_num_classes.items()
@@ -191,7 +193,7 @@ def conv_net(cnn_name, label_num_classes):
         cnn = models.densenet161
 
     else:
-        print(f"No specified CNN: {cnn_name}.")
+        logger.error(f"No specified CNN: {cnn_name}.")
 
     label_list = list(label_num_classes.keys())
     if len(label_list) > 1 :

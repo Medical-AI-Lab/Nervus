@@ -17,6 +17,7 @@ from lib.util import *
 from lib.align_env import *
 from options.metrics_options import MetricsOptions
 
+logger = NervusLogger.get_logger('evaluation.yy')
 
 nervusenv = NervusEnv()
 args = MetricsOptions().parse()
@@ -53,9 +54,9 @@ def cal_label_metrics_yy(label_name, df_likelihood):
             label_metrics_yy.val = MetricsYY(r2=r2, mse=mse, rmse=rmse, mae=mae)
         else:
             label_metrics_yy.test = MetricsYY(r2=r2, mse=mse, rmse=rmse, mae=mae)
-    print(label_name + ': ')
-    print(f"{'val':>5}, R2: {label_metrics_yy.val.r2:>5.2f}, MSE: {label_metrics_yy.val.mse:.2f}, RMES: {label_metrics_yy.val.rmse:.2f}, MAE: {label_metrics_yy.val.mae:.2f}")
-    print(f"{'test':>5}, R2: {label_metrics_yy.test.r2:>5.2f}, MSE: {label_metrics_yy.test.mse:.2f}, RMES: {label_metrics_yy.test.rmse:.2f}, MAE: {label_metrics_yy.test.mae:.2f}")
+    logger.info(label_name + ': ')
+    logger.info(f"{'val':>5}, R2: {label_metrics_yy.val.r2:>5.2f}, MSE: {label_metrics_yy.val.mse:.2f}, RMES: {label_metrics_yy.val.rmse:.2f}, MAE: {label_metrics_yy.val.mae:.2f}")
+    logger.info(f"{'test':>5}, R2: {label_metrics_yy.test.r2:>5.2f}, MSE: {label_metrics_yy.test.mse:.2f}, RMES: {label_metrics_yy.test.rmse:.2f}, MAE: {label_metrics_yy.test.mae:.2f}")
     return label_metrics_yy
 
 
@@ -70,7 +71,7 @@ num_rows = 1
 num_cols = len(label_list) * len_splits
 base_size = 7
 height = num_rows * base_size
-width = num_cols * height 
+width = num_cols * height
 
 fig = plt.figure(figsize=(width, height))
 for i in range(len(label_list)):
