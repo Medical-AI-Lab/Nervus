@@ -7,6 +7,9 @@ from typing import Tuple
 import pandas as pd
 import torch
 import copy
+from dataloader.dataloader_single import SingleLabelDataSet
+from dataloader.dataloader_deepsurv import DeepSurvDataSet
+from dataloader.dataloader_multi import MultiLabelDataSet
 
 from lib.util import *
 from lib.align_env import *
@@ -14,7 +17,6 @@ from options.train_options import TrainOptions
 from config.criterion import set_criterion
 from config.optimizer import set_optimizer
 from config.model import *
-
 
 nervusenv = NervusEnv()
 train_option_parser = TrainOptions()
@@ -44,23 +46,23 @@ hasCNN = cnn is not None
 
 ## choice dataloader and function to execute
 if task == 'deepsurv':
-    from dataloader.dataloader_deepsurv import *
+    dataset_handler = DeepSurvDataSet
     def _execute_task(*args):
         return _execute_deepsurv(*args)
 else: # classification or regression
     if len(label_list) > 1:
         # Multi-label outputs
-        from dataloader.dataloader_multi import *
+        dataset_handler = MultiLabelDataSet
         def _execute_task(*args):
             return _execute_multi_label(*args)
     else:
         # Single-label output
-        from dataloader.dataloader import *
+        dataset_handler = SingleLabelDataSet
         def _execute_task(*args):
             return _execute_single_label(*args)
 
-train_loader = dataloader_mlp_cnn(args, sp, image_dir, split_list=['train'], batch_size=batch_size, sampler=sampler)
-val_loader = dataloader_mlp_cnn(args, sp, image_dir, split_list=['val'], batch_size=batch_size, sampler=sampler)
+train_loader = dataset_handler.create_dataloader(args, sp, image_dir, split_list=['train'], batch_size=batch_size, sampler=sampler)
+val_loader = dataset_handler.create_dataloader(args, sp, image_dir, split_list=['val'], batch_size=batch_size, sampler=sampler)
 
 # Configure of training
 model = create_mlp_cnn(mlp, cnn, sp.num_inputs, sp.num_classes_in_internal_label, gpu_ids=gpu_ids)

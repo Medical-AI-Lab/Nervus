@@ -6,6 +6,9 @@ from typing import Tuple
 
 import pandas as pd
 import torch
+from dataloader.dataloader_deepsurv import DeepSurvDataSet
+from dataloader.dataloader_multi import MultiLabelDataSet
+from dataloader.dataloader_single import SingleLabelDataSet
 
 from lib.util import *
 from lib.align_env import *
@@ -40,25 +43,22 @@ hasCNN = cnn is not None
 
 ## choose dataloader and function to execute test
 if task == 'deepsurv':
-    from dataloader.dataloader_deepsurv import *
+    dataset_handler = DeepSurvDataSet
     def _execute_test(*args):
         return _execute_test_deepsurv(*args)
 else:
-    # when classification or regression
-    if len(label_list) > 1:
-        # Multi-label outputs
-        from dataloader.dataloader_multi import *
+    if len(label_list) > 1: #multi
+        dataset_handler = MultiLabelDataSet
         def _execute_test(*args):
             return _execute_test_multi_label(*args)
-    else:
-        # Single-label output
-        from dataloader.dataloader import *
+    else: #single
+        dataset_handler = SingleLabelDataSet
         def _execute_test(*args):
             return _execute_test_single_label(*args)
 
-train_loader = dataloader_mlp_cnn(train_parameters, sp, image_dir, split_list=['train'], batch_size=test_batch_size, sampler='no')
-val_loader = dataloader_mlp_cnn(train_parameters, sp, image_dir, split_list=['val'], batch_size=test_batch_size, sampler='no')
-test_loader = dataloader_mlp_cnn(train_parameters, sp, image_dir, split_list=['test'], batch_size=test_batch_size, sampler='no')
+train_loader = dataset_handler.create_dataloader(train_parameters, sp, image_dir, split_list=['train'], batch_size=test_batch_size, sampler='no')
+val_loader = dataset_handler.create_dataloader(train_parameters, sp, image_dir, split_list=['val'], batch_size=test_batch_size, sampler='no')
+test_loader = dataset_handler.create_dataloader(train_parameters, sp, image_dir, split_list=['test'], batch_size=test_batch_size, sampler='no')
 
 # Configure of model
 model = create_mlp_cnn(mlp, cnn, sp.num_inputs, sp.num_classes_in_internal_label, gpu_ids=gpu_ids)
