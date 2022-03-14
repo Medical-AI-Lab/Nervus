@@ -16,6 +16,7 @@ from config.optimizer import set_optimizer
 from config.model import *
 
 
+nervusenv = NervusEnv()
 train_option_parser = TrainOptions()
 args = train_option_parser.parse()
 #TrainOptions().is_option_valid(args)
@@ -33,12 +34,9 @@ sampler = args['sampler']
 gpu_ids = args['gpu_ids']
 device = set_device(gpu_ids)
 
-nervusenv = NervusEnv()
 image_dir = os.path.join(nervusenv.images_dir , args['image_dir'])
-csv_dict = parse_csv(os.path.join(nervusenv.splits_dir, args['csv_name']), task)
-label_num_classes = csv_dict['label_num_classes']
-label_list = csv_dict['label_list']
-num_inputs = csv_dict['num_inputs']
+sp = SplitProvider(os.path.join(nervusenv.splits_dir, args['csv_name']), task)
+label_list = sp.internal_label_list   # Reagrd internal label as just label
 
 ## bool of using neural network
 hasMLP = mlp is not None
@@ -61,11 +59,11 @@ else: # classification or regression
         def _execute_task(*args):
             return _execute_single_label(*args)
 
-train_loader = dataloader_mlp_cnn(args, csv_dict, image_dir, split_list=['train'], batch_size=batch_size, sampler=sampler)
-val_loader = dataloader_mlp_cnn(args, csv_dict, image_dir, split_list=['val'], batch_size=batch_size, sampler=sampler)
+train_loader = dataloader_mlp_cnn(args, sp, image_dir, split_list=['train'], batch_size=batch_size, sampler=sampler)
+val_loader = dataloader_mlp_cnn(args, sp, image_dir, split_list=['val'], batch_size=batch_size, sampler=sampler)
 
 # Configure of training
-model = create_mlp_cnn(mlp, cnn, num_inputs, label_num_classes, gpu_ids=gpu_ids)
+model = create_mlp_cnn(mlp, cnn, sp.num_inputs, sp.num_classes_in_internal_label, gpu_ids=gpu_ids)
 criterion = set_criterion(criterion, device)
 optimizer = set_optimizer(optimizer, model, lr)
 
@@ -108,7 +106,8 @@ def _execute_single_label(phase:str, dataloader:Dataset) -> Tuple[float, float]:
     running_loss = 0.0
     running_acc = 0.0
 
-    for i, (ids, raw_outputs, labels, inputs_values_normed, images, splits) in enumerate(dataloader):
+    # Reagrd internal label as just label
+    for i, (ids, raw_labels, labels, inputs_values_normed, images, splits) in enumerate(dataloader):
         optimizer.zero_grad()
 
         with torch.set_grad_enabled(phase == 'train'):
@@ -138,7 +137,8 @@ def _execute_multi_label(phase:str, dataloader:Dataset) -> Tuple[float, float]:
     running_loss = 0.0
     running_acc = 0.0
 
-    for i, (ids, raw_outputs_dict, labels_dict, inputs_values_normed, images, splits) in enumerate(dataloader):
+    # Reagrd internal label as just label
+    for i, (ids, raw_labels_dict, labels_dict, inputs_values_normed, images, splits) in enumerate(dataloader):
         optimizer.zero_grad()
 
         with torch.set_grad_enabled(phase == 'train'):
@@ -191,7 +191,8 @@ def _execute_deepsurv(phase:str, dataloader:Dataset) -> Tuple[float, float]:
     running_loss = 0.0
     running_acc = 0.0
 
-    for i, (ids, raw_outputs, labels, periods, inputs_values_normed, images, splits) in enumerate(dataloader):
+    # Reagrd internal label as just label
+    for i, (ids, raw_labels, labels, periods, inputs_values_normed, images, splits) in enumerate(dataloader):
         optimizer.zero_grad()
 
         with torch.set_grad_enabled(phase == 'train'):
