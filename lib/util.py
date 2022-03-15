@@ -1,15 +1,54 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import logging
 import sys
 import os
 import re
 import glob
 import datetime
+
 import numpy as np
 import pandas as pd
 import torch
 
+class NervusLogger:
+    _unexecuted_configure = True
+
+    @classmethod
+    def get_logger(cls, filename):
+        if cls._unexecuted_configure:
+            cls._init_logger()
+
+        return logging.getLogger('nervus.{}'.format(filename))
+
+    @classmethod
+    def set_level(cls, level):
+        _nervus_root_logger = logging.getLogger('nervus')
+        _nervus_root_logger.setLevel(level)
+
+    @classmethod
+    def _init_logger(cls):
+        _nervus_root_logger = logging.getLogger('nervus')
+        _nervus_root_logger.setLevel(logging.INFO)
+
+        ## uppper warining
+        ch = logging.StreamHandler()
+        ch.setLevel(logging.WARNING)
+        format = logging.Formatter('%(levelname)-8s %(message)s')
+        ch.setFormatter(format)
+        ch.addFilter(lambda log_record: log_record.levelno >= logging.WARNING)
+        _nervus_root_logger.addHandler(ch)
+
+        ## lower warning
+        ch_info = logging.StreamHandler()
+        ch_info.setLevel(logging.DEBUG)
+        ch_info.addFilter(lambda log_record: log_record.levelno < logging.WARNING)
+        _nervus_root_logger.addHandler(ch_info)
+
+        cls._unexecuted_configure = False
+
+logger = NervusLogger.get_logger('lib.util')
 
 # Even if GPU available, set CPU as device when specifying CPU.
 def set_device(gpu_ids):
@@ -39,14 +78,14 @@ def get_target(source_dir, target):
             target_dir = sorted(dirs, key=lambda f: os.stat(f).st_mtime, reverse=True)[0]   # latest
         else:
             target_dir = None
-            print(f"No directory in {source_dir}") 
+            logger.error(f"No directory in {source_dir}")
     else:
         target_dir = os.path.join(source_dir, target)
         if os.path.isdir(target_dir):
             target_dir = target_dir
         else:
             target_dir = None
-            print(f"No such a directory: {target_dir}")
+            logger.error(f"No such a directory: {target_dir}")
     return target_dir
 
 
@@ -77,5 +116,3 @@ def update_summary(summary_dir, summary,  df_summary_new):
         df_summary_updated = df_summary_new
     df_summary_updated.to_csv(summary_path, index=False)
 
-
-# ----- EOF -----

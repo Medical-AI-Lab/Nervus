@@ -18,6 +18,10 @@ from config.criterion import set_criterion
 from config.optimizer import set_optimizer
 from config.model import *
 
+logger = NervusLogger.get_logger('train')
+## remove comment out when debug
+# NervusLogger.set_level(logging.DEBUG)
+
 nervusenv = NervusEnv()
 train_option_parser = TrainOptions()
 args = train_option_parser.parse()
@@ -253,10 +257,10 @@ def _update_loss_acc_dict(task, num_epochs, loss_acc_dict, epoch, phase, running
     # Print loss and acc at lats epoch
     if phase == 'val':
         if task == 'classification':
-            print(f"epoch [{epoch+1:>3}/{num_epochs:<3}], train_loss: {loss_acc_dict['train_loss'][-1]:.4f}, val_loss: {loss_acc_dict['val_loss'][-1]:.4f}, val_acc: {loss_acc_dict['val_acc'][-1]:.4f}" + update_comment)
+            logger.info(f"epoch [{epoch+1:>3}/{num_epochs:<3}], train_loss: {loss_acc_dict['train_loss'][-1]:.4f}, val_loss: {loss_acc_dict['val_loss'][-1]:.4f}, val_acc: {loss_acc_dict['val_acc'][-1]:.4f}" + update_comment)
         else:
             # When regression or deepsurv
-            print(f"epoch [{epoch+1:>3}/{num_epochs:<3}], train_loss: {loss_acc_dict['train_loss'][-1]:.4f}, val_loss: {loss_acc_dict['val_loss'][-1]:.4f}" + update_comment)
+            logger.info(f"epoch [{epoch+1:>3}/{num_epochs:<3}], train_loss: {loss_acc_dict['train_loss'][-1]:.4f}, val_loss: {loss_acc_dict['val_loss'][-1]:.4f}" + update_comment)
 
     return loss_acc_dict, val_best_loss, val_best_epoch, update_flag
 
@@ -284,12 +288,12 @@ def save_result(best_weight, val_best_loss, val_best_epoch, loss_acc_dict):
 
 if __name__=="__main__":
     # Training
-    print ('Training started...')
-    print(f"train_data = {len(train_loader.dataset)}")
-    print(f"  val_data = {len(val_loader.dataset)}")
+    logger.info('Training started...')
+    logger.info(f"train_data = {len(train_loader.dataset)}")
+    logger.info(f"  val_data = {len(val_loader.dataset)}")
 
     best_weight, val_best_loss, val_best_epoch, loss_acc_dict = execute(best_weight, val_best_loss, val_best_epoch, loss_acc_dict)
 
-    print('Training finished!')
+    logger.info('Training finished!')
 
     save_result(best_weight, val_best_loss, val_best_epoch, loss_acc_dict)

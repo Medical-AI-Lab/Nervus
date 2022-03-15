@@ -3,6 +3,10 @@
 
 import torch.optim as optim
 
+from lib.util import NervusLogger
+
+logger = NervusLogger.get_logger('config.optimizer')
+
 
 def set_optimizer(optimizer_name, model, lr):
     """
@@ -24,7 +28,7 @@ def set_optimizer(optimizer_name, model, lr):
         optimizer = optim.RMSprop(model.parameters(), lr=lr)
 
     else:
-        print(f"No specified optimizer: {optimizer_name}.")
+        logger.error(f"No specified optimizer: {optimizer_name}.")
 
     return optimizer
 

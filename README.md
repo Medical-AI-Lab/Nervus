@@ -100,5 +100,22 @@ Edit Makefile according to task.
 ## env
 `~/lib/align_env.py`
 
+## Logger
+NervusLogger
+only to configure logger, usage is the same with default logging module. see [here](https://docs.python.org/3/howto/logging.html).  
+The default level is INFO, and handler is StreamHandler.
+```py
+logger = NervusLogger.get_logger('logger_name')
+...
+logger.info('info message')
+logger.error('error message')
+```
+when debug. call set_level method.
+```py
+logger = NervusLogger.get_logger('logger_name')
+NervusLogger.set_level(logging.DEBUG)
+...
+logger.debug('debug message')
+```
 # CUDA VERSION
 CUDA Version = 11.3, 11.4
