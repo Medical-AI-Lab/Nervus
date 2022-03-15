@@ -12,7 +12,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from lib import *
 from options import MetricsOptions
 
-logger = NervusLogger.get_logger('evaluation.c_index')
+logger = NervusLogger.get_logger('evaluation.c_index', result_output=True)
 
 nervusenv = NervusEnv()
 args = MetricsOptions().parse()

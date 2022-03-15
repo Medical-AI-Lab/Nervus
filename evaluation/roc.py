@@ -18,7 +18,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from lib import *
 from options import MetricsOptions
 
-logger = NervusLogger.get_logger('evaluation.roc')
+logger = NervusLogger.get_logger('evaluation.roc', result_output=True)
 
 nervusenv = NervusEnv()
 args = MetricsOptions().parse()

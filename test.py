@@ -13,7 +13,7 @@ from config.model import *
 from lib import *
 from options import TestOptions
 
-logger = NervusLogger.get_logger('test')
+logger = NervusLogger.get_logger('test', result_output=True)
 ## remove comment out when debug
 # NervusLogger.set_level(logging.DEBUG)
 

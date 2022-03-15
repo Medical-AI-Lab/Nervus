@@ -115,6 +115,12 @@ logger = NervusLogger.get_logger('logger_name')
 logger.info('info message')
 logger.error('error message')
 ```
+when output result, set result_output to True. record logger message at info level.
+```py
+logger = NervusLogger.get_logger('logger_name', result_output=True)
+...
+logger.info('info message')
+```
 when debug. call set_level method.
 ```py
 logger = NervusLogger.get_logger('logger_name')

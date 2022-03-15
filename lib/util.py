@@ -2,9 +2,12 @@
 # -*- coding: utf-8 -*-
 
 import logging
+from logging.handlers import RotatingFileHandler
 import sys
 import os
 import glob
+import datetime
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -14,11 +17,29 @@ class NervusLogger:
     _unexecuted_configure = True
 
     @classmethod
-    def get_logger(cls, filename):
+    def get_logger(cls, filename, result_output=False):
         if cls._unexecuted_configure:
             cls._init_logger()
 
-        return logging.getLogger('nervus.{}'.format(filename))
+        logger = logging.getLogger('nervus.{}'.format(filename))
+
+        if result_output:
+            cls._set_result_output_handler(logger, filename)
+
+        return logger
+
+    @classmethod
+    def _set_result_output_handler(cls, logger:logging.Logger, filename):
+        _today_str = datetime.date.today().strftime("%Y%m%d")
+        _results_dir = Path(__file__).parents[1].joinpath('results', _today_str)
+        if not _results_dir.exists():
+            _results_dir.mkdir(parents=True)
+        _filename = filename.split('.')[-1]
+        _path = _results_dir.joinpath(_filename).with_suffix('.log')
+        fh = RotatingFileHandler(_path, maxBytes=102400)
+        fh.setLevel(logging.INFO)
+        fh.addFilter(lambda log_record: log_record.levelno == logging.INFO)
+        logger.addHandler(fh)
 
     @classmethod
     def set_level(cls, level):
@@ -30,19 +51,26 @@ class NervusLogger:
         _nervus_root_logger = logging.getLogger('nervus')
         _nervus_root_logger.setLevel(logging.INFO)
 
+        ## error log
+        _logs_path = Path(__file__).parents[1].joinpath('logs', 'error.log')
+        fh = RotatingFileHandler(_logs_path, maxBytes=102400)
+        fh.setLevel(logging.WARNING)
+        fh_format = logging.Formatter('%(asctime)s %(levelname)-8s %(message)s')
+        fh.setFormatter(fh_format)
+        _nervus_root_logger.addHandler(fh)
+
         ## uppper warining
-        ch = logging.StreamHandler()
-        ch.setLevel(logging.WARNING)
-        format = logging.Formatter('%(levelname)-8s %(message)s')
-        ch.setFormatter(format)
-        ch.addFilter(lambda log_record: log_record.levelno >= logging.WARNING)
-        _nervus_root_logger.addHandler(ch)
+        sh = logging.StreamHandler()
+        sh.setLevel(logging.WARNING)
+        sh_format = logging.Formatter('%(levelname)-8s %(message)s')
+        sh.setFormatter(sh_format)
+        _nervus_root_logger.addHandler(sh)
 
         ## lower warning
-        ch_info = logging.StreamHandler()
-        ch_info.setLevel(logging.DEBUG)
-        ch_info.addFilter(lambda log_record: log_record.levelno < logging.WARNING)
-        _nervus_root_logger.addHandler(ch_info)
+        sh_info = logging.StreamHandler()
+        sh_info.setLevel(logging.DEBUG)
+        sh_info.addFilter(lambda log_record: log_record.levelno < logging.WARNING)
+        _nervus_root_logger.addHandler(sh_info)
 
         cls._unexecuted_configure = False
 

@@ -134,7 +134,7 @@ class TrainOptions():
         logger.info('\nOptions have been cheked.\n')
 
 
-    def print_options(self):
+    def load_options_summary(self):
         ignore = ['mlp', 'cnn']
 
         message = ''
@@ -161,7 +161,8 @@ class TrainOptions():
                 pass
 
         message += '------------------- End --------------------------'
-        logger.info(message)
+
+        return message
 
 
 # ----- EOF -----
