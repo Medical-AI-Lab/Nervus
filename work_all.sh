@@ -5,12 +5,6 @@ set -eu
 gpu_ids="-1"
 parameter_csv="./parameters/parameter.csv"
 
-train_log="./logs/train.log"
-test_log="./logs/test.log"
-roc_log="./logs/roc.log"
-yy_log="./logs/yy.log"
-c_index_log="./logs/c_index.log"
-
 
 #python="python3"
 python="python"
@@ -21,12 +15,6 @@ roc_code="./evaluation/roc.py"
 yy_code="./evaluation/yy.py"
 c_index_code="./evaluation/c_index.py"
 
-# Delete previous logs.
-rm -f "$train_log"
-rm -f "$test_log"
-rm -f "$roc_log"
-rm -f "$yy_log"
-rm -f "$c_index_log"
 
 while getopts ":g" optKey; do
   case "$optKey" in
@@ -66,30 +54,30 @@ for row in $(tail -n +2 "$parameter_csv"); do
 
   # Traning
   echo "$python $train_code --task $task --csv_name $csv_name --image_dir $image_dir --model $model --criterion $criterion --optimizer $optimizer --epochs $epochs --batch_size $batch_size --sampler $sampler --augmentation $augmentation --gpu_ids $gpu_ids"
-  "$python" "$train_code" --task "$task" --csv_name "$csv_name" --image_dir "$image_dir" --model "$model" --criterion "$criterion" --optimizer "$optimizer" --epochs "$epochs" --batch_size "$batch_size" --sampler "$sampler" --augmentation $augmentation --gpu_ids "$gpu_ids" 2>&1 | tee -a "$train_log"
+  "$python" "$train_code" --task "$task" --csv_name "$csv_name" --image_dir "$image_dir" --model "$model" --criterion "$criterion" --optimizer "$optimizer" --epochs "$epochs" --batch_size "$batch_size" --sampler "$sampler" --augmentation $augmentation --gpu_ids "$gpu_ids"
 
   echo ""
 
   # Test
   echo "$i/$total: Test starts..."
   echo "$python $test_code"
-  "$python" "$test_code" 2>&1 | tee -a "$test_log"
+  "$python" "$test_code"
 
   echo ""
 
   if [ "$task" = "classification" ]; then
     echo "$i/$total: Plot ROC..."
     echo "$python $roc_code"
-    "$python" "$roc_code" 2>&1 | tee -a "$roc_log"
+    "$python" "$roc_code"
   elif [ "$task" = "regression" ]; then
     echo "$i/$total: Plot yy-graph..."
     echo "python $yy_code"
-    "$python" "$yy_code" 2>&1 | tee -a "$yy_log"
+    "$python" "$yy_code"
   else
     # deepsurv
     echo "$i/$total: Calculate c-index..."
     echo "python $c_index_code"
-    "$python" "$c_index_code" 2>&1 | tee -a "$c_index_log"
+    "$python" "$c_index_code"
   fi
 
   i=$(($i + 1))
