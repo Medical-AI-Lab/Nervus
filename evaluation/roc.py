@@ -19,7 +19,7 @@ from lib.util import *
 from lib.align_env import *
 from options.metrics_options import MetricsOptions
 
-logger = NervusLogger.get_logger('evaluation.roc')
+logger = NervusLogger.get_logger('evaluation.roc', result_output=True)
 
 nervusenv = NervusEnv()
 args = MetricsOptions().parse()

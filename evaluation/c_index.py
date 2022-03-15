@@ -17,7 +17,7 @@ from lib.util import *
 from lib.align_env import *
 from options.metrics_options import MetricsOptions
 
-logger = NervusLogger.get_logger('evaluation.c_index')
+logger = NervusLogger.get_logger('evaluation.c_index', result_output=True)
 
 nervusenv = NervusEnv()
 args = MetricsOptions().parse()

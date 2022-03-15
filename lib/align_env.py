@@ -12,8 +12,9 @@ class NervusEnv:
     dataroot: str = '../materials'
     splits_dir: str = os.path.join(dataroot, 'splits')
     images_dir: str = os.path.join(dataroot, 'images')
-    reslts_dir: str = './results'
-    sets_dir: str = os.path.join(reslts_dir, 'sets')
+    logs_dir: str = './logs'
+    results_dir: str = './results'
+    sets_dir: str = os.path.join(results_dir, 'sets')
     weight: str = 'weight.pt'
     csv_parameters: str = 'perparameter.csv'
     csv_learning_curve: str = 'learning_curve.csv'
@@ -21,7 +22,7 @@ class NervusEnv:
     roc: str = 'roc.png'
     yy: str = 'yy.png'
     csv_c_index: str = 'c_index.csv'
-    summary_dir: str = os.path.join(reslts_dir, 'summary')
+    summary_dir: str = os.path.join(results_dir, 'summary')
     csv_summary: str = 'summary.csv'
 
 
@@ -54,7 +55,7 @@ class SplitProvider:
         self.raw_label_list = list(self.df_source.columns[self.df_source.columns.str.startswith(self.prefix_raw_label)])
         self.internal_label_list = list(self.df_source.columns[self.df_source.columns.str.startswith(self.prefix_internal_label)])
         self.class_name_in_raw_label = _class_name_in_raw_label
-        self.num_classes_in_internal_label = self._define_num_classes_in_internal_label(self.df_source, self.task)  
+        self.num_classes_in_internal_label = self._define_num_classes_in_internal_label(self.df_source, self.task)
         self.input_list = list(self.df_source.columns[self.df_source.columns.str.startswith(self.prefix_input)])
         self.num_inputs = len(self.input_list)
         self.id_column = list(self.df_source.columns[self.df_source.columns.str.startswith(self.prefix_id)])[0]               # should be one

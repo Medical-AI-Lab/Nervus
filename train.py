@@ -19,7 +19,7 @@ from config.criterion import set_criterion
 from config.optimizer import set_optimizer
 from config.model import *
 
-logger = NervusLogger.get_logger('train')
+logger = NervusLogger.get_logger('train', result_output=True)
 ## remove comment out when debug
 # NervusLogger.set_level(logging.DEBUG)
 
@@ -27,7 +27,7 @@ nervusenv = NervusEnv()
 train_option_parser = TrainOptions()
 args = train_option_parser.parse()
 #TrainOptions().is_option_valid(args)
-train_option_parser.print_options()
+logger.info(train_option_parser.load_options_summary())
 
 task = args['task']
 mlp = args['mlp']
