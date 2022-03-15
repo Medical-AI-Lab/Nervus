@@ -2,9 +2,8 @@
 # -*- coding: utf-8 -*-
 
 import os
-import sys
+from typing import Tuple
 
-import numpy as np
 import pandas as pd
 import torch
 import copy
@@ -39,17 +38,29 @@ device = set_device(gpu_ids)
 
 image_dir = os.path.join(nervusenv.images_dir , args['image_dir'])
 sp = SplitProvider(os.path.join(nervusenv.splits_dir, args['csv_name']), task)
-label_list = sp.internal_label_list   # Reagrd internal label as just label
+label_list = sp.internal_label_list   # Regard internal label as just label
 
-# Data Loadar
+## bool of using neural network
+hasMLP = mlp is not None
+hasCNN = cnn is not None
+
+## choice dataloader and function to execute
 if task == 'deepsurv':
     dataset_handler = DeepSurvDataSet
-else:
-    # when classification or regression
+    def _execute_task(*args):
+        return _execute_deepsurv(*args)
+else: # classification or regression
     if len(label_list) > 1:
+        # Multi-label outputs
         dataset_handler = MultiLabelDataSet
+        def _execute_task(*args):
+            return _execute_multi_label(*args)
     else:
+        # Single-label output
         dataset_handler = SingleLabelDataSet
+        def _execute_task(*args):
+            return _execute_single_label(*args)
+
 train_loader = dataset_handler.create_dataloader(args, sp, image_dir, split_list=['train'], batch_size=batch_size, sampler=sampler)
 val_loader = dataset_handler.create_dataloader(args, sp, image_dir, split_list=['val'], batch_size=batch_size, sampler=sampler)
 
@@ -62,13 +73,153 @@ best_weight = None
 val_best_loss = None
 val_best_epoch = None
 
+loss_acc_dict = {}
 if task == 'classification':
     loss_acc_dict = {'train_loss': [], 'train_acc': [], 'val_loss': [], 'val_acc': []}
 else:
     # When regression or deepsurv
     loss_acc_dict = {'train_loss': [], 'val_loss': []}
 
-def update_loss_acc_dict(task, num_epochs, loss_acc_dict, epoch, phase, running_loss, running_acc, len_dataloader, len_label_list, val_best_loss, val_best_epoch):
+def execute(best_weight, val_best_loss, val_best_epoch, loss_acc_dict):
+    for _epoch in range(num_epochs):
+        for _phase in ['train', 'val']:
+            if _phase == 'train':
+                model.train()
+                _dataloader = train_loader
+            else: # elif phase == 'val':
+                model.eval()
+                _dataloader = val_loader
+
+            _running_loss = 0.0
+            _running_acc = 0.0
+            # execute task: execute_single_label, execute_multi_label, execute_deepsurv
+            _running_loss, _running_acc = _execute_task(_phase, _dataloader)
+
+            _update_flag = None
+            loss_acc_dict, val_best_loss, val_best_epoch, _update_flag = _update_loss_acc_dict(task, num_epochs, loss_acc_dict, _epoch, _phase, _running_loss, _running_acc, len(_dataloader.dataset), len(label_list), val_best_loss, val_best_epoch)
+
+            # Keep the best weight when epoch_loss is the lowest.
+            if (_phase == 'val' and _update_flag):
+                best_weight = copy.deepcopy(model.state_dict())
+
+    return best_weight, val_best_loss, val_best_epoch, loss_acc_dict
+
+def _execute_single_label(phase:str, dataloader:Dataset) -> Tuple[float, float]:
+    running_loss = 0.0
+    running_acc = 0.0
+
+    # Regard internal label as just label
+    for i, (ids, raw_labels, labels, inputs_values_normed, images, splits) in enumerate(dataloader):
+        optimizer.zero_grad()
+
+        with torch.set_grad_enabled(phase == 'train'):
+            outputs = predict_by_model(model, hasMLP, hasCNN, device, inputs_values_normed, images)
+
+            labels = labels.to(device)
+
+            if task == 'classification':
+                _, preds = torch.max(outputs, 1)
+                loss = criterion(outputs, labels)
+            else:
+                loss = criterion(outputs.squeeze(), labels.float())
+
+            if phase == 'train':
+                loss.backward()
+                optimizer.step()
+
+        if task == 'classification':
+            running_loss += loss.item() * labels.size(0)
+            running_acc += (torch.sum(preds == labels.data)).item()
+        else:
+            running_loss += loss.item() * labels.size(0)
+
+    return running_loss, running_acc
+
+def _execute_multi_label(phase:str, dataloader:Dataset) -> Tuple[float, float]:
+    running_loss = 0.0
+    running_acc = 0.0
+
+    # Regard internal label as just label
+    for i, (ids, raw_labels_dict, labels_dict, inputs_values_normed, images, splits) in enumerate(dataloader):
+        optimizer.zero_grad()
+
+        with torch.set_grad_enabled(phase == 'train'):
+            outputs = predict_by_model(model, hasMLP, hasCNN, device, inputs_values_normed, images)
+
+            labels_multi = {label_name: labels.to(device) for label_name, labels in labels_dict.items()}
+
+            # Initialize every iteration
+            preds_multi = {}
+            loss_multi = {}
+
+            for label_name, labels in labels_multi.items():
+                layer_outputs = get_layer_output(outputs, label_name)
+
+                if task == 'classification':
+                    preds_multi[label_name] = torch.max(layer_outputs, 1)[1]
+                    loss_multi[label_name] = criterion(layer_outputs, labels)
+                else:
+                    loss_multi[label_name] = criterion(layer_outputs.squeeze(), labels.float())
+
+            # Zero Reset
+            # Without this, cannot backward every iteration,
+            # bacause loss is kept all the time in spite of that computaion graph is freed after the first iteration.
+            # This means that the backword after the second iteration cannot be done absolutely.
+            # After each backward, no need to keep any loss from the previous iteration.
+            ##loss = torch.tensor([0.0], requires_grad = True).to(device)
+            loss = torch.tensor([0.0]).to(device)
+
+            # Total of loss for each label_i
+            for loss_i in loss_multi.values():
+                loss = torch.add(loss, loss_i)
+
+                # Backward and Update weight
+            if phase == 'train':
+                loss.backward()
+                optimizer.step()
+
+        if task == 'classification':
+            running_loss += loss.item() * labels.size(0)
+
+            for label_name, labels in labels_multi.items():
+                running_acc_i = (torch.sum(preds_multi[label_name] == labels.data).item())
+                running_acc += running_acc_i
+        else:
+            running_loss += loss.item() * labels.size(0)
+
+    return running_loss, running_acc
+
+def _execute_deepsurv(phase:str, dataloader:Dataset) -> Tuple[float, float]:
+    running_loss = 0.0
+    running_acc = 0.0
+
+    # Regard internal label as just label
+    for i, (ids, raw_labels, labels, periods, inputs_values_normed, images, splits) in enumerate(dataloader):
+        optimizer.zero_grad()
+
+        with torch.set_grad_enabled(phase == 'train'):
+            outputs = predict_by_model(model, hasMLP, hasCNN, device, inputs_values_normed, images)
+
+            periods = periods.float().to(device)
+            if hasMLP:
+                labels = labels.float().to(device)
+            else:
+                labels = labels.to(device)
+
+            risk_preds = outputs   # Just rename for clarity
+            loss = criterion(risk_preds, periods.reshape(-1,1), labels.reshape(-1,1), model)
+
+            if (phase == 'train') and (torch.sum(labels).item() > 0):
+            # No backward when all labels are 0.
+            # To be specofic, loss(NegativeLogLikelihood) cannot be defined in this case.
+                loss.backward()
+                optimizer.step()
+
+        running_loss += loss.item() * labels.size(0)
+
+    return running_loss, running_acc
+
+def _update_loss_acc_dict(task, num_epochs, loss_acc_dict, epoch, phase, running_loss, running_acc, len_dataloader, len_label_list, val_best_loss, val_best_epoch):
     update_comment = None
     update_flag = None
 
@@ -109,244 +260,36 @@ def update_loss_acc_dict(task, num_epochs, loss_acc_dict, epoch, phase, running_
 
     return loss_acc_dict, val_best_loss, val_best_epoch, update_flag
 
+def save_result(best_weight, val_best_loss, val_best_epoch, loss_acc_dict):
+    # Save
+    date_now = datetime.datetime.now()
+    date_name = date_now.strftime('%Y-%m-%d-%H-%M-%S')
+    save_dir = os.path.join(nervusenv.sets_dir, date_name)
+    os.makedirs(save_dir, exist_ok=True)
 
-def execute_epoch_single_label(task, mlp, cnn, criterion, optimizer, num_epochs, device, label_list, train_loader, val_loader, model, val_best_loss, val_best_epoch, loss_acc_dict):
-    for epoch in range(num_epochs):
-        for phase in ['train', 'val']:
-            if phase == 'train':
-                model.train()
-                dataloader = train_loader
-            else: # elif phase == 'val':
-                model.eval()
-                dataloader = val_loader
+    # Parameters
+    df_opt = pd.DataFrame(list(args.items()), columns=['option', 'value'])
+    parameters_path = os.path.join(save_dir, nervusenv.csv_parameters)
+    df_opt.to_csv(parameters_path, index=False)
 
-            running_loss = 0.0
-            running_acc = 0.0
+    # Weight
+    weight_path = os.path.join(save_dir, nervusenv.weight)
+    torch.save(best_weight, weight_path)
 
-            # Reagrd internal label as just label
-            for i, (ids, raw_labels, labels, inputs_values_normed, images, splits) in enumerate(dataloader):
-                optimizer.zero_grad()
+    # Learning curve
+    csv_learning_curve = nervusenv.csv_learning_curve.replace('.csv', '') + '_val-best-epoch-' + str(val_best_epoch) + '_val-best-loss-' + f"{val_best_loss:.4f}" + '.csv'
+    learning_curve_path = os.path.join(save_dir, csv_learning_curve)
+    df_learning_curve = pd.DataFrame(loss_acc_dict)
+    df_learning_curve.to_csv(learning_curve_path, index=False)
 
-                with torch.set_grad_enabled(phase == 'train'):
-                    if (mlp is not None) and (cnn is None):
-                    # When MLP only
-                        inputs_values_normed = inputs_values_normed.to(device)
-                        labels = labels.to(device)
-                        outputs = model(inputs_values_normed)
+if __name__=="__main__":
+    # Training
+    print ('Training started...')
+    print(f"train_data = {len(train_loader.dataset)}")
+    print(f"  val_data = {len(val_loader.dataset)}")
 
-                    elif (mlp is None) and (cnn is not None):
-                    # When CNN only
-                        images = images.to(device)
-                        labels = labels.to(device)
-                        outputs = model(images)
+    best_weight, val_best_loss, val_best_epoch, loss_acc_dict = execute(best_weight, val_best_loss, val_best_epoch, loss_acc_dict)
 
-                    else: # elif not(mlp is None) and not(cnn is None):
-                    # When MLP+CNN
-                        inputs_values_normed = inputs_values_normed.to(device)
-                        images = images.to(device)
-                        labels = labels.to(device)
-                        outputs = model(inputs_values_normed, images)
+    print('Training finished!')
 
-                    if task == 'classification':
-                        _, preds = torch.max(outputs, 1)
-                        loss = criterion(outputs, labels)
-                    else:
-                        loss = criterion(outputs.squeeze(), labels.float())
-
-                    if phase == 'train':
-                        loss.backward()
-                        optimizer.step()
-
-                if task == 'classification':
-                    running_loss += loss.item() * labels.size(0)
-                    running_acc += (torch.sum(preds == labels.data)).item()
-                else:
-                    running_loss += loss.item() * labels.size(0)
-
-            loss_acc_dict, val_best_loss, val_best_epoch, update_flag = update_loss_acc_dict(task, num_epochs, loss_acc_dict, epoch, phase, running_loss, running_acc, len(dataloader.dataset), len(label_list), val_best_loss, val_best_epoch)
-
-            # Keep the best weight when epoch_loss is the lowest.
-            if (phase == 'val' and update_flag):
-                best_weight = copy.deepcopy(model.state_dict())
-    return best_weight, val_best_loss, val_best_epoch, loss_acc_dict
-
-
-def execute_epoch_multi_label(task, mlp, cnn, criterion, optimizer, num_epochs, device, label_list, train_loader, val_loader, model, val_best_loss, val_best_epoch, loss_acc_dict):
-    for epoch in range(num_epochs):
-        for phase in ['train', 'val']:
-            if phase == 'train':
-                model.train()
-                dataloader = train_loader
-            else: # elif phase == 'val':
-                model.eval()
-                dataloader = val_loader
-
-            running_loss = 0.0
-            running_acc = 0
-
-            # Reagrd internal label as just label
-            for i, (ids, raw_labels_dict, labels_dict, inputs_values_normed, images, splits) in enumerate(dataloader):
-                optimizer.zero_grad()
-
-                with torch.set_grad_enabled(phase == 'train'):
-                    if (mlp is not None) and (cnn is None):
-                        # When MLP only
-                        inputs_values_normed = inputs_values_normed.to(device)
-                        labels_multi = {label_name: labels.to(device) for label_name, labels in labels_dict.items()}
-                        outputs = model(inputs_values_normed)
-
-                    elif (mlp is None) and (cnn is not None):
-                        # When CNN only
-                        images = images.to(device)
-                        labels_multi = {label_name: labels.to(device) for label_name, labels in labels_dict.items()}
-                        outputs = model(images)
-
-                    else: # elif not(mlp is None) and not(cnn is None):
-                        # When MLP+CNN
-                        inputs_values_normed = inputs_values_normed.to(device)
-                        images = images.to(device)
-                        labels_multi = {label_name: labels.to(device) for label_name, labels in labels_dict.items()}
-                        outputs = model(inputs_values_normed, images)
-
-                    # Initialize every iteration
-                    preds_multi = {}
-                    loss_multi = {}
-                    for label_name, labels in labels_multi.items():
-                        layer_outputs = get_layer_output(outputs, label_name)
-
-                        if task == 'classification':
-                            preds_multi[label_name] = torch.max(layer_outputs, 1)[1]
-                            loss_multi[label_name] = criterion(layer_outputs, labels)
-                        else:
-                            loss_multi[label_name] = criterion(layer_outputs.squeeze(), labels.float())
-
-                    # Zero Reset
-                    # Without this, cannot backward every iteration,
-                    # bacause loss is kept all the time in spite of that computaion graph is freed after the first iteration.
-                    # This means that the backword after the second iteration cannot be done absolutely.
-                    # After each backward, no need to keep any loss from the previous iteration.
-                    ##loss = torch.tensor([0.0], requires_grad = True).to(device)
-                    loss = torch.tensor([0.0]).to(device)
-
-                    # Total of loss for each label_i
-                    for loss_i in loss_multi.values():
-                        loss = torch.add(loss, loss_i)
-
-                        # Backward and Update weight
-                    if phase == 'train':
-                        loss.backward()
-                        optimizer.step()
-
-                if task == 'classification':
-                    running_loss += loss.item() * labels.size(0)
-
-                    for label_name, labels in labels_multi.items():
-                        running_acc_i = (torch.sum(preds_multi[label_name] == labels.data).item())
-                        running_acc += running_acc_i
-                else:
-                    running_loss += loss.item() * labels.size(0)
-
-            loss_acc_dict, val_best_loss, val_best_epoch, update_flag = update_loss_acc_dict(task, num_epochs, loss_acc_dict, epoch, phase, running_loss, running_acc, len(dataloader.dataset), len(label_list), val_best_loss, val_best_epoch)
-
-            # Keep the best weight when epoch_loss is the lowest.
-            if (phase == 'val' and update_flag):
-                best_weight = copy.deepcopy(model.state_dict())
-    return best_weight, val_best_loss, val_best_epoch, loss_acc_dict
-
-
-def execute_epoch_deepsurv(task, mlp, cnn, criterion, optimizer, num_epochs, device, label_list, train_loader, val_loader, model, val_best_loss, val_best_epoch, loss_acc_dict):
-    for epoch in range(num_epochs):
-        for phase in ['train', 'val']:
-            if phase == 'train':
-                model.train()
-                dataloader = train_loader
-            else: #elif phase == 'val':
-                model.eval()
-                dataloader = val_loader
-
-            running_loss = 0.0
-            running_acc = 0
-
-            # Reagrd internal label as just label
-            for i, (ids, raw_labels, labels, periods, inputs_values_normed, images, splits) in enumerate(dataloader):
-                optimizer.zero_grad()
-
-                with torch.set_grad_enabled(phase == 'train'):
-                    if (mlp is not None) and (cnn is None):
-                    # When MLP only
-                        inputs_values_normed = inputs_values_normed.to(device)
-                        labels = labels.float().to(device)
-                        periods = periods.float().to(device)
-                        outputs = model(inputs_values_normed)
-
-                    elif (mlp is None) and (cnn is not None):
-                    # When CNN only
-                        images = images.to(device)
-                        labels = labels.to(device)
-                        periods = periods.float().to(device)
-                        outputs = model(images)
-
-                    else: # elif not(mlp is None) and not(cnn is None):
-                    # When MLP+CNN
-                        inputs_values_normed = inputs_values_normed.to(device)
-                        images = images.to(device)
-                        labels = labels.float().to(device)
-                        periods = periods.float().to(device)
-                        outputs = model(inputs_values_normed, images)
-
-                    risk_preds = outputs   # Just rename for clarity
-                    loss = criterion(risk_preds, periods.reshape(-1,1), labels.reshape(-1,1), model)
-
-                    if (phase == 'train') and (torch.sum(labels).item() > 0):
-                    # No backward when all labels are 0.
-                    # To be specofic, loss(NegativeLogLikelihood) cannot be defined in this case.
-                        loss.backward()
-                        optimizer.step()
-
-                running_loss += loss.item() * labels.size(0)
-
-            loss_acc_dict, val_best_loss, val_best_epoch, update_flag = update_loss_acc_dict(task, num_epochs, loss_acc_dict, epoch, phase, running_loss, running_acc, len(dataloader.dataset), len(label_list), val_best_loss, val_best_epoch)
-
-            # Keep the best weight when epoch_loss is the lowest.
-            if (phase == 'val' and update_flag):
-                best_weight = copy.deepcopy(model.state_dict())
-    return best_weight,val_best_loss,val_best_epoch,loss_acc_dict
-
-# Training
-print ('Training started...')
-print(f"train_data = {len(train_loader.dataset)}")
-print(f"  val_data = {len(val_loader.dataset)}")
-
-if task == 'deepsurv':
-    best_weight, val_best_loss, val_best_epoch, loss_acc_dict = execute_epoch_deepsurv(task, mlp, cnn, criterion, optimizer, num_epochs, device, label_list, train_loader, val_loader, model, val_best_loss, val_best_epoch, loss_acc_dict)
-else:
-    # When classification or regression
-    if len(label_list) > 1:
-        # Multi-label outputs
-        best_weight, val_best_loss, val_best_epoch, loss_acc_dict = execute_epoch_multi_label(task, mlp, cnn, criterion, optimizer, num_epochs, device, label_list, train_loader, val_loader, model, val_best_loss, val_best_epoch, loss_acc_dict)
-    else:
-        # Single-label output
-        best_weight, val_best_loss, val_best_epoch, loss_acc_dict = execute_epoch_single_label(task, mlp, cnn, criterion, optimizer, num_epochs, device, label_list, train_loader, val_loader, model, val_best_loss, val_best_epoch, loss_acc_dict)
-print('Training finished!')
-
-
-# Save
-date_now = datetime.datetime.now()
-date_name = date_now.strftime('%Y-%m-%d-%H-%M-%S')
-save_dir = os.path.join(nervusenv.sets_dir, date_name)
-os.makedirs(save_dir, exist_ok=True)
-
-# Parameters
-df_parameter = pd.DataFrame(list(args.items()), columns=['option', 'value'])
-parameters_path = os.path.join(save_dir, nervusenv.csv_parameters)
-df_parameter.to_csv(parameters_path, index=False)
-
-# Weight
-weight_path = os.path.join(save_dir, nervusenv.weight)
-torch.save(best_weight, weight_path)
-
-# Learning curve
-csv_learning_curve = nervusenv.csv_learning_curve.replace('.csv', '') + '_val-best-epoch-' + str(val_best_epoch) + '_val-best-loss-' + f"{val_best_loss:.4f}" + '.csv'
-learning_curve_path = os.path.join(save_dir, csv_learning_curve)
-df_learning_curve = pd.DataFrame(loss_acc_dict)
-df_learning_curve.to_csv(learning_curve_path, index=False)
+    save_result(best_weight, val_best_loss, val_best_epoch, loss_acc_dict)
