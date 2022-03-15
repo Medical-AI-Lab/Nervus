@@ -38,7 +38,7 @@ device = set_device(gpu_ids)
 
 image_dir = os.path.join(nervusenv.images_dir , args['image_dir'])
 sp = SplitProvider(os.path.join(nervusenv.splits_dir, args['csv_name']), task)
-label_list = sp.internal_label_list   # Reagrd internal label as just label
+label_list = sp.internal_label_list   # Regard internal label as just label
 
 ## bool of using neural network
 hasMLP = mlp is not None
@@ -108,7 +108,7 @@ def _execute_single_label(phase:str, dataloader:Dataset) -> Tuple[float, float]:
     running_loss = 0.0
     running_acc = 0.0
 
-    # Reagrd internal label as just label
+    # Regard internal label as just label
     for i, (ids, raw_labels, labels, inputs_values_normed, images, splits) in enumerate(dataloader):
         optimizer.zero_grad()
 
@@ -139,7 +139,7 @@ def _execute_multi_label(phase:str, dataloader:Dataset) -> Tuple[float, float]:
     running_loss = 0.0
     running_acc = 0.0
 
-    # Reagrd internal label as just label
+    # Regard internal label as just label
     for i, (ids, raw_labels_dict, labels_dict, inputs_values_normed, images, splits) in enumerate(dataloader):
         optimizer.zero_grad()
 
@@ -193,7 +193,7 @@ def _execute_deepsurv(phase:str, dataloader:Dataset) -> Tuple[float, float]:
     running_loss = 0.0
     running_acc = 0.0
 
-    # Reagrd internal label as just label
+    # Regard internal label as just label
     for i, (ids, raw_labels, labels, periods, inputs_values_normed, images, splits) in enumerate(dataloader):
         optimizer.zero_grad()
 

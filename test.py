@@ -29,7 +29,7 @@ device = set_device(gpu_ids)
 
 image_dir = os.path.join(nervusenv.images_dir, train_parameters['image_dir'])
 sp = SplitProvider(os.path.join(nervusenv.splits_dir, train_parameters['csv_name']), task)
-label_list = sp.internal_label_list   # Reagrd internal label as label
+label_list = sp.internal_label_list   # Regard internal label as label
 
 # Align option for test only
 test_weight = os.path.join(datetime_dir, nervusenv.weight)
@@ -112,7 +112,7 @@ def _execute_test_single_label(split:str, dataloader:Dataset) -> Tuple[float, fl
     test_acc = 0.0
     df_result = pd.DataFrame([])
 
-    # Reagrd internal label as label
+    # Regard internal label as label
     for i, (ids, raw_labels, labels, inputs_values_normed, images, splits) in enumerate(dataloader):
         outputs = predict_by_model(model, hasMLP, hasCNN, device, inputs_values_normed, images)
 
@@ -149,7 +149,7 @@ def _execute_test_multi_label(split:str, dataloader:Dataset) -> Tuple[float, flo
     test_acc = 0.0
     df_result = pd.DataFrame([])
 
-    # Reagrd internal label as label
+    # Regard internal label as label
     for i, (ids, raw_labels_dict, labels_dict, inputs_values_normed, images, splits) in enumerate(dataloader):
         outputs = predict_by_model(model, hasMLP, hasCNN, device, inputs_values_normed, images)
 
@@ -193,7 +193,7 @@ def _execute_test_deepsurv(_, dataloader:Dataset) -> Tuple[float, float, pd.Data
     test_acc = 0.0 # dummy value: not use in deepsurv
     df_result = pd.DataFrame([])
 
-    # Reagrd internal label as label
+    # Regard internal label as label
     for i, (ids, raw_labels, labels, periods, inputs_values_normed, images, splits) in enumerate(dataloader):
         outputs = predict_by_model(model, hasMLP, hasCNN, device, inputs_values_normed, images)
 
