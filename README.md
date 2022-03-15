@@ -87,6 +87,8 @@ Other parameters are defined in the `parameter.csv`.
 - bach_size: number of training data in each batch
 - sampler: samples elements randomly or not.
   - example: yes, no
+- augmentation: increase the amount of data by slightly modified copies or created synthetic.
+  - example: yes, no
 
 # Task
 ## Single-label/Multi-label output classification, regression, or deepsurv.

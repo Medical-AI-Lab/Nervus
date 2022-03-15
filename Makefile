@@ -68,6 +68,9 @@ clean:
 active:
 	pipenv shell
 
+run:
+	pipenv run sh work_all.sh
+
 train:
 	$(PYTHON) $(TRAIN_CODE) $(TRAIN_OPT)
 
