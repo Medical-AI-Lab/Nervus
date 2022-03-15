@@ -13,6 +13,8 @@ import numpy as np
 import pandas as pd
 import torch
 
+from lib.align_env import NervusEnv
+
 class NervusLogger:
     _unexecuted_configure = True
 
@@ -31,7 +33,7 @@ class NervusLogger:
     @classmethod
     def _set_result_output_handler(cls, logger:logging.Logger, filename):
         _today_str = datetime.date.today().strftime("%Y%m%d")
-        _results_dir = Path(__file__).parents[1].joinpath('results', _today_str)
+        _results_dir = Path(__file__).parents[1].joinpath(NervusEnv.results_dir, _today_str)
         if not _results_dir.exists():
             _results_dir.mkdir(parents=True)
         _filename = filename.split('.')[-1]
@@ -52,7 +54,7 @@ class NervusLogger:
         _nervus_root_logger.setLevel(logging.INFO)
 
         ## error log
-        _logs_path = Path(__file__).parents[1].joinpath('logs', 'error.log')
+        _logs_path = Path(__file__).parents[1].joinpath(NervusEnv.logs_dir, 'error.log')
         fh = RotatingFileHandler(_logs_path, maxBytes=102400)
         fh.setLevel(logging.WARNING)
         fh_format = logging.Formatter('%(asctime)s %(levelname)-8s %(message)s')
