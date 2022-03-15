@@ -5,10 +5,10 @@ import os
 import sys
 
 from torch.utils.data.dataloader import DataLoader
-from dataloader.nervus_dataloader import NervusDataSet
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from lib.util import *
+from dataloader.nervus_dataloader import NervusDataSet
 
 class MultiLabelDataSet(NervusDataSet):
     def __init__(self, args, split_provider, image_dir, split_list):

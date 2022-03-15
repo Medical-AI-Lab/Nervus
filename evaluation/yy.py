@@ -13,9 +13,8 @@ import matplotlib.pyplot as plt
 from matplotlib import colors as mcolors
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
-from lib.util import *
-from lib.align_env import *
-from options.metrics_options import MetricsOptions
+from lib import *
+from options import MetricsOptions
 
 logger = NervusLogger.get_logger('evaluation.yy')
 

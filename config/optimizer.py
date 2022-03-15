@@ -1,9 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import os
+import sys
+
 import torch.optim as optim
 
-from lib.util import NervusLogger
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+from lib import NervusLogger
 
 logger = NervusLogger.get_logger('config.optimizer')
 

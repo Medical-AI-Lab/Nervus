@@ -1,17 +1,16 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-
 import os
 import sys
-import numpy as np
+from collections import OrderedDict
+
 import torch
 import torch.nn as nn
 import torchvision.models as models
-from collections import OrderedDict
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
-from lib.util import *
+from lib import *
 
 logger = NervusLogger.get_logger('config.model')
 

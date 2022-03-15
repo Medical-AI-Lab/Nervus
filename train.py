@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import datetime
 import os
 from typing import Tuple
 
@@ -8,16 +9,11 @@ import pandas as pd
 import torch
 import copy
 from torch.utils.data.dataset import Dataset
-from dataloader.dataloader_single import SingleLabelDataSet
-from dataloader.dataloader_deepsurv import DeepSurvDataSet
-from dataloader.dataloader_multi import MultiLabelDataSet
 
-from lib.util import *
-from lib.align_env import *
-from options.train_options import TrainOptions
-from config.criterion import set_criterion
-from config.optimizer import set_optimizer
-from config.model import *
+import dataloader
+from config import *
+from lib import *
+from options import TrainOptions
 
 logger = NervusLogger.get_logger('train')
 ## remove comment out when debug
@@ -51,18 +47,18 @@ hasCNN = cnn is not None
 
 ## choice dataloader and function to execute
 if task == 'deepsurv':
-    dataset_handler = DeepSurvDataSet
+    dataset_handler = dataloader.DeepSurvDataSet
     def _execute_task(*args):
         return _execute_deepsurv(*args)
 else: # classification or regression
     if len(label_list) > 1:
         # Multi-label outputs
-        dataset_handler = MultiLabelDataSet
+        dataset_handler = dataloader.MultiLabelDataSet
         def _execute_task(*args):
             return _execute_multi_label(*args)
     else:
         # Single-label output
-        dataset_handler = SingleLabelDataSet
+        dataset_handler = dataloader.SingleLabelDataSet
         def _execute_task(*args):
             return _execute_single_label(*args)
 

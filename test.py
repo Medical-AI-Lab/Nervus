@@ -7,14 +7,11 @@ from typing import Tuple
 import pandas as pd
 import torch
 from torch.utils.data.dataset import Dataset
-from dataloader.dataloader_deepsurv import DeepSurvDataSet
-from dataloader.dataloader_multi import MultiLabelDataSet
-from dataloader.dataloader_single import SingleLabelDataSet
 
-from lib.util import *
-from lib.align_env import *
-from options.test_options import TestOptions
+import dataloader
 from config.model import *
+from lib import *
+from options import TestOptions
 
 logger = NervusLogger.get_logger('test')
 ## remove comment out when debug
@@ -47,16 +44,16 @@ hasCNN = cnn is not None
 
 ## choose dataloader and function to execute test
 if task == 'deepsurv':
-    dataset_handler = DeepSurvDataSet
+    dataset_handler = dataloader.DeepSurvDataSet
     def _execute_test(*args):
         return _execute_test_deepsurv(*args)
 else:
     if len(label_list) > 1: #multi
-        dataset_handler = MultiLabelDataSet
+        dataset_handler = dataloader.MultiLabelDataSet
         def _execute_test(*args):
             return _execute_test_multi_label(*args)
     else: #single
-        dataset_handler = SingleLabelDataSet
+        dataset_handler = dataloader.SingleLabelDataSet
         def _execute_test(*args):
             return _execute_test_single_label(*args)
 
