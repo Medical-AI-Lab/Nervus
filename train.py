@@ -7,6 +7,7 @@ from typing import Tuple
 import pandas as pd
 import torch
 import copy
+from torch.utils.data.dataset import Dataset
 from dataloader.dataloader_single import SingleLabelDataSet
 from dataloader.dataloader_deepsurv import DeepSurvDataSet
 from dataloader.dataloader_multi import MultiLabelDataSet
