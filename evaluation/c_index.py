@@ -3,19 +3,14 @@
 
 import os
 import sys
-import pandas as pd
 import dataclasses
 
+import pandas as pd
 from lifelines.utils import concordance_index
 
-from sklearn import metrics
-import matplotlib
-import matplotlib.pyplot as plt
-
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
-from lib.util import *
-from lib.align_env import *
-from options.metrics_options import MetricsOptions
+from lib import *
+from options import MetricsOptions
 
 logger = NervusLogger.get_logger('evaluation.c_index')
 

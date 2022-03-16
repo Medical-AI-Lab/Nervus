@@ -8,10 +8,10 @@ import numpy as np
 import torch
 from torch.utils.data.dataloader import DataLoader
 from torch.utils.data.sampler import *
-from dataloader.nervus_dataloader import NervusDataSet
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from lib.util import *
+from dataloader.nervus_dataloader import NervusDataSet
 
 class DeepSurvDataSet(NervusDataSet):
     def __init__(self, args, csv_dict, image_dir, split_list):
