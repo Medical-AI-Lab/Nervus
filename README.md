@@ -95,7 +95,7 @@ Other parameters are defined in the `parameter.csv`.
 For all task, `train.py` and `test.py` are used. And also, `evaluation/roc.py`, `evaluation/yy.py` or `evaluation/c_index.py` are used depending on task.
 
 # Only for test
-Use `python test.py --test_datetime yymmddHHMMSS`.
+Use `python test.py --test_datetime yy-mm-dd-HH-MM-SS`.
 
 
 # Debugging
