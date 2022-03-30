@@ -12,8 +12,8 @@ class NervusEnv:
     dataroot: str = '../materials'
     splits_dir: str = os.path.join(dataroot, 'splits')
     images_dir: str = os.path.join(dataroot, 'images')
-    reslts_dir: str = './results'
-    sets_dir: str = os.path.join(reslts_dir, 'sets')
+    results_dir: str = './results'
+    sets_dir: str = os.path.join(results_dir, 'sets')
     weight: str = 'weight.pt'
     csv_parameters: str = 'perparameter.csv'
     csv_learning_curve: str = 'learning_curve.csv'
@@ -21,7 +21,7 @@ class NervusEnv:
     roc: str = 'roc.png'
     yy: str = 'yy.png'
     csv_c_index: str = 'c_index.csv'
-    summary_dir: str = os.path.join(reslts_dir, 'summary')
+    summary_dir: str = os.path.join(results_dir, 'summary')
     csv_summary: str = 'summary.csv'
 
 
