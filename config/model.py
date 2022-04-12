@@ -14,6 +14,7 @@ from lib import *
 
 logger = NervusLogger.get_logger('config.model')
 
+
 #model = mlp_net(label_num_classes, num_inputs)
 # MLP
 class MLP(nn.Module):
@@ -121,7 +122,7 @@ class DenseNet_Multi(nn.Module):
     def forward(self, x):
         x = self.extractor(x)
         # Fork forwarding
-        output_multi =  {fc_name : self.fc_multi[fc_name](x) for fc_name in self.fc_names}
+        output_multi = {fc_name : self.fc_multi[fc_name](x) for fc_name in self.fc_names}
         return output_multi
 
 
@@ -135,14 +136,19 @@ class EfficientNet_Multi(nn.Module):
         self.block_names = [('block_' + label_name) for label_name in self.label_list]
 
         # Construct fc layres
-        self.input_size_fc = base_model.classifier[1].in_features
-        self._dropout = base_model.classifier[0]    # Originally, Dropout(p=0.2, inplace=True)
-        # Note: If inplace=True, cannot backword, because gradients are deleted bue to inplace
-        self._dropout.inplace = False
+        """"
+        (classifier): Sequential(
+                        (0): Dropout(p=0.2, inplace=True)
+                        (1): Linear(in_features=1280, out_features=1000, bias=True)
+                        )
+        """
+        self.input_size_fc = self.extractor.classifier[1].in_features
+
+        # Note: If inplace=True of nn.Dropout, cannot backword, because gradients are deleted bue to inplace
         self.fc_multi = nn.ModuleDict({
                             ('block_'+label_name) : nn.Sequential(
                                                         OrderedDict([
-                                                        ('0_'+label_name, self._dropout),
+                                                        ('0_'+label_name, nn.Dropout(p=0.2, inplace=False)),
                                                         ('1_'+label_name, nn.Linear(self.input_size_fc, num_outputs))
                                                     ]))
                             for label_name, num_outputs in self.label_num_classes.items()
@@ -156,6 +162,76 @@ class EfficientNet_Multi(nn.Module):
        # Fork forwarding
        output_multi = {block_name: self.fc_multi[block_name](x) for block_name in self.block_names}
        return output_multi
+
+
+
+# For ConvNeXt family
+class ConvNeXt_Multi(nn.Module):
+    def __init__(self, base_model, label_num_classes):
+        super().__init__()
+        self.extractor = base_model
+        self.label_num_classes = label_num_classes
+        self.label_list = list(label_num_classes.keys())
+        self.fc_names = [('block_' + label_name) for label_name in self.label_list]
+
+        # Construct fc layres
+        """"
+        (classifier): Sequential(
+                        (0): LayerNorm2d((768,), eps=1e-06, elementwise_affine=True)
+                        (1): Flatten(start_dim=1, end_dim=-1)
+                        (2): Linear(in_features=768, out_features=1000, bias=True)
+                    )
+        """
+        self.input_size_fc = self.extractor.classifier[2].in_features
+        self.fc_multi = nn.ModuleDict({
+                            ('block_' + label_name) : nn.Sequential(
+                                                        OrderedDict([
+                                                        ('0_'+label_name, self.extractor.classifier[0]),
+                                                        ('1_'+label_name, self.extractor.classifier[1]),
+                                                        ('2_'+label_name, nn.Linear(self.input_size_fc, num_outputs))
+                                                    ]))
+                            for label_name, num_outputs in self.label_num_classes.items()
+                        })
+
+        # Replace the original classifier
+        self.extractor.classifier = DUMMY_LAYER
+
+    def forward(self, x):
+        x = self.extractor(x)
+        # Fork forwarding
+        output_multi = {block_name: self.fc_multi[block_name](x) for block_name in self.block_names}
+        return output_multi
+
+
+
+# For ViT family
+class ViT_Multi(nn.Module):
+    def __init__(self, base_model, label_num_classes):
+        super().__init__()
+        self.extractor = base_model
+        self.label_num_classes = label_num_classes
+        self.label_list = list(label_num_classes.keys())
+        self.head_names = [('head_' + label_name) for label_name in self.label_list]
+
+        # Construct multi head
+        self.input_size_fc = self.extractor.heads.head.in_features
+        self.head_multi = nn.ModuleDict({
+                                ('head_' + label_name) : nn.Sequential(
+                                                            OrderedDict([
+                                                            ('head' ,nn.Linear(self.input_size_fc, num_outputs))
+                                                            ]))
+                                for label_name, num_outputs in self.label_num_classes.items()
+                            })
+
+        # Replace the original heads
+        self.extractor.heads = DUMMY_LAYER
+
+    def forward(self, x):
+        x = self.extractor(x)
+        # Fork forwarding
+        output_multi = {head_name : self.head_multi[head_name](x) for head_name in self.head_names}
+        return output_multi
+
 
 
 def mlp_net(num_inputs, label_num_classes):
@@ -191,9 +267,22 @@ def conv_net(cnn_name, label_num_classes):
     elif cnn_name == 'DenseNet':
         cnn = models.densenet161
 
+    elif cnn_name  == 'ConvNeXtTiny':
+        cnn = models.convnext_tiny
+    
+    elif cnn_name  == 'ConvNeXtSmall':
+        cnn = models.convnext_small
+    
+    elif cnn_name  == 'ConvNeXtBase':
+        cnn = models.convnext_base()
+
+    elif cnn_name == 'ConvNeXtLarge':
+        cnn = models.convnext_large()
+
     else:
         logger.error(f"No specified CNN: {cnn_name}.")
 
+    # Single-label output or Multi-label output
     label_list = list(label_num_classes.keys())
     if len(label_list) > 1 :
         # When CNN only -> make multi
@@ -203,13 +292,51 @@ def conv_net(cnn_name, label_num_classes):
         elif cnn_name.startswith('B'):
             cnn = EfficientNet_Multi(cnn(), label_num_classes)
 
-        else:
+        elif cnn_name.startswith('DenseNet'):
             cnn = DenseNet_Multi(cnn(), label_num_classes)
+
+        elif cnn_name.startswith('ConvNeXt'):
+            cnn = ConvNeXt_Multi(cnn(), label_num_classes)
+
+        else:
+            logger.error(f"Cannot make multi: {cnn_name}.")
+
     else:
         # When Single-label output or MLP+CNN
         num_outputs_first_label = label_num_classes[label_list[0]]
         cnn = cnn(num_classes=num_outputs_first_label)
     return cnn
+
+
+
+# ViT
+def vit(vit_name, label_num_classes):
+    if vit_name == 'ViTb16':
+        vit = models.vit_b_16
+
+    elif vit_name == 'ViTb32':
+        vit = models.vit_b_32
+
+    elif vit_name == 'ViTl16':
+        vit = models.vit_l_16
+
+    elif vit_name == 'ViTl32':
+        vit = models.vit_l_32
+
+    else:
+        logger.error(f"No specified ViT: {vit_name}.")
+
+    # Single-label output or Multi-label output
+    label_list = list(label_num_classes.keys())
+    if len(label_list) > 1 :
+        # When ViT only -> make multi
+            vit = ViT_Multi(vit(), label_num_classes)
+    else:
+        # When Single-label output or MLP+CNN
+        num_outputs_first_label = label_num_classes[label_list[0]]
+        vit = vit(num_classes=num_outputs_first_label)
+    return vit
+
 
 
 # MLP+CNN
@@ -223,7 +350,9 @@ class MLPCNN_Net(nn.Module):
         self.cnn_num_outputs_pass_to_mlp = 1   # POSITIVE
         self.mlp_cnn_num_inputs = self.num_inputs + self.cnn_num_outputs_pass_to_mlp
         self.dummy_label_num_classes = {'dummy_label': len(['pred_n_label_x', 'pred_p_label_x'])}  # Before passing to MLP, do binary classification
+
         self.cnn = conv_net(self.cnn_name, self.dummy_label_num_classes)          # Non multi-label output
+
         self.mlp = mlp_net(self.mlp_cnn_num_inputs, self.label_num_classes)
 
     def normalize_cnn_output(self, outputs_cnn):
