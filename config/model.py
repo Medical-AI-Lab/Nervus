@@ -21,7 +21,7 @@ class MLP(nn.Module):
     def __init__(self, num_inputs, num_outputs):
         super().__init__()
         self.hidden_layers_size = [256, 256, 256]   # Hidden layers of MLP
-        self.dropout = 0.2
+        self.probability_dropout = 0.2
         self.num_inputs = num_inputs
         self.num_outputs = num_outputs
         self.layers_size = [self.num_inputs] + self.hidden_layers_size + [self.num_outputs]
@@ -31,36 +31,51 @@ class MLP(nn.Module):
     def _build(self):
         layers = OrderedDict()
         for i in range(len(self.layers_size)-1):
-            input_size = self.layers_size.pop(0)
-            output_size = self.layers_size[0]
+            _input_size = self.layers_size.pop(0)
+            _output_size = self.layers_size[0]
             if len(self.layers_size) >=2:
-                layers['linear_' + str(i)] = nn.Linear(input_size, output_size)
-                layers['relu_' + str(i)] = nn.ReLU()
-                layers['dropout_' + str(i)] = nn.Dropout(self.dropout)
+                layers[str(i) + '_linear'] = nn.Linear(_input_size, _output_size)
+                layers[str(i) + '_relu'] = nn.ReLU()
+                layers[str(i) + '_dropout'] = nn.Dropout(self.probability_dropout)
             else:
-                layers['fc'] = nn.Linear(input_size, output_size)   # Output layer
+                layers['fc'] = nn.Linear(_input_size, _output_size)   # Output layer
         return nn.Sequential(layers)
 
     def forward(self, inputs):
         return self.mlp(inputs)
 
 
+
 DUMMY_LAYER = nn.Identity()  # No paramaters
+
 
 
 # For MLP family
 class MLP_Multi(nn.Module):
     def __init__(self, base_model, label_num_classes):
         super().__init__()
-        self.mlp = base_model
+        self.mlp = base_model.mlp
+        """
+        base_model =
+        MLP(
+            (mlp): Sequential(
+                    (0_linear): Linear(in_features=10, out_features=256, bias=True)
+                    (0_relu): ReLU()
+                    (0_dropout): Dropout(p=0.2, inplace=False)
+                    ...
+                    (fc): Linear(in_features=256, out_features=10, bias=True)
+                    )
+                )
+        """
         self.label_num_classes = label_num_classes
         self.label_list = list(self.label_num_classes.keys())
-        self.fc_names = [('fc_' + label_name) for label_name in self.label_list]
+        _prefix_layer = 'fc_'
+        self.fc_names = [(_prefix_layer + label_name) for label_name in self.label_list]
 
         # Construct fc layres
-        self.input_size_fc = self.mlp.fc.in_features
+        _input_size_fc = self.mlp.fc.in_features
         self.fc_multi = nn.ModuleDict({
-                            ('fc_' + label_name) : nn.Linear(self.input_size_fc, num_outputs)
+                            (_prefix_layer + label_name) : nn.Linear(_input_size_fc, num_outputs)
                             for label_name, num_outputs in self.label_num_classes.items()
                         })
 
@@ -81,12 +96,13 @@ class ResNet_Multi(nn.Module):
         self.extractor = base_model
         self.label_num_classes = label_num_classes
         self.label_list = list(label_num_classes.keys())
-        self.fc_names = [('fc_' + label_name) for label_name in self.label_list]
+        _prefix_layer = 'fc_'
+        self.fc_names = [(_prefix_layer + label_name) for label_name in self.label_list]
 
         # Construct fc layres
         self.input_size_fc = self.extractor.fc.in_features
         self.fc_multi = nn.ModuleDict({
-                            ('fc_' + label_name) : nn.Linear(self.input_size_fc, num_outputs)
+                            (_prefix_layer + label_name) : nn.Linear(self.input_size_fc, num_outputs)
                             for label_name, num_outputs in self.label_num_classes.items()
                         })
 
@@ -107,12 +123,13 @@ class DenseNet_Multi(nn.Module):
         self.extractor = base_model
         self.label_num_classes = label_num_classes
         self.label_list = list(label_num_classes.keys())
-        self.fc_names = [('fc_' + label_name) for label_name in self.label_list]
+        _prefix_layer = 'fc_'
+        self.fc_names = [(_prefix_layer + label_name) for label_name in self.label_list]
 
         # Construct fc layres
         self.input_size_fc = self.extractor.classifier.in_features
         self.fc_multi = nn.ModuleDict({
-                            ('fc_' + label_name) : nn.Linear(self.input_size_fc, num_outputs)
+                            (_prefix_layer + label_name) : nn.Linear(self.input_size_fc, num_outputs)
                             for label_name, num_outputs in self.label_num_classes.items()
                         })
 
@@ -133,25 +150,26 @@ class EfficientNet_Multi(nn.Module):
         self.extractor = base_model
         self.label_num_classes = label_num_classes
         self.label_list = list(label_num_classes.keys())
-        self.block_names = [('block_' + label_name) for label_name in self.label_list]
+        _prefix_layer = 'block_'
+        self.block_names = [(_prefix_layer + label_name) for label_name in self.label_list]
 
         # Construct fc layres
         """"
         (classifier): Sequential(
-                        (0): Dropout(p=0.2, inplace=True)
-                        (1): Linear(in_features=1280, out_features=1000, bias=True)
+                        (0): Dropout(p=0.2, inplace=True)                             # p changes by variants
+                        (1): Linear(in_features=1280, out_features=1000, bias=True)   # in_features changes by variants
                         )
         """
-        self.input_size_fc = self.extractor.classifier[1].in_features
-
+        _probability_dropout = self.extractor.classifier[0].p
+        _input_size_fc = self.extractor.classifier[1].in_features
         # Note: If inplace=True of nn.Dropout, cannot backword, because gradients are deleted bue to inplace
         self.fc_multi = nn.ModuleDict({
-                            ('block_'+label_name) : nn.Sequential(
-                                                        OrderedDict([
-                                                        ('0_'+label_name, nn.Dropout(p=0.2, inplace=False)),
-                                                        ('1_'+label_name, nn.Linear(self.input_size_fc, num_outputs))
-                                                    ]))
-                            for label_name, num_outputs in self.label_num_classes.items()
+                            (_prefix_layer + label_name) : nn.Sequential(
+                                                                OrderedDict([
+                                                                ('0_' + label_name, nn.Dropout(p=_probability_dropout, inplace=False)),
+                                                                ('1_' + label_name, nn.Linear(_input_size_fc, num_outputs))
+                                                            ]))
+                                                            for label_name, num_outputs in self.label_num_classes.items()
                         })
 
         # Replace the original classifier
@@ -172,25 +190,26 @@ class ConvNeXt_Multi(nn.Module):
         self.extractor = base_model
         self.label_num_classes = label_num_classes
         self.label_list = list(label_num_classes.keys())
-        self.fc_names = [('block_' + label_name) for label_name in self.label_list]
+        _prefix_layer = 'block_'
+        self.block_names = [(_prefix_layer + label_name) for label_name in self.label_list]
 
         # Construct fc layres
         """"
         (classifier): Sequential(
-                        (0): LayerNorm2d((768,), eps=1e-06, elementwise_affine=True)
+                        (0): LayerNorm2d((768,), eps=1e-06, elementwise_affine=True)   # models.convnext.LayerNorm2d
                         (1): Flatten(start_dim=1, end_dim=-1)
                         (2): Linear(in_features=768, out_features=1000, bias=True)
                     )
         """
-        self.input_size_fc = self.extractor.classifier[2].in_features
+        _input_size_fc = self.extractor.classifier[2].in_features
         self.fc_multi = nn.ModuleDict({
-                            ('block_' + label_name) : nn.Sequential(
-                                                        OrderedDict([
-                                                        ('0_'+label_name, self.extractor.classifier[0]),
-                                                        ('1_'+label_name, self.extractor.classifier[1]),
-                                                        ('2_'+label_name, nn.Linear(self.input_size_fc, num_outputs))
-                                                    ]))
-                            for label_name, num_outputs in self.label_num_classes.items()
+                            (_prefix_layer + label_name) : nn.Sequential(
+                                                                OrderedDict([
+                                                                ('0_'+label_name, self.extractor.classifier[0]),    # copy
+                                                                ('1_'+label_name, self.extractor.classifier[1]),    # copy
+                                                                ('2_'+label_name, nn.Linear(_input_size_fc, num_outputs))
+                                                            ]))
+                                                            for label_name, num_outputs in self.label_num_classes.items()
                         })
 
         # Replace the original classifier
@@ -211,16 +230,22 @@ class ViT_Multi(nn.Module):
         self.extractor = base_model
         self.label_num_classes = label_num_classes
         self.label_list = list(label_num_classes.keys())
-        self.head_names = [('head_' + label_name) for label_name in self.label_list]
+        _prefix_layer = 'heads_'
+        self.head_names = [(_prefix_layer + label_name) for label_name in self.label_list]
 
         # Construct multi head
-        self.input_size_fc = self.extractor.heads.head.in_features
+        """
+        (heads): Sequential(
+                    (head): Linear(in_features=768, out_features=1000, bias=True)
+                )
+        """
+        _input_size_fc = self.extractor.heads.head.in_features
         self.head_multi = nn.ModuleDict({
-                                ('head_' + label_name) : nn.Sequential(
+                            (_prefix_layer + label_name) : nn.Sequential(
                                                             OrderedDict([
-                                                            ('head' ,nn.Linear(self.input_size_fc, num_outputs))
+                                                                ('head' ,nn.Linear(_input_size_fc, num_outputs))
                                                             ]))
-                                for label_name, num_outputs in self.label_num_classes.items()
+                                                            for label_name, num_outputs in self.label_num_classes.items()
                             })
 
         # Replace the original heads
@@ -233,18 +258,19 @@ class ViT_Multi(nn.Module):
         return output_multi
 
 
-
 def mlp_net(num_inputs, label_num_classes):
     label_list = list(label_num_classes.keys())
     num_outputs_first_label = label_num_classes[label_list[0]]
-    mlp_base = MLP(num_inputs, num_outputs_first_label)        # Once make MLP for the first label only
+    mlp_base = MLP(num_inputs, num_outputs_first_label)   # Once make MLP with the first label only
     if len(label_list) > 1:
-        mlp = MLP_Multi(mlp_base.mlp, label_num_classes)
+        mlp = MLP_Multi(mlp_base, label_num_classes)  # Make it multi
     else:
         mlp = mlp_base
     return mlp
 
 
+# Note:
+# Supposed that CNN includes ViT.
 def conv_net(cnn_name, label_num_classes):
     if cnn_name == 'B0':
         cnn = models.efficientnet_b0
@@ -267,20 +293,32 @@ def conv_net(cnn_name, label_num_classes):
     elif cnn_name == 'DenseNet':
         cnn = models.densenet161
 
-    elif cnn_name  == 'ConvNeXtTiny':
+    elif cnn_name == 'ConvNeXtTiny':
         cnn = models.convnext_tiny
-    
-    elif cnn_name  == 'ConvNeXtSmall':
+
+    elif cnn_name == 'ConvNeXtSmall':
         cnn = models.convnext_small
     
-    elif cnn_name  == 'ConvNeXtBase':
-        cnn = models.convnext_base()
+    elif cnn_name == 'ConvNeXtBase':
+        cnn = models.convnext_base
 
     elif cnn_name == 'ConvNeXtLarge':
-        cnn = models.convnext_large()
+        cnn = models.convnext_large
+        
+    elif cnn_name == 'ViTb16':
+        cnn = models.vit_b_16
+
+    elif cnn_name == 'ViTb32':
+        cnn = models.vit_b_32
+
+    elif cnn_name == 'ViTl16':
+        cnn = models.vit_l_16
+
+    elif cnn_name == 'ViTl32':
+        cnn = models.vit_l_32
 
     else:
-        logger.error(f"No specified CNN: {cnn_name}.")
+        logger.error(f"No specified such CNN or ViT: {cnn_name}.")
 
     # Single-label output or Multi-label output
     label_list = list(label_num_classes.keys())
@@ -298,6 +336,9 @@ def conv_net(cnn_name, label_num_classes):
         elif cnn_name.startswith('ConvNeXt'):
             cnn = ConvNeXt_Multi(cnn(), label_num_classes)
 
+        elif cnn_name.startswith('ViT'):
+            cnn = ViT_Multi(cnn(), label_num_classes)
+
         else:
             logger.error(f"Cannot make multi: {cnn_name}.")
 
@@ -309,50 +350,19 @@ def conv_net(cnn_name, label_num_classes):
 
 
 
-# ViT
-def vit(vit_name, label_num_classes):
-    if vit_name == 'ViTb16':
-        vit = models.vit_b_16
-
-    elif vit_name == 'ViTb32':
-        vit = models.vit_b_32
-
-    elif vit_name == 'ViTl16':
-        vit = models.vit_l_16
-
-    elif vit_name == 'ViTl32':
-        vit = models.vit_l_32
-
-    else:
-        logger.error(f"No specified ViT: {vit_name}.")
-
-    # Single-label output or Multi-label output
-    label_list = list(label_num_classes.keys())
-    if len(label_list) > 1 :
-        # When ViT only -> make multi
-            vit = ViT_Multi(vit(), label_num_classes)
-    else:
-        # When Single-label output or MLP+CNN
-        num_outputs_first_label = label_num_classes[label_list[0]]
-        vit = vit(num_classes=num_outputs_first_label)
-    return vit
-
-
-
 # MLP+CNN
 class MLPCNN_Net(nn.Module):
     def __init__(self, cnn_name, num_inputs, label_num_classes):
         super().__init__()
-        self.num_inputs = num_inputs           # Not include image
+        self.num_inputs = num_inputs    # Not include image
         self.label_num_classes = label_num_classes
         self.label_list = list(self.label_num_classes.keys())
         self.cnn_name = cnn_name
-        self.cnn_num_outputs_pass_to_mlp = 1   # POSITIVE
+        self.cnn_num_outputs_pass_to_mlp = 1   # only POSITIVE value is passed to MLP.
         self.mlp_cnn_num_inputs = self.num_inputs + self.cnn_num_outputs_pass_to_mlp
-        self.dummy_label_num_classes = {'dummy_label': len(['pred_n_label_x', 'pred_p_label_x'])}  # Before passing to MLP, do binary classification
+        self.dummy_label_num_classes = {'dummy_label': len(['pred_n_label_x', 'pred_p_label_x'])}   # Before passing to MLP, do binary classification
 
-        self.cnn = conv_net(self.cnn_name, self.dummy_label_num_classes)          # Non multi-label output
-
+        self.cnn = conv_net(self.cnn_name, self.dummy_label_num_classes)   # Non multi-label output
         self.mlp = mlp_net(self.mlp_cnn_num_inputs, self.label_num_classes)
 
     def normalize_cnn_output(self, outputs_cnn):
@@ -360,43 +370,45 @@ class MLPCNN_Net(nn.Module):
         max = outputs_cnn.max()
         min = outputs_cnn.min()
         if min == max:
-            outputs_cnn_normed = outputs_cnn - min   # ie. 0
+            outputs_cnn_normed = outputs_cnn - min   # ie. outputs_cnn_normed = 0
         else:
-            outputs_cnn_normed = (outputs_cnn - min) / (max - min)
+            outputs_cnn__normed = (outputs_cnn - min) / (max - min)
         return outputs_cnn_normed
 
     def forward(self, inputs, images):
-        outputs_cnn = self.cnn(images)                                  # [64, 256, 256]  -> [64, 2]
+        outputs_cnn = self.cnn(images)                                # [64, 256, 256]  -> [64, 2]  batch_size=64
 
         # Select likelihood of '1'
-        outputs_cnn = outputs_cnn[:, self.cnn_num_outputs_pass_to_mlp]  # [64, 2] -> Numpy [64]
-        outputs_cnn = outputs_cnn.reshape(len(outputs_cnn), 1)          # Numpy [64] -> Numpy [64, 1]
+        outputs_cnn = outputs_cnn[:, self.cnn_num_outputs_pass_to_mlp]   # [64, 2] -> Numpy [64]
+        outputs_cnn = outputs_cnn.reshape(len(outputs_cnn), 1)           # Numpy [64] -> Numpy [64, 1]
 
         # Normalize
-        outputs_cnn_normed = self.normalize_cnn_output(outputs_cnn)     # Numpy [64, 1] -> Tensor [64, 1]   Normalize bach_size-wise
+        outputs_cnn_normed = self.normalize_cnn_output(outputs_cnn)      # Numpy [64, 1] -> Tensor [64, 1] Normalize bach_size-wise
 
         # Merge inputs with output from CNN
-        inputs_images = torch.cat((inputs, outputs_cnn_normed), dim=1)  # Tensor [64, 24] + Tensor [64, 1] -> Tensor [64, 24+1]
+        inputs_images = torch.cat((inputs, outputs_cnn_normed), dim=1)   # Tensor [64, 24] + Tensor [64, 1] -> Tensor [64, 24+1]
         outputs = self.mlp(inputs_images)
         return outputs
 
-def create_mlp_cnn(mlp, cnn, num_inputs, num_classes_in_label, gpu_ids=[]):
+
+
+def create_mlp_cnn(mlp, cnn, num_inputs, label_num_classes, gpu_ids=[]):
     """
     num_input: number of inputs of MLP or MLP+CNN
+    eg. label_num_classes = {'internal_label_0': 2, 'internal_label_1': 2, 'internal_label_': 2}
     """
     if (mlp is not None) and (cnn is None):
         # When MLP only
-        model = mlp_net(num_inputs, num_classes_in_label)
+        model = mlp_net(num_inputs, label_num_classes)
     elif (mlp is None) and (cnn is not None):
         # When CNN only
-        model = conv_net(cnn, num_classes_in_label)
+        model = conv_net(cnn, label_num_classes)
     else:
         # When MLP+CNN
         # Set the number of outputs from CNN to MLP as 1, then
-        # the shape of outputs from CNN is [batgch_size,1]
-        model = MLPCNN_Net(cnn, num_inputs, num_classes_in_label)
+        # the shape of outputs from CNN is resized to [batgch_size, 1].
+        model = MLPCNN_Net(cnn, num_inputs, label_num_classes)
 
-    #model = config_device(model, gpu_ids)
     device = set_device(gpu_ids)
     model.to(device)
     if gpu_ids:
