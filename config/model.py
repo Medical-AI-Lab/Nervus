@@ -271,6 +271,8 @@ def mlp_net(num_inputs, label_num_classes):
 
 # Note:
 # Supposed that CNN includes ViT.
+# When use ViT, specified image size like ViTb16_<image_size>, eg. ViTb16_256, ViTb16_1024,
+# othewize image size is set as 224 by default.
 def conv_net(cnn_name, label_num_classes):
     if cnn_name == 'B0':
         cnn = models.efficientnet_b0
@@ -305,16 +307,16 @@ def conv_net(cnn_name, label_num_classes):
     elif cnn_name == 'ConvNeXtLarge':
         cnn = models.convnext_large
         
-    elif cnn_name == 'ViTb16':
+    elif cnn_name.startswith('ViTb16'):
         cnn = models.vit_b_16
 
-    elif cnn_name == 'ViTb32':
+    elif cnn_name.startswith('ViTb32'):
         cnn = models.vit_b_32
 
-    elif cnn_name == 'ViTl16':
+    elif cnn_name.startswith('ViTl16'):
         cnn = models.vit_l_16
 
-    elif cnn_name == 'ViTl32':
+    elif cnn_name.startswith('ViTl32'):
         cnn = models.vit_l_32
 
     else:
@@ -322,6 +324,12 @@ def conv_net(cnn_name, label_num_classes):
 
     # Single-label output or Multi-label output
     label_list = list(label_num_classes.keys())
+
+    if cnn_name.startswith('ViT'):
+        image_size_for_vit = int(cnn_name.split('_')[-1])  # ViTb16_256 -> 256
+    else:
+        pass
+
     if len(label_list) > 1 :
         # When CNN only -> make multi
         if cnn_name.startswith('ResNet'):
@@ -337,7 +345,7 @@ def conv_net(cnn_name, label_num_classes):
             cnn = ConvNeXt_Multi(cnn(), label_num_classes)
 
         elif cnn_name.startswith('ViT'):
-            cnn = ViT_Multi(cnn(), label_num_classes)
+            cnn = ViT_Multi(cnn(image_size=image_size_for_vit), label_num_classes)
 
         else:
             logger.error(f"Cannot make multi: {cnn_name}.")
@@ -345,7 +353,11 @@ def conv_net(cnn_name, label_num_classes):
     else:
         # When Single-label output or MLP+CNN
         num_outputs_first_label = label_num_classes[label_list[0]]
-        cnn = cnn(num_classes=num_outputs_first_label)
+
+        if cnn_name.startswith('ViT'):
+            cnn = cnn(num_classes=num_outputs_first_label, image_size=image_size_for_vit)
+        else:
+            cnn = cnn(num_classes=num_outputs_first_label)
     return cnn
 
 
@@ -372,7 +384,7 @@ class MLPCNN_Net(nn.Module):
         if min == max:
             outputs_cnn_normed = outputs_cnn - min   # ie. outputs_cnn_normed = 0
         else:
-            outputs_cnn__normed = (outputs_cnn - min) / (max - min)
+            outputs_cnn_normed = (outputs_cnn - min) / (max - min)
         return outputs_cnn_normed
 
     def forward(self, inputs, images):
