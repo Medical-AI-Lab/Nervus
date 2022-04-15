@@ -119,6 +119,8 @@ def _execute_test_single_label(split:str, dataloader:Dataset) -> Tuple[float, fl
 
         likelihood = outputs   # No softmax
 
+        labels = labels.to(device)
+
         if task == 'classification':
             _, preds = torch.max(outputs, 1)
             split_acc = (torch.sum(preds == labels.data)).item()
