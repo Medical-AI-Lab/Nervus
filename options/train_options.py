@@ -31,7 +31,7 @@ class TrainOptions():
         self.parser.add_argument('--epochs',    type=int,   default=10,    metavar='N', help='number of epochs (Default: 10)')
 
         # Batch size
-        self.parser.add_argument('--batch_size',      type=int, default=None, metavar='N', help='batch size for training (Default: None)')
+        self.parser.add_argument('--batch_size', type=int, default=None, metavar='N', help='batch size for training (Default: None)')
 
         # Preprocess for image
         self.parser.add_argument('--random_horizontal_flip', type=str, default=None,  help='RandomHorizontalFlip, yes or no (Default: None)')
@@ -42,6 +42,9 @@ class TrainOptions():
 
         # Sampler
         self.parser.add_argument('--sampler', type=str, default=None, help='sample data in traning or not, yes or no (Default: None)')
+
+        # Input channel
+        self.parser.add_argument('--input_channel', type=int, default=None, help='channel of input image (Default: None)')
 
         # GPU
         self.parser.add_argument('--gpu_ids', type=str, default='-1', help='gpu ids: e.g. 0  0,1,2, 0,2. use -1 for CPU (Default: -1)')
@@ -123,7 +126,7 @@ class TrainOptions():
         # Check must options
         must_base_opts = ['task', 'csv_name', 'model', 'criterion', 'optimizer', 'epochs', 'batch_size','sampler']
         if not(args['cnn'] is None):
-            must_base_opts = must_base_opts + ['image_dir', 'normalize_image']
+            must_base_opts = must_base_opts + ['image_dir', 'normalize_image', 'input_channel']
 
         for opt in must_base_opts:
             if args[opt] is None:

@@ -45,7 +45,8 @@ done
 #7  epochs,
 #8  batch_size,
 #9  sampler,
-#10 augmtntation
+#10 augmtntation,
+#11 input_channel
 total=$(tail -n +2 "$parameter_csv" | wc -l)
 i=1
 for row in $(tail -n +2 "$parameter_csv"); do
@@ -59,14 +60,14 @@ for row in $(tail -n +2 "$parameter_csv"); do
   batch_size=$(echo "$row" | cut -d "," -f8)
   sampler=$(echo "$row" | cut -d "," -f9)
   augmentation=$(echo "$row" | cut -d "," -f10)
-
+  input_channel=$(echo "$row" | cut -d "," -f11)
   echo "$i/$total: Training starts..."
 
   echo ""
 
   # Traning
-  echo "$python $train_code --task $task --csv_name $csv_name --image_dir $image_dir --model $model --criterion $criterion --optimizer $optimizer --epochs $epochs --batch_size $batch_size --sampler $sampler --augmentation $augmentation --gpu_ids $gpu_ids"
-  "$python" "$train_code" --task "$task" --csv_name "$csv_name" --image_dir "$image_dir" --model "$model" --criterion "$criterion" --optimizer "$optimizer" --epochs "$epochs" --batch_size "$batch_size" --sampler "$sampler" --augmentation $augmentation --gpu_ids "$gpu_ids" 2>&1 | tee -a "$train_log"
+  echo "$python $train_code --task $task --csv_name $csv_name --image_dir $image_dir --model $model --criterion $criterion --optimizer $optimizer --epochs $epochs --batch_size $batch_size --sampler $sampler --augmentation $augmentation --input_channel $input_channel --gpu_ids $gpu_ids"
+  "$python" "$train_code" --task "$task" --csv_name "$csv_name" --image_dir "$image_dir" --model "$model" --criterion "$criterion" --optimizer "$optimizer" --epochs "$epochs" --batch_size "$batch_size" --sampler "$sampler" --augmentation "$augmentation" --input_channel "$input_channel" --gpu_ids "$gpu_ids" 2>&1 | tee -a "$train_log"
 
   echo ""
 

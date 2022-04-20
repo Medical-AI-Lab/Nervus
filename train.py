@@ -34,8 +34,10 @@ lr = args['lr']
 num_epochs = args['epochs']
 batch_size = args['batch_size']
 sampler = args['sampler']
+input_channel = args['input_channel']
 gpu_ids = args['gpu_ids']
 device = set_device(gpu_ids)
+
 
 image_dir = os.path.join(nervusenv.images_dir , args['image_dir'])
 sp = SplitProvider(os.path.join(nervusenv.splits_dir, args['csv_name']), task)
@@ -66,9 +68,10 @@ train_loader = dataset_handler.create_dataloader(args, sp, image_dir, split_list
 val_loader = dataset_handler.create_dataloader(args, sp, image_dir, split_list=['val'], batch_size=batch_size, sampler=sampler)
 
 # Configure of training
-model = create_mlp_cnn(mlp, cnn, sp.num_inputs, sp.num_classes_in_internal_label, gpu_ids=gpu_ids)
+model = create_mlp_cnn(mlp, cnn, sp.num_inputs, sp.num_classes_in_internal_label, input_channel, gpu_ids=gpu_ids)
 criterion = set_criterion(criterion, device)
 optimizer = set_optimizer(optimizer, model, lr)
+
 
 best_weight = None
 val_best_loss = None

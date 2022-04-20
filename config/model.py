@@ -10,14 +10,12 @@ import torch.nn as nn
 import torchvision.models as models
 from torchinfo import summary
 
-
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from lib import *
 
 logger = NervusLogger.get_logger('config.model')
 
 
-#model = mlp_net(label_num_classes, num_inputs)
 # MLP
 class MLP(nn.Module):
     def __init__(self, num_inputs, num_outputs):
@@ -47,9 +45,7 @@ class MLP(nn.Module):
         return self.mlp(inputs)
 
 
-
 DUMMY_LAYER = nn.Identity()  # No paramaters
-
 
 
 # For MLP family
@@ -58,6 +54,7 @@ class MLP_Multi(nn.Module):
         super().__init__()
         self.mlp = base_model.mlp
         """
+        Memo:
         base_model =
         MLP(
             (mlp): Sequential(
@@ -157,6 +154,7 @@ class EfficientNet_Multi(nn.Module):
 
         # Construct fc layres
         """"
+        Memo:
         (classifier): Sequential(
                         (0): Dropout(p=0.2, inplace=True)                             # p changes by variants
                         (1): Linear(in_features=1280, out_features=1000, bias=True)   # in_features changes by variants
@@ -199,6 +197,7 @@ class ConvNeXt_Multi(nn.Module):
 
         # Construct fc layres
         """"
+        Memo:
         (classifier): Sequential(
                         (0): LayerNorm2d((768,), eps=1e-06, elementwise_affine=True)   # models.convnext.LayerNorm2d
                         (1): Flatten(start_dim=1, end_dim=-1)
@@ -239,6 +238,7 @@ class ViT_Multi(nn.Module):
 
         # Construct multi head
         """
+        Memo:
         (heads): Sequential(
                     (head): Linear(in_features=768, out_features=1000, bias=True)
                 )
@@ -262,6 +262,7 @@ class ViT_Multi(nn.Module):
         return output_multi
 
 
+
 def mlp_net(num_inputs, label_num_classes):
     label_list = list(label_num_classes.keys())
     num_outputs_first_label = label_num_classes[label_list[0]]
@@ -273,48 +274,8 @@ def mlp_net(num_inputs, label_num_classes):
     return mlp
 
 
-# Change input channle of CNN to 1ch
-# Modify the in_channels of first layer and the shape of weight of the first layer
-def align_1ch_channel(cnn_name, cnn):
-    INPUT_CHANNEL_1ch = 1
-    if cnn_name.startswith('ResNet'):
-        cnn.conv1.in_channels = INPUT_CHANNEL_1ch
-        cnn.conv1.weight = nn.Parameter(cnn.conv1.weight.sum(dim=1).unsqueeze(1))
-
-    elif cnn_name.startswith('B'):
-        cnn.features[0][0].in_channels = INPUT_CHANNEL_1ch
-        cnn.features[0][0].weight = nn.Parameter(cnn.features[0][0].weight.sum(dim=1).unsqueeze(1))
-
-    elif cnn_name.startswith('DenseNet'):
-        cnn.features.conv0.in_channels = INPUT_CHANNEL_1ch
-        cnn.features.conv0.weight = nn.Parameter(cnn.features.conv0.weight.sum(dim=1).unsqueeze(1))
-
-    elif cnn_name.startswith('ConvNeXt'):
-        cnn.features[0][0].in_channels = INPUT_CHANNEL_1ch
-        cnn.features[0][0].weight = nn.Parameter(cnn.features[0][0].weight.sum(dim=1).unsqueeze(1))
-
-    elif cnn_name.startswith('ViT'):
-        cnn.conv_proj.in_channels = INPUT_CHANNEL_1ch
-        cnn.conv_proj.weight = nn.Parameter(cnn.conv_proj.weight.sum(dim=1).unsqueeze(1))
-
-    else:
-        logger.error(f"No specified such CNN or ViT: {cnn_name}.")
-
-    """
-    # Might be no need
-    # because  torch.nn.parameter.Parameter(data=None, requires_grad=True) as default
-    # Set grad
-    for i, param in enumerate(self.cnn.parameters()):
-        param.requires_grad = True #False
-    """
-    return cnn
-
-
-# Note:
 # Supposed that CNN includes ViT.
-# When use ViT, specified image size like ViTb16_<image_size>, eg. ViTb16_256, ViTb16_1024,
-# othewize image size is set as 224 by default.
-def conv_net(cnn_name, label_num_classes, input_channel):
+def set_model(cnn_name):
     if cnn_name == 'B0':
         cnn = models.efficientnet_b0
 
@@ -361,52 +322,88 @@ def conv_net(cnn_name, label_num_classes, input_channel):
         cnn = models.vit_l_32
 
     else:
-        logger.error(f"No specified such CNN or ViT: {cnn_name}.")
+         logger.error(f"No such a specified CNN or ViT: {cnn_name}.")
+
+    return cnn
 
 
+# Change input channle of CNN to 1ch
+# Modify the in_channels of first layer and the shape of weight of the first layer
+def align_1ch_channel(cnn_name, cnn):
+    if cnn_name.startswith('ResNet'):
+        cnn.conv1.in_channels = 1
+        cnn.conv1.weight = nn.Parameter(cnn.conv1.weight.sum(dim=1).unsqueeze(1))
+
+    elif cnn_name.startswith('B'):
+        cnn.features[0][0].in_channels = 1
+        cnn.features[0][0].weight = nn.Parameter(cnn.features[0][0].weight.sum(dim=1).unsqueeze(1))
+
+    elif cnn_name.startswith('DenseNet'):
+        cnn.features.conv0.in_channels = 1
+        cnn.features.conv0.weight = nn.Parameter(cnn.features.conv0.weight.sum(dim=1).unsqueeze(1))
+
+    elif cnn_name.startswith('ConvNeXt'):
+        cnn.features[0][0].in_channels = 1
+        cnn.features[0][0].weight = nn.Parameter(cnn.features[0][0].weight.sum(dim=1).unsqueeze(1))
+
+    else:
+        # should be ViT
+        cnn.conv_proj.in_channels = 1
+        cnn.conv_proj.weight = nn.Parameter(cnn.conv_proj.weight.sum(dim=1).unsqueeze(1))
+
+    """
+    # Might be no need to set gradient
+    # because torch.nn.parameter.Parameter(data=None, requires_grad=True) as default
+    for i, param in enumerate(self.cnn.parameters()):
+        param.requires_grad = True #False
+    """
+    return cnn
+
+# Note:
+# When use ViT, specified image size like ViTb16_<image_size>, eg. ViTb16_256, ViTb16_1024,
+# othewize image size is set as 224 by default.
+def conv_net(cnn_name, label_num_classes, input_channel):
+    cnn = set_model(cnn_name)
+
+    # Once make pseudo-model for 3ch and single.
+    label_list = list(label_num_classes.keys())
+    num_outputs_first_label = label_num_classes[label_list[0]]
     if cnn_name.startswith('ViT'):
         image_size_for_vit = int(cnn_name.split('_')[-1])   # eg. 'ViTb16_256' -> 256
+        cnn = cnn(num_classes=num_outputs_first_label, image_size=image_size_for_vit)
     else:
-        pass
+        cnn = cnn(num_classes=num_outputs_first_label)
 
-    # Single-label output or Multi-label output
-    label_list = list(label_num_classes.keys())
-    if len(label_list) > 1 :
-        # Note:
-        # First, modify the first layer, then make multi
-        cnn = align_1ch_channel(cnn_name, cnn())
+    # Align 1ch
+    if input_channel == 1:
+        cnn = align_1ch_channel(cnn_name, cnn)
+    else:
+        cnn = cnn
 
-        # When CNN only -> make multi
+    # Make multi
+    if len(label_num_classes) > 1 :
+        # When CNN only
         if cnn_name.startswith('ResNet'):
-            cnn = ResNet_Multi(cnn(), label_num_classes)
+            cnn = ResNet_Multi(cnn, label_num_classes)
 
         elif cnn_name.startswith('B'):
-            cnn = EfficientNet_Multi(cnn(), label_num_classes)
+            cnn = EfficientNet_Multi(cnn, label_num_classes)
 
         elif cnn_name.startswith('DenseNet'):
-            cnn = DenseNet_Multi(cnn(), label_num_classes)
+            cnn = DenseNet_Multi(cnn, label_num_classes)
 
         elif cnn_name.startswith('ConvNeXt'):
-            cnn = ConvNeXt_Multi(cnn(), label_num_classes)
+            cnn = ConvNeXt_Multi(cnn, label_num_classes)
 
         elif cnn_name.startswith('ViT'):
-            cnn = ViT_Multi(cnn(image_size=image_size_for_vit), label_num_classes)
+            cnn = ViT_Multi(cnn, label_num_classes)
 
         else:
             logger.error(f"Cannot make multi: {cnn_name}.")
 
     else:
         # When Single-label output or MLP+CNN
-        num_outputs_first_label = label_num_classes[label_list[0]]
-
-        # Note:
-        # First deifne model, then align input channel.
-        if cnn_name.startswith('ViT'):
-            cnn = cnn(num_classes=num_outputs_first_label, image_size=image_size_for_vit)
-            cnn = align_1ch_channel(cnn_name, cnn)
-        else:
-            cnn = cnn(num_classes=num_outputs_first_label)
-            cnn = align_1ch_channel(cnn_name, cnn)
+        cnn = cnn
 
     return cnn
 
@@ -423,7 +420,7 @@ class MLPCNN_Net(nn.Module):
         self.cnn_num_outputs_pass_to_mlp = 1   # only POSITIVE value is passed to MLP.
         self.input_channel = input_channel
         self.mlp_cnn_num_inputs = self.num_inputs + self.cnn_num_outputs_pass_to_mlp
-        self.dummy_label_num_classes = {'dummy_label': len(['pred_n_label_x', 'pred_p_label_x'])}   # Before passing to MLP, do binary classification
+        self.dummy_label_num_classes = {'dummy_label': len(['pred_n_label_x', 'pred_p_label_x'])}   # Before passing to MLP, binary classification is done.
 
         self.cnn = conv_net(self.cnn_name, self.dummy_label_num_classes, self.input_channel)        # Non multi-label output
         self.mlp = mlp_net(self.mlp_cnn_num_inputs, self.label_num_classes)
@@ -508,12 +505,7 @@ def predict_by_model(model, hasMLP, hasCNN, device, inputs_values_normed, images
 
 
 
-
 # Show model summary
-# CNN ... OK
-# MLP ?
-# MLP+CNN ?
-# multi ?
 #model = conv_net('ResNet18', {'label_1': 2}, 3)
 #show_model_config(model, 64, 3, 256)
 def show_model_summary(model, batch_size, input_channel, image_size):
