@@ -89,8 +89,10 @@ Other parameters are defined in the `parameter.csv`.
   - example: yes, no
 - augmentation: increase the amount of data by slightly modified copies or created synthetic.
   - example: yes, no
-- input_channel: specify the channel of image, or any of 1 channel(grayscale) and 3 channel(RGB).
-  - example: 1, 3
+- input_channel: specify the channel of when image is handled, or any of 1 channel(grayscale) and 3 channel(RGB).
+  - example:
+    - 1 channel(grayscale): 1
+    - 3 channel(RGB): 3
 
 # Task
 ## Single-label/Multi-label output classification, regression, or deepsurv.
