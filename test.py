@@ -25,6 +25,7 @@ train_parameters = read_train_parameters(parameters_path)
 task = train_parameters['task']
 mlp = train_parameters['mlp']
 cnn = train_parameters['cnn']
+input_channel = train_parameters['input_channel']
 gpu_ids = str2int(train_parameters['gpu_ids'])
 device = set_device(gpu_ids)
 
@@ -62,7 +63,7 @@ val_loader = dataset_handler.create_dataloader(train_parameters, sp, image_dir, 
 test_loader = dataset_handler.create_dataloader(train_parameters, sp, image_dir, split_list=['test'], batch_size=test_batch_size, sampler='no')
 
 # Configure of model
-model = create_mlp_cnn(mlp, cnn, sp.num_inputs, sp.num_classes_in_internal_label, gpu_ids=gpu_ids)
+model = create_mlp_cnn(mlp, cnn, sp.num_inputs, sp.num_classes_in_internal_label, input_channel, gpu_ids=gpu_ids)
 weight = torch.load(test_weight)
 model.load_state_dict(weight)
 

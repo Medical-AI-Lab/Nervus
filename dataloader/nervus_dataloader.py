@@ -71,7 +71,14 @@ class NervusDataSet(Dataset, ABC):
 
         if self.args['normalize_image'] == 'yes':
             # Normalize accepts Tensor only
-            _transforms.append(transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]))
+            if self.args['input_channel'] == 1:
+                _transforms.append(transforms.Normalize(mean=(0.5, ), std=(0.5, )))
+
+            elif self.args['input_channel'] == 3:
+                _transforms.append(transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]))
+
+            else:
+                logger.error(f"Invalid input channel: {self.args['input_channel']}.")
 
         _transforms = transforms.Compose(_transforms)
         return _transforms
@@ -126,7 +133,14 @@ class NervusDataSet(Dataset, ABC):
 
         filepath = self.df_split.iat[idx, self.index_dict[self.filepath_column]]
         image_path = os.path.join(self.image_dir, filepath)
-        image = Image.open(image_path).convert('RGB')
+
+        assert (self.args['input_channel'] == 1) or (self.args['input_channel'] == 3), f"Invalid input channel: {self.args['input_channel']}."
+        if self.args['input_channel'] == 1:
+            image = Image.open(image_path).convert('L')   # Specify 8bit grayscale explicitly
+        else:
+            # self.args['input_channel'] == 3
+            image = Image.open(image_path).convert('RGB')
+
         image = self.augmentation(image)   # augmentation
         image = self.transform(image)      # transform, ie. To_Tensor() and Normalization
 

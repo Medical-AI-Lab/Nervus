@@ -2,20 +2,22 @@
 # CSV_NAME = trials.csv
 # IMAGE_DIR = 128 | covid | png256
 # TASK = classification | regression | deepsurv
-# MODEL = MLP | ResNet18 | MLP+ResNet18
+# MODEL = MLP | [CNN name] | MLP+[CNN name]
 # CRITERION = CEL | MSE | NLL
 # SAMPLER = yes | no   # should be no when regression or multi-label
+# INPUT_CHANNEL = 1 | 3
 # GPU_IDS = -1 | 0,1,2
-CSV_NAME := trials.csv
+CSV_NAME := clean_cla_single_output_bin_class.csv
 IMAGE_DIR := 128
 TASK := classification
-MODEL := MLP+ResNet18
+MODEL := ResNet18
 CRITERION := CEL
 OPTIMIZER := Adam
 EPOCHS := 3
 BATCH_SIZE := 64
-SAMPLER := no
-AUGMENTATION := yes
+SAMPLER := yes
+AUGMENTATION := no
+INPUT_CHANNEL := 3
 GPU_IDS := -1
 
 TRAIN_OPT := \
@@ -29,6 +31,7 @@ TRAIN_OPT := \
 --batch_size $(BATCH_SIZE) \
 --sampler $(SAMPLER) \
 --augmentation $(AUGMENTATION) \
+--input_channel $(INPUT_CHANNEL) \
 --gpu_ids $(GPU_IDS)
 
 

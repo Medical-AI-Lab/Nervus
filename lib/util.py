@@ -91,6 +91,12 @@ def read_train_parameters(parameters_path):
     df_parameters = pd.read_csv(parameters_path, index_col=0)
     df_parameters = df_parameters.fillna(np.nan).replace([np.nan],[None])
     parameters_dict = df_parameters.to_dict()['value']
+    
+    # Cast
+    parameters_dict['lr'] = float(parameters_dict['lr'])
+    parameters_dict['epochs'] = int(parameters_dict['epochs'])
+    parameters_dict['batch_size'] = int(parameters_dict['batch_size'])
+    parameters_dict['input_channel'] = int(parameters_dict['input_channel'])
     return parameters_dict
 
 
