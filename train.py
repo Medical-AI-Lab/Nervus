@@ -3,7 +3,7 @@
 
 import datetime
 import os
-from typing import Tuple
+from typing import Tuple, Dict
 
 import pandas as pd
 import torch
@@ -77,6 +77,11 @@ best_weight = None
 val_best_loss = None
 val_best_epoch = None
 
+val_best_loss_label_wise = {}
+val_best_epoch_label_wise = {}
+
+
+# For total loss and acc
 loss_acc_dict = {}
 if task == 'classification':
     loss_acc_dict = {'train_loss': [], 'train_acc': [], 'val_loss': [], 'val_acc': []}
@@ -84,7 +89,17 @@ else:
     # When regression or deepsurv
     loss_acc_dict = {'train_loss': [], 'val_loss': []}
 
-def execute(best_weight, val_best_loss, val_best_epoch, loss_acc_dict):
+
+# For label-wise loss and acc when multi label
+# defined based on the avobe loss_acc_dict
+if len(label_list) > 1:
+    loss_acc_label_wise_dict = {label_name: loss_acc_dict for label_name in label_list}
+else:
+    loss_acc_label_wise_dict = None  # No need when single
+
+
+
+def execute(best_weight, val_best_loss, val_best_epoch, loss_acc_dict, loss_acc_label_wise_dict):
     for _epoch in range(num_epochs):
         for _phase in ['train', 'val']:
             if _phase == 'train':
@@ -94,10 +109,21 @@ def execute(best_weight, val_best_loss, val_best_epoch, loss_acc_dict):
                 model.eval()
                 _dataloader = val_loader
 
+            # Fot total
             _running_loss = 0.0
             _running_acc = 0.0
-            # execute task: execute_single_label, execute_multi_label, execute_deepsurv
-            _running_loss, _running_acc = _execute_task(_phase, _dataloader)
+            
+            # For label
+            _running_loss_label_wise = None
+            _running_acc_label_wise = None
+            
+            if (loss_acc_label_wise_dict is not None) and (len(loss_acc_label_wise_dict.keys()) > 1):
+                # execute task: execute_multi_label
+                _running_loss, _running_acc, _running_loss_label_wise, _running_acc_label_wise = _execute_task(_phase, _dataloader)
+                loss_acc_label_wise_dict = _update_loss_acc_label_wise_dict(task, num_epochs, loss_acc_label_wise_dict, _epoch, _phase, _running_loss_label_wise, _running_acc_label_wise, len(_dataloader.dataset), len(label_list), val_best_loss_label_wise, val_best_epoch_label_wise)
+            else:
+                # execute task: execute_single_label, execute_deepsurv
+                _running_loss, _running_acc = _execute_task(_phase, _dataloader)
 
             _update_flag = None
             loss_acc_dict, val_best_loss, val_best_epoch, _update_flag = _update_loss_acc_dict(task, num_epochs, loss_acc_dict, _epoch, _phase, _running_loss, _running_acc, len(_dataloader.dataset), len(label_list), val_best_loss, val_best_epoch)
@@ -106,7 +132,10 @@ def execute(best_weight, val_best_loss, val_best_epoch, loss_acc_dict):
             if (_phase == 'val' and _update_flag):
                 best_weight = copy.deepcopy(model.state_dict())
 
-    return best_weight, val_best_loss, val_best_epoch, loss_acc_dict
+    return best_weight, val_best_loss, val_best_epoch, loss_acc_dict, loss_acc_label_wise_dict
+
+
+
 
 def _execute_single_label(phase:str, dataloader:Dataset) -> Tuple[float, float]:
     running_loss = 0.0
@@ -139,9 +168,15 @@ def _execute_single_label(phase:str, dataloader:Dataset) -> Tuple[float, float]:
 
     return running_loss, running_acc
 
-def _execute_multi_label(phase:str, dataloader:Dataset) -> Tuple[float, float]:
+
+def _execute_multi_label(phase:str, dataloader:Dataset) -> Tuple[float, float, Dict[str, float], Dict[str, float]]:
+    # For total
     running_loss = 0.0
     running_acc = 0.0
+
+    # For each label
+    running_loss_label_wise = {label_name : running_loss for label_name in label_list}
+    running_acc_label_wise = {label_name : running_acc for label_name in label_list}
 
     # Regard internal label as just label
     for i, (ids, raw_labels_dict, labels_dict, inputs_values_normed, images, splits) in enumerate(dataloader):
@@ -177,11 +212,13 @@ def _execute_multi_label(phase:str, dataloader:Dataset) -> Tuple[float, float]:
             for loss_i in loss_multi.values():
                 loss = torch.add(loss, loss_i)
 
-                # Backward and Update weight
+            # Backward and Update weight
             if phase == 'train':
                 loss.backward()
                 optimizer.step()
 
+
+        # Total loss and acc
         if task == 'classification':
             running_loss += loss.item() * labels.size(0)
 
@@ -191,7 +228,19 @@ def _execute_multi_label(phase:str, dataloader:Dataset) -> Tuple[float, float]:
         else:
             running_loss += loss.item() * labels.size(0)
 
-    return running_loss, running_acc
+
+        # Label-wise loss and acc
+        for label_name, labels in labels_multi.items():
+            if task == 'classification':
+                running_loss_label_wise[label_name] += loss_multi[label_name].item() * labels.size(0)
+                running_acc_label_wise[label_name] += (torch.sum(preds_multi[label_name] == labels.data).item())
+            else:
+                running_loss_label_wise[label_name] += loss_multi[label_name] * labels.size(0)
+
+    return running_loss, running_acc, running_loss_label_wise, running_acc_label_wise
+
+
+
 
 def _execute_deepsurv(phase:str, dataloader:Dataset) -> Tuple[float, float]:
     running_loss = 0.0
@@ -222,6 +271,8 @@ def _execute_deepsurv(phase:str, dataloader:Dataset) -> Tuple[float, float]:
         running_loss += loss.item() * labels.size(0)
 
     return running_loss, running_acc
+
+
 
 def _update_loss_acc_dict(task, num_epochs, loss_acc_dict, epoch, phase, running_loss, running_acc, len_dataloader, len_label_list, val_best_loss, val_best_epoch):
     update_comment = None
@@ -264,7 +315,39 @@ def _update_loss_acc_dict(task, num_epochs, loss_acc_dict, epoch, phase, running
 
     return loss_acc_dict, val_best_loss, val_best_epoch, update_flag
 
-def save_result(best_weight, val_best_loss, val_best_epoch, loss_acc_dict):
+
+#_update_loss_acc_label_wise_dict(task, num_epochs, loss_acc_label_wise_dict, _epoch, _phase, _running_loss_label_wise, _running_acc_label_wise, len(_dataloader.dataset), len(label_list), val_best_loss_label_wise, val_best_epoch_label_wise)
+# loss_acc_label_wise_dict = {label_name: loss_acc_dict for label_name in label_list}
+def _update_loss_acc_label_wise_dict(task, num_epochs, loss_acc_label_wise_dict, epoch, phase, running_loss_label_wise, running_acc_label_wise, len_dataloader, len_label_list, val_best_loss_label_wise, val_best_epoch_label_wise):
+    for label_name in loss_acc_label_wise_dict.keys():
+        if task == 'classification':
+            epoch_loss_each_label = running_loss_label_wise[label_name] / len_dataloader
+            epoch_acc_each_label = running_acc_label_wise[label_name] / len_dataloader
+            if phase == 'train':
+                loss_acc_label_wise_dict[label_name]['train_loss'].append(epoch_loss_each_label)
+                loss_acc_label_wise_dict[label_name]['train_acc'].append(epoch_acc_each_label)
+            else: # elif phase == 'val':
+                loss_acc_label_wise_dict[label_name]['val_loss'].append(epoch_loss_each_label)
+                loss_acc_label_wise_dict[label_name]['val_acc'].append(epoch_acc_each_label)
+        else:
+            # When regression or deepsurv
+            epoch_loss_each_label = running_loss_label_wise[label_name] / len_dataloader
+            if phase == 'train':
+                loss_acc_label_wise_dict[label_name]['train_loss'].append(epoch_loss_each_label)
+            else: # elif phase == 'val':
+                loss_acc_label_wise_dict[label_name]['val_loss'].append(epoch_loss_each_label)
+
+
+    # Check if val_best_loss labelwise.
+    # ...
+
+    return loss_acc_label_wise_dict
+
+
+
+
+
+def save_result(best_weight, val_best_loss, val_best_epoch, loss_acc_dict, loss_acc_label_wise_dict):
     # Save
     date_now = datetime.datetime.now()
     date_name = date_now.strftime('%Y-%m-%d-%H-%M-%S')
@@ -281,10 +364,31 @@ def save_result(best_weight, val_best_loss, val_best_epoch, loss_acc_dict):
     torch.save(best_weight, weight_path)
 
     # Learning curve
-    csv_learning_curve = nervusenv.csv_learning_curve.replace('.csv', '') + '_val-best-epoch-' + str(val_best_epoch) + '_val-best-loss-' + f"{val_best_loss:.4f}" + '.csv'
-    learning_curve_path = os.path.join(save_dir, csv_learning_curve)
+    # Total loss and acc
+    #learning_curve_path = os.path.join(save_dir, csv_learning_curve)
+    learning_curve_dir = os.path.join(save_dir, nervusenv.learning_curve_dir)
+    os.makedirs(learning_curve_dir, exist_ok=True)
+    
+    # learning_curve.csv -> learning_curve -> 
+    csv_learning_curve = nervusenv.csv_learning_curve.replace('.csv', '') + '_total' + '_val-best-epoch-' + str(val_best_epoch) + '_val-best-loss-' + f"{val_best_loss:.4f}" + '.csv'
+    learning_curve_path = os.path.join(learning_curve_dir, csv_learning_curve)
     df_learning_curve = pd.DataFrame(loss_acc_dict)
     df_learning_curve.to_csv(learning_curve_path, index=False)
+
+    # Label-wise loss anc acc
+    if (loss_acc_label_wise_dict is not None):
+        for label_name, loss_acc_dic_each_label in loss_acc_label_wise_dict.items():
+            df_learning_curve_each_label = pd.DataFrame(loss_acc_dic_each_label)
+
+            # learning_curve.csv, internal_label_last_status_1 -> learning_curve_label_last_status_1.csv
+            # learning_curve.csv -> learning_curve
+            # internal_label_last_status_1' -> _last_status_1 -> label_last_status_1
+            csv_learning_curve_each_label = nervusenv.csv_learning_curve.replace('.csv', '') + '_' + label_name.replace(sp.prefix_internal_label, sp.prefix_raw_label) + '.csv'
+            learning_curve_each_label_path = os.path.join(learning_curve_dir, csv_learning_curve_each_label)
+            df_learning_curve_each_label.to_csv(learning_curve_each_label_path, index=False)
+    else:
+        pass
+
 
 if __name__=="__main__":
     # Training
@@ -292,8 +396,8 @@ if __name__=="__main__":
     logger.info(f"train_data = {len(train_loader.dataset)}")
     logger.info(f"  val_data = {len(val_loader.dataset)}")
 
-    best_weight, val_best_loss, val_best_epoch, loss_acc_dict = execute(best_weight, val_best_loss, val_best_epoch, loss_acc_dict)
+    best_weight, val_best_loss, val_best_epoch, loss_acc_dict, loss_acc_label_wise_dict = execute(best_weight, val_best_loss, val_best_epoch, loss_acc_dict, loss_acc_label_wise_dict)
 
     logger.info('Training finished!')
 
-    save_result(best_weight, val_best_loss, val_best_epoch, loss_acc_dict)
+    save_result(best_weight, val_best_loss, val_best_epoch, loss_acc_dict, loss_acc_label_wise_dict)
