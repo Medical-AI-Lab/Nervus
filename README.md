@@ -75,7 +75,7 @@ Other parameters are defined in the `parameter.csv`.
   - example
     - MLP only: MLP
     - CNN only: B0, B2, B4, B6, ResNet, ResNet18, DenseNet, ConvNeXtTiny, ConvNeXtSmall, ConvNeXtBase, and ConvNeXtLarge.
-    - MLP+CNN : MLP+B0, MLP+ResNet, ... (combine above)
+    - MLP+CNN : MLP+B0, MLP+ResNet, MLP+ConvNeXtTiny ... (combine above)
 - criterion: Loss function
   - example: 
     - classification: CEL ※CEL=CrossEntropyLoss
