@@ -34,7 +34,11 @@ sp = SplitProvider(os.path.join(nervusenv.splits_dir, train_parameters['csv_name
 label_list = sp.internal_label_list   # Regard internal label as label
 
 # Align option for test only
-test_weight = os.path.join(datetime_dir, nervusenv.weight)
+#test_weight = os.path.join(datetime_dir, nervusenv.weight)
+#test_weight = os.path.join(datetime_dir, nervusenv.weight_dir, nervusenv.weight.replace('.pt', '') + '_best' + '.pt')   # 'wight.pt' -> 'weight_best.pt'
+test_weight_path = os.path.join(datetime_dir, nervusenv.weight_dir)
+test_weight = glob.glob(test_weight_path + '/' + 'weight_best-epoch-*.pt')[0]   # should be unique   eg. weight_best-epoch-30.pt
+
 test_batch_size = args['test_batch_size']                       # Default: 64  No exixt in train_opt
 train_parameters['preprocess'] = 'no'                           # MUST: Stop augmentaion, No need when test
 train_parameters['normalize_image'] = args['normalize_image']   # Default: 'yes'

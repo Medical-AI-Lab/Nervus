@@ -6,6 +6,7 @@
 # CRITERION = CEL | MSE | NLL
 # SAMPLER = yes | no   # should be no when regression or multi-label
 # INPUT_CHANNEL = 1 | 3
+# WEIGHT_SAVE_STRAT = best | each_time
 # GPU_IDS = -1 | 0,1,2
 CSV_NAME := clean_cla_single_output_bin_class.csv
 IMAGE_DIR := 128
@@ -18,6 +19,7 @@ BATCH_SIZE := 64
 SAMPLER := yes
 AUGMENTATION := no
 INPUT_CHANNEL := 3
+WEIGHT_SAVE_STRAT := best
 GPU_IDS := -1
 
 TRAIN_OPT := \
@@ -32,6 +34,7 @@ TRAIN_OPT := \
 --sampler $(SAMPLER) \
 --augmentation $(AUGMENTATION) \
 --input_channel $(INPUT_CHANNEL) \
+--weight_save_strat $(WEIGHT_SAVE_STRAT) \
 --gpu_ids $(GPU_IDS)
 
 

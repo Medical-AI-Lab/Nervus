@@ -16,6 +16,7 @@ class NervusEnv:
     sets_dir: str = os.path.join(results_dir, 'sets')
 
     learning_curve_dir: str = 'learning_curve'
+    weight_dir: str = 'weight'
 
     weight: str = 'weight.pt'
     csv_parameters: str = 'parameter.csv'
