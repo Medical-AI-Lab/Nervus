@@ -47,7 +47,7 @@ class TrainOptions():
         self.parser.add_argument('--input_channel', type=int, default=None, help='channel of input image (Default: None)')
 
         # Weight saving strategy
-        self.parser.add_argument('--weight_save_strat', type=str, choices=['best', 'each_time'], default=None, help='Weight saving strategy: best, or each time loss decreases when multi-label (Default: None)')
+        self.parser.add_argument('--save_weight', type=str, choices=['best', 'each'], default=None, help='Save weight: best, or each time loss decreases when multi-label output(Default: None)')
 
         # GPU
         self.parser.add_argument('--gpu_ids', type=str, default='-1', help='gpu ids: e.g. 0  0,1,2, 0,2. use -1 for CPU (Default: -1)')

@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import os
+import glob
 from typing import Tuple
 
 import pandas as pd
@@ -17,10 +18,11 @@ logger = NervusLogger.get_logger('test')
 ## remove comment out when debug
 # NervusLogger.set_level(logging.DEBUG)
 
+
 nervusenv = NervusEnv()
 args = TestOptions().parse()
 datetime_dir = get_target(nervusenv.sets_dir, args['test_datetime'])   # args['test_datetime'] if exists or the latest
-parameters_path = os.path.join(datetime_dir, nervusenv.csv_parameters)
+parameters_path = os.path.join(datetime_dir, nervusenv.csv_name_parameters)
 train_parameters = read_train_parameters(parameters_path)
 task = train_parameters['task']
 mlp = train_parameters['mlp']
@@ -34,11 +36,6 @@ sp = SplitProvider(os.path.join(nervusenv.splits_dir, train_parameters['csv_name
 label_list = sp.internal_label_list   # Regard internal label as label
 
 # Align option for test only
-#test_weight = os.path.join(datetime_dir, nervusenv.weight)
-#test_weight = os.path.join(datetime_dir, nervusenv.weight_dir, nervusenv.weight.replace('.pt', '') + '_best' + '.pt')   # 'wight.pt' -> 'weight_best.pt'
-test_weight_path = os.path.join(datetime_dir, nervusenv.weight_dir)
-test_weight = glob.glob(test_weight_path + '/' + 'weight_best-epoch-*.pt')[0]   # should be unique   eg. weight_best-epoch-30.pt
-
 test_batch_size = args['test_batch_size']                       # Default: 64  No exixt in train_opt
 train_parameters['preprocess'] = 'no'                           # MUST: Stop augmentaion, No need when test
 train_parameters['normalize_image'] = args['normalize_image']   # Default: 'yes'
@@ -46,6 +43,12 @@ train_parameters['normalize_image'] = args['normalize_image']   # Default: 'yes'
 ## bool of using neural network
 hasMLP = mlp is not None
 hasCNN = cnn is not None
+
+
+#test_weight = os.path.join(datetime_dir, nervusenv.weight)
+#test_weight_path = os.path.join(datetime_dir, nervusenv.weight_dir)
+#test_weight = glob.glob(test_weight_path + '/' + 'weight_epoch-*.pt')[0]   # should be unique   eg. weight_best-epoch-30.pt
+
 
 ## choose dataloader and function to execute test
 if task == 'deepsurv':
@@ -68,8 +71,9 @@ test_loader = dataset_handler.create_dataloader(train_parameters, sp, image_dir,
 
 # Configure of model
 model = create_mlp_cnn(mlp, cnn, sp.num_inputs, sp.num_classes_in_internal_label, input_channel, gpu_ids=gpu_ids)
-weight = torch.load(test_weight)
-model.load_state_dict(weight)
+#weight = torch.load(test_weight)
+#model.load_state_dict(weight)
+
 
 # Make column name of
 # {label_XXX: {A:1, B:2, C:3}, ...} -> {label_XXX: [pred_label_XXX_A, pred_label_XXX_B, pred_label_XXX_C], ...}
@@ -84,7 +88,10 @@ for raw_label_name, class_dict in sp.class_name_in_raw_label.items():
         pred_names.append('pred_' + raw_label_name)
     column_pred_names_in_label_dict[raw_label_name] = pred_names
 
-def execute():
+
+def execute(test_weight_path):
+    weight = torch.load(test_weight_path)
+    model.load_state_dict(weight)
     model.eval()
     with torch.no_grad():
         train_acc = 0.0
@@ -99,11 +106,11 @@ def execute():
                 _dataloader = val_loader
             elif _split == 'test':
                 _dataloader = test_loader
-            else: #
+            else:
                 logger.error('Split in dataloader error.')
 
             # execute test: _execute_test_single_label, _execute_test_multi_label, _execute_test_deepsurv
-            _train_acc, _val_acc, _test_acc, _df_result = _execute_test(_split, _dataloader)
+            _train_acc, _val_acc, _test_acc, _df_result = _execute_test(_split, _dataloader, model)
             # merge result of test
             train_acc += _train_acc
             val_acc += _val_acc
@@ -112,7 +119,8 @@ def execute():
 
     return train_acc, val_acc, test_acc, df_result
 
-def _execute_test_single_label(split:str, dataloader:Dataset) -> Tuple[float, float, pd.DataFrame]:
+
+def _execute_test_single_label(split:str, dataloader:Dataset, model) -> Tuple[float, float, pd.DataFrame]:
     train_acc = 0.0
     val_acc = 0.0
     test_acc = 0.0
@@ -151,7 +159,7 @@ def _execute_test_single_label(split:str, dataloader:Dataset) -> Tuple[float, fl
 
     return train_acc, val_acc, test_acc, df_result
 
-def _execute_test_multi_label(split:str, dataloader:Dataset) -> Tuple[float, float, pd.DataFrame]:
+def _execute_test_multi_label(split:str, dataloader:Dataset, model) -> Tuple[float, float, pd.DataFrame]:
     train_acc = 0.0
     val_acc = 0.0
     test_acc = 0.0
@@ -195,7 +203,7 @@ def _execute_test_multi_label(split:str, dataloader:Dataset) -> Tuple[float, flo
 
     return train_acc, val_acc, test_acc, df_result
 
-def _execute_test_deepsurv(_, dataloader:Dataset) -> Tuple[float, float, pd.DataFrame]:
+def _execute_test_deepsurv(_, dataloader:Dataset, model) -> Tuple[float, float, pd.DataFrame]:
     train_acc = 0.0 # dummy value: not use in deepsurv
     val_acc = 0.0 # dummy value: not use in deepsurv
     test_acc = 0.0 # dummy value: not use in deepsurv
@@ -223,30 +231,41 @@ def _execute_test_deepsurv(_, dataloader:Dataset) -> Tuple[float, float, pd.Data
 
     return train_acc, val_acc, test_acc, df_result
 
+
+
 if __name__=="__main__":
-    # Inference
-    logger.info('Inference started...')
-    train_total = len(train_loader.dataset)
-    val_total = len(val_loader.dataset)
-    test_total = len(test_loader.dataset)
-    logger.info(f"train_data = {train_total}")
-    logger.info(f"  val_data = {val_total}")
-    logger.info(f" test_data = {test_total}")
+    test_weight_dir = os.path.join(datetime_dir, nervusenv.weight_dir)
+    test_weight_path_list = sorted(glob.glob(test_weight_dir + '/*.pt'))
 
-    train_acc, val_acc, test_acc, df_result = execute()
+    for test_weight_path in test_weight_path_list:
+        test_weight_name = os.path.basename(test_weight_path)
+        # Inference
+        logger.info(f"\nInference started ...")
+        logger.info(f"weight: {test_weight_name}")
+        train_total = len(train_loader.dataset)
+        val_total = len(val_loader.dataset)
+        test_total = len(test_loader.dataset)
+        logger.info(f"train_data = {train_total}")
+        logger.info(f"  val_data = {val_total}")
+        logger.info(f" test_data = {test_total}")
 
-    if task == 'classification':
-        train_acc = (train_acc / (train_total * len(label_list))) * 100
-        val_acc = (val_acc / (val_total * len(label_list))) * 100
-        test_acc = (test_acc / (test_total * len(label_list))) * 100
-        logger.info(f"train: Inference_accuracy: {train_acc:.4f} %")
-        logger.info(f"  val: Inference_accuracy: {val_acc:.4f} %")
-        logger.info(f" test: Inference_accuracy: {test_acc:.4f} %")
-    else:
-        # When regresson or deepsurv
-        pass
-    logger.info('Inference finished!')
+        train_acc, val_acc, test_acc, df_result = execute(test_weight_path)
 
-    # Save likelohood
-    likelihood_path = os.path.join(datetime_dir, nervusenv.csv_likelihood)
-    df_result.to_csv(likelihood_path, index=False)
+        if task == 'classification':
+            train_acc = (train_acc / (train_total * len(label_list))) * 100
+            val_acc = (val_acc / (val_total * len(label_list))) * 100
+            test_acc = (test_acc / (test_total * len(label_list))) * 100
+            logger.info(f"train: Inference_accuracy: {train_acc:.4f} %")
+            logger.info(f"  val: Inference_accuracy: {val_acc:.4f} %")
+            logger.info(f" test: Inference_accuracy: {test_acc:.4f} %")
+        else:
+            # When regresson or deepsurv
+            pass
+        logger.info('Inference finished!')
+
+        # Save likelohood
+        likelihood_dir = os.path.join(datetime_dir, nervusenv.likelihood_dir)
+        os.makedirs(likelihood_dir, exist_ok=True)
+        likelihood_name = nervusenv.csv_name_likelihood + '_' + test_weight_name.replace('.pt', '.csv')
+        likelihood_path = os.path.join(likelihood_dir, likelihood_name)
+        df_result.to_csv(likelihood_path, index=False)

@@ -39,7 +39,7 @@ sampler = args['sampler']
 input_channel = args['input_channel']
 gpu_ids = args['gpu_ids']
 
-save_weight_strat = args['save_weight_strat']
+save_weight = args['save_weight']
 
 device = set_device(gpu_ids)
 
@@ -103,8 +103,6 @@ else:
 best_weight = None
 val_best_loss = None
 val_best_epoch = None
-#val_best_loss_epoch_dict = {'loss': None, 'epoch': None}
-
 
 #best_weight_label_wise = None
 val_best_loss_label_wise_dict = {label_name: None for label_name in label_list}
@@ -112,7 +110,7 @@ val_best_epoch_label_wise_dict = {label_name: None for label_name in label_list}
 
 
 
-def execute(save_date_dir, save_weight_strat, best_weight, val_best_loss, val_best_epoch, loss_acc_dict, val_best_loss_label_wise_dict, val_best_epoch_label_wise_dict, loss_acc_label_wise_dict, label_list):
+def execute(save_date_dir, save_weight, best_weight, val_best_loss, val_best_epoch, loss_acc_dict, val_best_loss_label_wise_dict, val_best_epoch_label_wise_dict, loss_acc_label_wise_dict, label_list):
     for _epoch in range(num_epochs):
         for _phase in ['train', 'val']:
             if _phase == 'train':
@@ -135,6 +133,7 @@ def execute(save_date_dir, save_weight_strat, best_weight, val_best_loss, val_be
                 _running_loss, _running_acc, _running_loss_label_wise, _running_acc_label_wise = _execute_task(_phase, _dataloader)
             else:
                 # execute task: execute_single_label, execute_deepsurv
+                assert (save_weight == 'best'), 'No need to save weight each time loss decreases when Single-label or Deepsurv.'
                 _running_loss, _running_acc = _execute_task(_phase, _dataloader)
 
             # Always update
@@ -152,15 +151,16 @@ def execute(save_date_dir, save_weight_strat, best_weight, val_best_loss, val_be
             if (_phase == 'val' and _update_flag):
                 best_weight = copy.deepcopy(model.state_dict())
 
-                # When multi-label, save weight each time epoch loss decreases.
-                if (len(label_list) > 1) and (save_weight_strat == 'each_time'):
-                    if (_epoch + 1) < num_epochs:
-                        weight_name = nervusenv.weight.replace('.pt', '') + '_epoch-' + str(_epoch) + '.pt'   # eg. weight_epoch-30.pt
+                # Save weight each time epoch loss decreases only when multi-label.
+                if (len(label_list) > 1) and (save_weight == 'each'):
+                    if (0 < _epoch) and ((_epoch + 1) < num_epochs):
+                        weight_name = nervusenv.weight_name + '_epoch-' + str(_epoch + 1).zfill(3) + '.pt'   # eg. weight_epoch-30.pt
                         weight_path = os.path.join(save_date_dir, nervusenv.weight_dir, weight_name)
                         torch.save(best_weight, weight_path)
                     else:
-                        # but, When (_epoch + 1 ) == num_epochs, weight must be best_weight
-                        # best_weight will be saved at the end of traning
+                        # At the end of 1st epoch, if the weight will be the bset, the weight is save at the end of traning.
+                        # When (_epoch + 1) == num_epochs, _epoch means the last epoch, then
+                        # weight will be saved as best_weight at the end of traning
                         pass
 
     return best_weight, val_best_loss, val_best_epoch, loss_acc_dict, val_best_loss_label_wise_dict, val_best_epoch_label_wise_dict, loss_acc_label_wise_dict
@@ -352,7 +352,7 @@ def _update_loss_acc_label_wise_dict(task, num_epochs, loss_acc_label_wise_dict,
     # Update label-wise
     for label_name in loss_acc_label_wise_dict.keys():
         if task == 'classification':
-            epoch_loss_each_label = running_loss_label_wise[label_name] / len_dataloader
+            epoch_loss_each_label = running_loss_label_wise[label_name] / len_dataloader   # len_label_list = 1
             epoch_acc_each_label = running_acc_label_wise[label_name] / len_dataloader
 
             if phase == 'train':
@@ -393,31 +393,37 @@ def save_result(save_date_dir, best_weight, val_best_loss, val_best_epoch, loss_
 
     # Parameters
     df_opt = pd.DataFrame(list(args.items()), columns=['option', 'value'])
-    parameters_path = os.path.join(save_date_dir, nervusenv.csv_parameters)
+    parameters_path = os.path.join(save_date_dir, nervusenv.csv_name_parameters)
     df_opt.to_csv(parameters_path, index=False)
 
     # Weight
-    weight_name = nervusenv.weight.replace('.pt') + '_best-epoch-' + str(val_best_epoch) + '.pt'    # eg. weight_best-epoch-30.pt
-    weight_path = os.path.join(save_date_dir, nervusenv.weight_dir, weight_name)
-    torch.save(best_weight, weight_path)
+    weight_dir = os.path.join(save_date_dir, nervusenv.weight_dir)
+    already_saved_weight_path = os.path.join(weight_dir, nervusenv.weight_name + '_epoch-' + str(val_best_epoch).zfill(3) + '.pt')
+    # Is the best weight already been save?
+    if os.path.exists(already_saved_weight_path):
+        os.rename(already_saved_weight_path, already_saved_weight_path.replace('.pt', '-best.pt'))   # Just rename
+    else:
+        best_weight_name = nervusenv.weight_name + '_epoch-' + str(val_best_epoch).zfill(3) + '-best.pt'   # eg. weight_epoch-30_best.pt
+        best_weight_path = os.path.join(weight_dir, best_weight_name)
+        torch.save(best_weight, best_weight_path)
 
     # Learning curve
-    # Overall loss and acc
     #learning_curve_path = os.path.join(save_dir, csv_learning_curve)
     learning_curve_dir = os.path.join(save_date_dir, nervusenv.learning_curve_dir)
     os.makedirs(learning_curve_dir, exist_ok=True)
-    postfix_val_best = lambda label_name, val_best_epoch, val_best_loss: '_' + label_name + '_val-best-epoch-' + str(val_best_epoch) + '_val-best-loss-' + f"{val_best_loss:.4f}"
+    postfix_val_best = lambda label_name, val_best_epoch, val_best_loss: '_' + label_name + '_val-best-epoch-' + str(val_best_epoch).zfill(3) + '_val-best-loss-' + f"{val_best_loss:.4f}"
 
-    csv_learning_curve = nervusenv.csv_learning_curve.replace('.csv', '') + postfix_val_best('overall', val_best_epoch, val_best_loss) + '.csv'
-    learning_curve_path = os.path.join(learning_curve_dir, csv_learning_curve)
+    # Overall learning curve
+    learning_curve_overall_name = nervusenv.csv_name_learning_curve + postfix_val_best('overall', val_best_epoch, val_best_loss) + '.csv'
+    learning_curve_overall_path = os.path.join(learning_curve_dir, learning_curve_overall_name)
     df_learning_curve = pd.DataFrame(loss_acc_dict)
-    df_learning_curve.to_csv(learning_curve_path, index=False)
+    df_learning_curve.to_csv(learning_curve_overall_path, index=False)
 
-    # Label-wise loss anc acc
+    # Label-wise learning curve only when multi-label output
     if (loss_acc_label_wise_dict is not None):
         for label_name, loss_acc_dic_each_label in loss_acc_label_wise_dict.items():
-            csv_learning_curve_each_label = nervusenv.csv_learning_curve.replace('.csv', '') + postfix_val_best(label_name.replace(sp.prefix_internal_label, sp.prefix_raw_label), val_best_epoch_label_wise_dict[label_name], val_best_loss_label_wise_dict[label_name]) + '.csv'
-            learning_curve_each_label_path = os.path.join(learning_curve_dir, csv_learning_curve_each_label)
+            learning_curve_each_label_name = nervusenv.csv_name_learning_curve + postfix_val_best(label_name.replace(sp.prefix_internal_label, sp.prefix_raw_label), val_best_epoch_label_wise_dict[label_name], val_best_loss_label_wise_dict[label_name]) + '.csv'
+            learning_curve_each_label_path = os.path.join(learning_curve_dir, learning_curve_each_label_name)
             df_learning_curve_each_label = pd.DataFrame(loss_acc_dic_each_label)
             df_learning_curve_each_label.to_csv(learning_curve_each_label_path, index=False)
 
@@ -428,14 +434,16 @@ if __name__=="__main__":
     date_name = date_now.strftime('%Y-%m-%d-%H-%M-%S')
     save_date_dir = os.path.join(nervusenv.sets_dir, date_name)
     os.makedirs(save_date_dir, exist_ok=True)
-    
+    os.makedirs(os.path.join(save_date_dir, nervusenv.weight_dir), exist_ok=True)
+
+
     # Training
     logger.info('Training started...')
     logger.info(f"train_data = {len(train_loader.dataset)}")
     logger.info(f"  val_data = {len(val_loader.dataset)}")
 
-    best_weight, val_best_loss, val_best_epoch, loss_acc_dict, val_best_loss_label_wise_dict, val_best_epoch_label_wise_dict, loss_acc_label_wise_dict = execute(save_date_dir, save_weight_strat, best_weight, val_best_loss, val_best_epoch, loss_acc_dict, val_best_loss_label_wise_dict, val_best_epoch_label_wise_dict, loss_acc_label_wise_dict, label_list)
+    best_weight, val_best_loss, val_best_epoch, loss_acc_dict, val_best_loss_label_wise_dict, val_best_epoch_label_wise_dict, loss_acc_label_wise_dict = execute(save_date_dir, save_weight, best_weight, val_best_loss, val_best_epoch, loss_acc_dict, val_best_loss_label_wise_dict, val_best_epoch_label_wise_dict, loss_acc_label_wise_dict, label_list)
 
     logger.info('Training finished!')
 
-    save_result(save_date_dir, save_weight_strat, best_weight, val_best_loss, val_best_epoch, loss_acc_dict, val_best_loss_label_wise_dict, val_best_epoch_label_wise_dict, loss_acc_label_wise_dict)
+    save_result(save_date_dir, best_weight, val_best_loss, val_best_epoch, loss_acc_dict, val_best_loss_label_wise_dict, val_best_epoch_label_wise_dict, loss_acc_label_wise_dict)
