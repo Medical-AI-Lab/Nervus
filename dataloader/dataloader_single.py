@@ -20,6 +20,8 @@ class SingleLabelDataSet(NervusDataSet):
 
     def __getitem__(self, idx):
         id = self.df_split.iat[idx, self.index_dict[self.id_column]]
+        institution = self.df_split.iat[idx, self.index_dict[self.institution_column]]
+        examid = self.df_split.iat[idx, self.index_dict[self.examid_column]]
         raw_label = self.df_split.iat[idx, self.index_dict[self.raw_label_name]]
         internal_label = self.df_split.iat[idx, self.index_dict[self.internal_label_name]]
         split = self.df_split.iat[idx, self.index_dict[self.split_column]]
@@ -29,7 +31,7 @@ class SingleLabelDataSet(NervusDataSet):
         # Load imgae when CNN or MLP+CNN
         image = self._load_image_if_cnn(idx)
 
-        return id, raw_label, internal_label, inputs_value_normed, image, split
+        return id, institution, examid, raw_label, internal_label, inputs_value_normed, image, split
 
 
     @classmethod
@@ -44,8 +46,8 @@ class SingleLabelDataSet(NervusDataSet):
         if sampler == 'yes':
             target = []
 
-            for _, (_, _, label, _, _, _) in enumerate(split_data):
-                target.append(label)
+            for _, (id, institution, examid, raw_label, internal_label, inputs_value_normed, image, split) in enumerate(split_data):
+                target.append(internal_label)
 
             class_sample_count = np.array([len(np.where(target == t)[0]) for t in np.unique(target)])
             weight = 1. / class_sample_count

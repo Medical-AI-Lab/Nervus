@@ -30,6 +30,8 @@ class NervusDataSet(Dataset, ABC):
 
         self.df_source = self.split_provider.df_source
         self.id_column = self.split_provider.id_column
+        self.institution_column = self.split_provider.institution_column
+        self.examid_column = self.split_provider.examid_column
 
         if multi_label:
             self.raw_label_list = self.split_provider.raw_label_list

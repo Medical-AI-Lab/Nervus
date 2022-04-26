@@ -54,6 +54,8 @@ class SplitProvider:
         self.prefix_internal_label = 'internal_label'
         self.prefix_period = 'periods'
 
+        self.institution_column = 'Institution'
+        self.examid_column = 'ExamID'
         self.filepath_column = 'filepath'
         self.split_column = 'split'
 
