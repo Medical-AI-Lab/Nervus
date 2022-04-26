@@ -15,15 +15,28 @@ class NervusEnv:
     results_dir: str = './results'
     sets_dir: str = os.path.join(results_dir, 'sets')
 
-    learning_curve_dir: str = 'learning_curve'
+    weight_dir: str = 'weights'
+    learning_curve_dir: str = 'learning_curves'
+    likelihood_dir: str = 'likelihoods'
+    roc_dir: str = 'roc'
+    yy_dir:str = 'yy'
 
-    weight: str = 'weight.pt'
-    csv_parameters: str = 'parameter.csv'
-    csv_learning_curve: str = 'learning_curve.csv'
-    csv_likelihood: str = 'likelihood.csv'
-    roc: str = 'roc.png'
-    yy: str = 'yy.png'
-    csv_c_index: str = 'c_index.csv'
+    #weight: str = 'weight.pt'
+    #csv_parameters: str = 'parameter.csv'
+    #csv_learning_curve: str = 'learning_curve.csv'
+    #csv_likelihood: str = 'likelihood.csv'
+    #roc: str = 'roc.png'
+    #yy: str = 'yy.png'
+    #csv_c_index: str = 'c_index.csv'
+
+    csv_name_parameters: str = 'parameter.csv'
+    weight_name: str = 'weight'
+    csv_name_learning_curve: str = 'learning_curve'
+    csv_name_likelihood: str = 'likelihood'
+    roc_name: str = 'roc'
+    yy_name: str = 'yy'
+    csv_name_c_index: str = 'c_index.csv'
+
     summary_dir: str = os.path.join(results_dir, 'summary')
     csv_summary: str = 'summary.csv'
 

@@ -3,7 +3,9 @@
 set -eu
 
 gpu_ids="-1"
+save_weight="best"
 parameter_csv="./parameters/parameter.csv"
+
 
 train_log="./logs/train.log"
 test_log="./logs/test.log"
@@ -66,8 +68,8 @@ for row in $(tail -n +2 "$parameter_csv"); do
   echo ""
 
   # Traning
-  echo "$python $train_code --task $task --csv_name $csv_name --image_dir $image_dir --model $model --criterion $criterion --optimizer $optimizer --epochs $epochs --batch_size $batch_size --sampler $sampler --augmentation $augmentation --input_channel $input_channel --gpu_ids $gpu_ids"
-  "$python" "$train_code" --task "$task" --csv_name "$csv_name" --image_dir "$image_dir" --model "$model" --criterion "$criterion" --optimizer "$optimizer" --epochs "$epochs" --batch_size "$batch_size" --sampler "$sampler" --augmentation "$augmentation" --input_channel "$input_channel" --gpu_ids "$gpu_ids" 2>&1 | tee -a "$train_log"
+  echo "$python $train_code --task $task --csv_name $csv_name --image_dir $image_dir --model $model --criterion $criterion --optimizer $optimizer --epochs $epochs --batch_size $batch_size --sampler $sampler --augmentation $augmentation --input_channel $input_channel --save_weight $save_weight --gpu_ids $gpu_ids"
+  "$python" "$train_code" --task "$task" --csv_name "$csv_name" --image_dir "$image_dir" --model "$model" --criterion "$criterion" --optimizer "$optimizer" --epochs "$epochs" --batch_size "$batch_size" --sampler "$sampler" --augmentation "$augmentation" --input_channel "$input_channel" --save_weight "$save_weight" --gpu_ids "$gpu_ids" 2>&1 | tee -a "$train_log"
 
   echo ""
 

@@ -21,8 +21,8 @@ logger = NervusLogger.get_logger('evaluation.yy')
 nervusenv = NervusEnv()
 args = MetricsOptions().parse()
 datetime_dir = get_target(nervusenv.sets_dir, args['likelihood_datetime'])   # args['likelihood_datetime'] if exists or the latest
-likelihood_path = os.path.join(datetime_dir, nervusenv.csv_likelihood)
-df_likelihood = pd.read_csv(likelihood_path)
+#likelihood_path = os.path.join(datetime_dir, nervusenv.csv_likelihood)
+#df_likelihood = pd.read_csv(likelihood_path)
 
 
 @dataclasses.dataclass
@@ -59,89 +59,106 @@ def cal_label_metrics_yy(label_name, df_likelihood):
     return label_metrics_yy
 
 
-# Calculate metrics
-label_list = list(df_likelihood.columns[df_likelihood.columns.str.startswith('label')])
-metrics_yy = {label_name: cal_label_metrics_yy(label_name, df_likelihood) for label_name in label_list}
+
+# Make yy-plot for each weight
+likelihood_dir = os.path.join(datetime_dir, nervusenv.likelihood_dir)
+likelihood_path_list = sorted(glob.glob(likelihood_dir + '/*.csv'))
+
+for likelihood_path in likelihood_path_list:
+    likelihood_name = os.path.basename(likelihood_path)   # likelihood_weight_epoch-004-best.csv
+    logger.info(f"\nLikelihood: {likelihood_name}")
+    df_likelihood = pd.read_csv(likelihood_path)
 
 
-# Plot yy-graph
-len_splits = len(['vat', 'test'])
-num_rows = 1
-num_cols = len(label_list) * len_splits
-base_size = 7
-height = num_rows * base_size
-width = num_cols * height
-
-fig = plt.figure(figsize=(width, height))
-for i in range(len(label_list)):
-    offset_val = (i * len_splits) + 1
-    offset_test = offset_val + 1
-    label_name = label_list[i]
-    pred_name = 'pred_' + label_name
-
-    ax_val = fig.add_subplot(num_rows,
-                             num_cols,
-                             offset_val,
-                             title=label_name + '\n' + 'val: Observed-Predicted Plot',
-                             xlabel='Observed',
-                             ylabel='Predicted',
-                             xmargin=0,
-                             ymargin=0)
-    ax_test = fig.add_subplot(num_rows,
-                              num_cols,
-                              offset_test,
-                              title=label_name + '\n' + 'test: Observed-Predicted Plot',
-                              xlabel='Observed',
-                              ylabel='Predicted',
-                              xmargin=0,
-                              ymargin=0)
-
-    df_val = get_column_value(df_likelihood, 'split', ['val'])
-    y_obs_val = df_val[label_name].values
-    y_pred_val = df_val[pred_name].values
-
-    df_test = get_column_value(df_likelihood, 'split', ['test'])
-    y_obs_test = df_test[label_name].values
-    y_pred_test = df_test[pred_name].values
-
-    y_values_val = np.concatenate([y_obs_val.flatten(), y_pred_val.flatten()])
-    y_values_test = np.concatenate([y_obs_test.flatten(), y_pred_test.flatten()])
-    y_values_val_min, y_values_val_max, y_values_val_range = np.amin(y_values_val), np.amax(y_values_val), np.ptp(y_values_val)
-    y_values_test_min, y_values_test_max, y_values_test_range = np.amin(y_values_test), np.amax(y_values_test), np.ptp(y_values_test)
-
-    # Plot
-    color = mcolors.TABLEAU_COLORS
-    ax_val.scatter(y_obs_val, y_pred_val, color=color['tab:blue'], label='val')
-    ax_test.scatter(y_obs_test, y_pred_test, color=color['tab:orange'], label='test')
-
-    # Draw diagonal line
-    ax_val.plot([y_values_val_min - (y_values_val_range * 0.01), y_values_val_max + (y_values_val_range * 0.01)],
-                [y_values_val_min - (y_values_val_range * 0.01), y_values_val_max + (y_values_val_range * 0.01)], color='red')
-    ax_test.plot([y_values_test_min - (y_values_test_range * 0.01), y_values_test_max + (y_values_test_range * 0.01)],
-                 [y_values_test_min - (y_values_test_range * 0.01), y_values_test_max + (y_values_test_range * 0.01)], color='red')
-
-# Align graph
-fig.tight_layout()
-
-# Save Fig
-yy_path = os.path.join(datetime_dir, nervusenv.yy)
-fig.savefig(yy_path)
+    # Calculate metrics
+    label_list = list(df_likelihood.columns[df_likelihood.columns.str.startswith('label')])
+    metrics_yy = {label_name: cal_label_metrics_yy(label_name, df_likelihood) for label_name in label_list}
 
 
-# Save metrics of yy
-datetime = os.path.basename(datetime_dir)
-summary_new = dict()
-summary_new['datetime'] = [datetime]
-for label_name in metrics_yy.keys():
-    label_metrics_yy = metrics_yy[label_name]
-    summary_new[label_name+'_val_r2'] = [f"{label_metrics_yy.val.r2:.2f}"]
-    summary_new[label_name+'_val_mse'] = [f"{label_metrics_yy.val.mse:.2f}"]
-    summary_new[label_name+'_val_rmse'] = [f"{label_metrics_yy.val.rmse:.2f}"]
-    summary_new[label_name+'_val_mae'] = [f"{label_metrics_yy.val.mae:.2f}"]
+    # Plot yy-graph
+    len_splits = len(['vat', 'test'])
+    num_rows = 1
+    num_cols = len(label_list) * len_splits
+    base_size = 7
+    height = num_rows * base_size
+    width = num_cols * height
 
-    summary_new[label_name+'_test_r2'] = [f"{label_metrics_yy.test.r2:.2f}"]
-    summary_new[label_name+'_test_mse'] = [f"{label_metrics_yy.test.mse:.2f}"]
-    summary_new[label_name+'_test_rmse'] = [f"{label_metrics_yy.test.rmse:.2f}"]
-    summary_new[label_name+'_test_mae'] = [f"{label_metrics_yy.test.mae:.2f}"]
-df_summary_new = pd.DataFrame(summary_new)
-update_summary(nervusenv.summary_dir, nervusenv.csv_summary, df_summary_new)
+    fig = plt.figure(figsize=(width, height))
+    for i in range(len(label_list)):
+        offset_val = (i * len_splits) + 1
+        offset_test = offset_val + 1
+        label_name = label_list[i]
+        pred_name = 'pred_' + label_name
+
+        ax_val = fig.add_subplot(num_rows,
+                                num_cols,
+                                offset_val,
+                                title=label_name + '\n' + 'val: Observed-Predicted Plot',
+                                xlabel='Observed',
+                                ylabel='Predicted',
+                                xmargin=0,
+                                ymargin=0)
+        ax_test = fig.add_subplot(num_rows,
+                                num_cols,
+                                offset_test,
+                                title=label_name + '\n' + 'test: Observed-Predicted Plot',
+                                xlabel='Observed',
+                                ylabel='Predicted',
+                                xmargin=0,
+                                ymargin=0)
+
+        df_val = get_column_value(df_likelihood, 'split', ['val'])
+        y_obs_val = df_val[label_name].values
+        y_pred_val = df_val[pred_name].values
+
+        df_test = get_column_value(df_likelihood, 'split', ['test'])
+        y_obs_test = df_test[label_name].values
+        y_pred_test = df_test[pred_name].values
+
+        y_values_val = np.concatenate([y_obs_val.flatten(), y_pred_val.flatten()])
+        y_values_test = np.concatenate([y_obs_test.flatten(), y_pred_test.flatten()])
+        y_values_val_min, y_values_val_max, y_values_val_range = np.amin(y_values_val), np.amax(y_values_val), np.ptp(y_values_val)
+        y_values_test_min, y_values_test_max, y_values_test_range = np.amin(y_values_test), np.amax(y_values_test), np.ptp(y_values_test)
+
+        # Plot
+        color = mcolors.TABLEAU_COLORS
+        ax_val.scatter(y_obs_val, y_pred_val, color=color['tab:blue'], label='val')
+        ax_test.scatter(y_obs_test, y_pred_test, color=color['tab:orange'], label='test')
+
+        # Draw diagonal line
+        ax_val.plot([y_values_val_min - (y_values_val_range * 0.01), y_values_val_max + (y_values_val_range * 0.01)],
+                    [y_values_val_min - (y_values_val_range * 0.01), y_values_val_max + (y_values_val_range * 0.01)], color='red')
+        ax_test.plot([y_values_test_min - (y_values_test_range * 0.01), y_values_test_max + (y_values_test_range * 0.01)],
+                    [y_values_test_min - (y_values_test_range * 0.01), y_values_test_max + (y_values_test_range * 0.01)], color='red')
+
+    # Align graph
+    fig.tight_layout()
+
+    # Save Fig
+    #yy_path = os.path.join(datetime_dir, nervusenv.yy)
+    yy_name = likelihood_name.replace(nervusenv.csv_name_likelihood, nervusenv.yy_name).replace('.csv', '.png')   # yy_weight_epoch-004-best.png
+    yy_dir = os.path.join(datetime_dir, nervusenv.yy_dir)
+    os.makedirs(yy_dir, exist_ok=True)
+    yy_path = os.path.join(yy_dir, yy_name)
+    fig.savefig(yy_path)
+
+
+    # Save metrics of yy
+    datetime = os.path.basename(datetime_dir)
+    weight_name = likelihood_name.replace(nervusenv.csv_name_likelihood + '_', '').replace('.csv', '.pt')   # weight_epoch-004-best.pt
+    summary_new = dict()
+    summary_new['datetime'] = [datetime]
+    summary_new['weight'] = [weight_name]
+    for label_name in metrics_yy.keys():
+        label_metrics_yy = metrics_yy[label_name]
+        summary_new[label_name+'_val_r2'] = [f"{label_metrics_yy.val.r2:.2f}"]
+        summary_new[label_name+'_val_mse'] = [f"{label_metrics_yy.val.mse:.2f}"]
+        summary_new[label_name+'_val_rmse'] = [f"{label_metrics_yy.val.rmse:.2f}"]
+        summary_new[label_name+'_val_mae'] = [f"{label_metrics_yy.val.mae:.2f}"]
+
+        summary_new[label_name+'_test_r2'] = [f"{label_metrics_yy.test.r2:.2f}"]
+        summary_new[label_name+'_test_mse'] = [f"{label_metrics_yy.test.mse:.2f}"]
+        summary_new[label_name+'_test_rmse'] = [f"{label_metrics_yy.test.rmse:.2f}"]
+        summary_new[label_name+'_test_mae'] = [f"{label_metrics_yy.test.mae:.2f}"]
+    df_summary_new = pd.DataFrame(summary_new)
+    update_summary(nervusenv.summary_dir, nervusenv.csv_summary, df_summary_new)

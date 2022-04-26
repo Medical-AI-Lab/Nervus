@@ -3,6 +3,7 @@
 
 import os
 import sys
+import glob
 import dataclasses
 
 import pandas as pd
@@ -17,7 +18,8 @@ logger = NervusLogger.get_logger('evaluation.c_index')
 nervusenv = NervusEnv()
 args = MetricsOptions().parse()
 datetime_dir = get_target(nervusenv.sets_dir, args['likelihood_datetime'])   # args['likelihood_datetime'] if exists or the latest
-likelihood_path = os.path.join(datetime_dir, nervusenv.csv_likelihood)
+likelihood_dir = os.path.join(datetime_dir, nervusenv.likelihood_dir)
+likelihood_path =  glob.glob(likelihood_dir + '/*.csv')[0]   # should be one
 df_likelihood = pd.read_csv(likelihood_path)
 
 
@@ -53,13 +55,15 @@ label_c_index = cal_c_index(df_likelihood, label_name, period_name)
 
 # Save c-index in summary.csv
 datetime = os.path.basename(datetime_dir)
+weight_name = os.path.basename(likelihood_path).replace(nervusenv.csv_name_likelihood + '_', '').replace('.csv', '.pt')   # weight_epoch-004-best.pt
 summary_new = dict()
 summary_new['datetime'] = [datetime]
+summary_new['weight'] = [weight_name]
 summary_new[label_name + '_val_c_index'] = [f"{label_c_index.val:.2f}"]
 summary_new[label_name + '_test_c_index'] = [f"{label_c_index.test:.2f}"]
 df_summary_new = pd.DataFrame(summary_new)
 update_summary(nervusenv.summary_dir, nervusenv.csv_summary, df_summary_new)
 
 # Save c-index in c_index.csv
-c_index_path = os.path.join(datetime_dir, nervusenv.csv_c_index)
+c_index_path = os.path.join(datetime_dir, nervusenv.csv_name_c_index)
 df_summary_new.to_csv(c_index_path, index=False)

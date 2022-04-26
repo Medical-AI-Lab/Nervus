@@ -46,6 +46,9 @@ class TrainOptions():
         # Input channel
         self.parser.add_argument('--input_channel', type=int, default=None, help='channel of input image (Default: None)')
 
+        # Weight saving strategy
+        self.parser.add_argument('--save_weight', type=str, choices=['best', 'each'], default=None, help='Save weight: best, or each time loss decreases when multi-label output(Default: None)')
+
         # GPU
         self.parser.add_argument('--gpu_ids', type=str, default='-1', help='gpu ids: e.g. 0  0,1,2, 0,2. use -1 for CPU (Default: -1)')
 
@@ -79,7 +82,7 @@ class TrainOptions():
                 self.args.cnn = None
         else:
             pass
-            #Check the case of when no specifying model later
+            #Check the case of when no specified model later
 
 
         # Align options for augmentation
@@ -124,7 +127,7 @@ class TrainOptions():
 
     def is_option_valid(self, args:dict):
         # Check must options
-        must_base_opts = ['task', 'csv_name', 'model', 'criterion', 'optimizer', 'epochs', 'batch_size','sampler']
+        must_base_opts = ['task', 'csv_name', 'model', 'criterion', 'optimizer', 'epochs', 'batch_size', 'sampler', 'save_weight']
         if not(args['cnn'] is None):
             must_base_opts = must_base_opts + ['image_dir', 'normalize_image', 'input_channel']
 
