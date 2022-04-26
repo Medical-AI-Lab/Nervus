@@ -21,10 +21,12 @@ Set directories as follows.
 
 - Brief modification for your task
   - parameters/parameters.csv  
-    CSV must contain columns named `id_XXX`, `filepath`, `label_XXX`, and `split`.  
+    - CSV must contain columns named `id_XXX`, `filepath`, `label_XXX`, and `split`.  
     Detailed explanation is shown in below.
   - work_all.sh  
-    Change `gpu_ids` depending on how many GPUs you can use. Default is "-1" which means to use CPU only.
+    - Change `gpu_ids` depending on how many GPUs you can use. Default is "-1" which means to use CPU only.
+    - Also change `save_weight` depending on how often weight is saved. Default is "best" which means that only the best weight is saved. If `save_weight` is specified as "each" when multi-label-output, weight is saved each time total loss decreases. Note that "each" is available only when multi-label-output.
+
 
 - To work and evaluate  
 `$bash work_all.sh`
