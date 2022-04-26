@@ -35,7 +35,7 @@ class NervusEnv:
     csv_name_likelihood: str = 'likelihood'
     roc_name: str = 'roc'
     yy_name: str = 'yy'
-    csv_name_index: str = 'c_index.csv'
+    csv_name_c_index: str = 'c_index.csv'
 
     summary_dir: str = os.path.join(results_dir, 'summary')
     csv_summary: str = 'summary.csv'

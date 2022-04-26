@@ -158,9 +158,9 @@ def execute(save_date_dir, save_weight, best_weight, val_best_loss, val_best_epo
                         weight_path = os.path.join(save_date_dir, nervusenv.weight_dir, weight_name)
                         torch.save(best_weight, weight_path)
                     else:
-                        # At the end of 1st epoch, if the weight will be the bset, the weight is save at the end of traning.
+                        # If the weight will be the best after 1st epoch, the weight is save as the best weight at the end of traning.
                         # When (_epoch + 1) == num_epochs, _epoch means the last epoch, then
-                        # weight will be saved as best_weight at the end of traning
+                        # weight will be saved as the best weight at the end of traning
                         pass
 
     return best_weight, val_best_loss, val_best_epoch, loss_acc_dict, val_best_loss_label_wise_dict, val_best_epoch_label_wise_dict, loss_acc_label_wise_dict

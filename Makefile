@@ -6,9 +6,9 @@
 # CRITERION = CEL | MSE | NLL
 # SAMPLER = yes | no   # should be no when regression or multi-label
 # INPUT_CHANNEL = 1 | 3
-# WEIGHT_SAVE_STRAT = best | each_time
+# SAVE_WEIGHT = best | each
 # GPU_IDS = -1 | 0,1,2
-CSV_NAME := clean_cla_single_output_bin_class.csv
+CSV_NAME := trials.csv
 IMAGE_DIR := 128
 TASK := classification
 MODEL := ResNet18
@@ -16,10 +16,10 @@ CRITERION := CEL
 OPTIMIZER := Adam
 EPOCHS := 3
 BATCH_SIZE := 64
-SAMPLER := yes
+SAMPLER := no
 AUGMENTATION := no
 INPUT_CHANNEL := 3
-WEIGHT_SAVE_STRAT := best
+SAVE_WEIGHT := best
 GPU_IDS := -1
 
 TRAIN_OPT := \
@@ -34,7 +34,7 @@ TRAIN_OPT := \
 --sampler $(SAMPLER) \
 --augmentation $(AUGMENTATION) \
 --input_channel $(INPUT_CHANNEL) \
---weight_save_strat $(WEIGHT_SAVE_STRAT) \
+--save_weight $(SAVE_WEIGHT) \
 --gpu_ids $(GPU_IDS)
 
 
