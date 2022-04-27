@@ -127,7 +127,7 @@ def _execute_test_single_label(split:str, dataloader:Dataset, model) -> Tuple[fl
     df_result = pd.DataFrame([])
 
     # Regard internal label as label
-    for i, (ids, raw_labels, labels, inputs_values_normed, images, splits) in enumerate(dataloader):
+    for i, (ids, institutions, examids, raw_labels, labels, inputs_values_normed, images, splits) in enumerate(dataloader):
         outputs = predict_by_model(model, hasMLP, hasCNN, device, inputs_values_normed, images)
 
         likelihood = outputs   # No softmax
@@ -151,13 +151,17 @@ def _execute_test_single_label(split:str, dataloader:Dataset, model) -> Tuple[fl
 
         raw_label_name = list(column_pred_names_in_label_dict.keys())[0]
         df_id = pd.DataFrame({sp.id_column: ids})
+        df_instituion = pd.DataFrame({sp.institution_column: institutions})
+        df_examid = pd.DataFrame({sp.examid_column: examids})
         df_split = pd.DataFrame({sp.split_column: splits})
         df_raw_label = pd.DataFrame({raw_label_name: raw_labels})
         df_likelihood = pd.DataFrame(likelihood, columns=column_pred_names_in_label_dict[raw_label_name])
-        df_tmp = pd.concat([df_id, df_raw_label, df_likelihood, df_split], axis=1)
+        df_tmp = pd.concat([df_id, df_instituion, df_examid, df_raw_label, df_likelihood, df_split], axis=1)
         df_result = pd.concat([df_result, df_tmp], ignore_index=True)
 
     return train_acc, val_acc, test_acc, df_result
+
+
 
 def _execute_test_multi_label(split:str, dataloader:Dataset, model) -> Tuple[float, float, pd.DataFrame]:
     train_acc = 0.0
@@ -166,7 +170,7 @@ def _execute_test_multi_label(split:str, dataloader:Dataset, model) -> Tuple[flo
     df_result = pd.DataFrame([])
 
     # Regard internal label as label
-    for i, (ids, raw_labels_dict, labels_dict, inputs_values_normed, images, splits) in enumerate(dataloader):
+    for i, (ids, institutions, examids, raw_labels_dict, labels_dict, inputs_values_normed, images, splits) in enumerate(dataloader):
         outputs = predict_by_model(model, hasMLP, hasCNN, device, inputs_values_normed, images)
 
         likelihood_multi = {}
@@ -190,6 +194,8 @@ def _execute_test_multi_label(split:str, dataloader:Dataset, model) -> Tuple[flo
         likelihood_multi = {label_name: likelihood.to('cpu').detach().numpy().copy() for label_name, likelihood in likelihood_multi.items()}
 
         df_id = pd.DataFrame({sp.id_column: ids})
+        df_instituion = pd.DataFrame({sp.institution_column: institutions})
+        df_examid = pd.DataFrame({sp.examid_column: examids})
         df_split = pd.DataFrame({sp.split_column: splits})
         df_likelihood_tmp = pd.DataFrame([])
         for label_name in likelihood_multi.keys():
@@ -198,7 +204,7 @@ def _execute_test_multi_label(split:str, dataloader:Dataset, model) -> Tuple[flo
             df_likelihood = pd.DataFrame(likelihood_multi[label_name], columns=column_pred_names_in_label_dict[raw_label_name])   # pred_names = [pred_XXX_A, pred_XXX_B, pred_XXX_C]
             df_likelihood_tmp = pd.concat([df_likelihood_tmp, df_raw_label, df_likelihood], axis=1)
 
-        df_tmp = pd.concat([df_id, df_likelihood_tmp, df_split], axis=1)
+        df_tmp = pd.concat([df_id, df_instituion, df_examid, df_likelihood_tmp, df_split], axis=1)
         df_result = pd.concat([df_result, df_tmp], ignore_index=True)
 
     return train_acc, val_acc, test_acc, df_result
@@ -210,7 +216,7 @@ def _execute_test_deepsurv(_, dataloader:Dataset, model) -> Tuple[float, float, 
     df_result = pd.DataFrame([])
 
     # Regard internal label as label
-    for i, (ids, raw_labels, labels, periods, inputs_values_normed, images, splits) in enumerate(dataloader):
+    for i, (ids, institutions, examids, raw_labels, labels, periods, inputs_values_normed, images, splits) in enumerate(dataloader):
         outputs = predict_by_model(model, hasMLP, hasCNN, device, inputs_values_normed, images)
 
         likelihood = outputs   # No softmax
@@ -220,13 +226,15 @@ def _execute_test_deepsurv(_, dataloader:Dataset, model) -> Tuple[float, float, 
 
         raw_label_name = list(column_pred_names_in_label_dict.keys())[0]
         df_id = pd.DataFrame({sp.id_column: ids})
+        df_instituion = pd.DataFrame({sp.institution_column: institutions})
+        df_examid = pd.DataFrame({sp.examid_column: examids})
         df_split = pd.DataFrame({sp.split_column: splits})
         df_raw_label = pd.DataFrame({raw_label_name: raw_labels})
         label_name = sp.prefix_internal_label + raw_label_name.replace(sp.prefix_raw_label, '')           # label_XXX -> internal_label_XXX
         df_label = pd.DataFrame({label_name: labels}, dtype=int)                                          # Needed to calculate c-index
         df_likelihood = pd.DataFrame(likelihood, columns=column_pred_names_in_label_dict[raw_label_name])
         df_period = pd.DataFrame({sp.period_column: periods})
-        df_tmp = pd.concat([df_id, df_raw_label, df_label, df_period, df_likelihood, df_split], axis=1)
+        df_tmp = pd.concat([df_id, df_instituion, df_examid, df_raw_label, df_label, df_period, df_likelihood, df_split], axis=1)
         df_result = pd.concat([df_result, df_tmp], ignore_index=True)
 
     return train_acc, val_acc, test_acc, df_result

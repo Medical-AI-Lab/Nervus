@@ -21,6 +21,8 @@ class DeepSurvDataSet(NervusDataSet):
 
     def __getitem__(self, idx):
         id = self.df_split.iat[idx, self.index_dict[self.id_column]]
+        institution = self.df_split.iat[idx, self.index_dict[self.institution_column]]
+        examid = self.df_split.iat[idx, self.index_dict[self.examid_column]]
         raw_label = self.df_split.iat[idx, self.index_dict[self.raw_label_name]]
         internal_label = self.df_split.iat[idx, self.index_dict[self.internal_label_name]]
         split = self.df_split.iat[idx, self.index_dict[self.split_column]]
@@ -39,7 +41,7 @@ class DeepSurvDataSet(NervusDataSet):
         # Load imgae when CNN or MLP+CNN
         image = self._load_image_if_cnn(idx)
 
-        return id, raw_label, internal_label, period, inputs_value_normed, image, split
+        return id, institution, examid, raw_label, internal_label, period, inputs_value_normed, image, split
 
 
     @classmethod
@@ -51,7 +53,7 @@ class DeepSurvDataSet(NervusDataSet):
         # Make sampler
         if sampler == 'yes':
             target = []
-            for _, (_, _, internal_label, _, _, _, _) in enumerate(split_data):
+            for _, (id, institution, examid, raw_label, internal_label, period, inputs_value_normed, image, split) in enumerate(split_data):
                 target.append(internal_label)
 
             target = [int(t.item()) for t in target]   # Tensor -> int

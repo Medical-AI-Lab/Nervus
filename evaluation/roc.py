@@ -24,8 +24,6 @@ logger = NervusLogger.get_logger('evaluation.roc')
 nervusenv = NervusEnv()
 args = MetricsOptions().parse()
 datetime_dir = get_target(nervusenv.sets_dir, args['likelihood_datetime'])   # args['likelihood_datetime'] if exists or the latest
-#likelihood_path = os.path.join(datetime_dir, nervusenv.csv_likelihood)
-#df_likelihood = pd.read_csv(likelihood_path)
 
 
 @dataclasses.dataclass
@@ -61,12 +59,13 @@ def cal_roc_binary_class(label_name, df_likelihood):
         fpr_split, tpr_split, thresholds_split = metrics.roc_curve(y_true_split.astype('str'), y_score_split, pos_label=positive_class)
         if split == 'val':
             label_roc.val = ROC(fpr=AverageType(micro=fpr_split),
-                                 tpr=AverageType(micro=tpr_split),
-                                 auc=AverageType(micro=metrics.auc(fpr_split, tpr_split)))
+                                tpr=AverageType(micro=tpr_split),
+                                auc=AverageType(micro=metrics.auc(fpr_split, tpr_split)))
         else:
             label_roc.test = ROC(fpr=AverageType(micro=fpr_split),
-                                  tpr=AverageType(micro=tpr_split),
-                                  auc=AverageType(micro=metrics.auc(fpr_split, tpr_split)))
+                                 tpr=AverageType(micro=tpr_split),
+                                 auc=AverageType(micro=metrics.auc(fpr_split, tpr_split)))
+    
     logger.info(f"{label_name}, val: {label_roc.val.auc.micro:.2f}, test: {label_roc.test.auc.micro:.2f}")
     return label_roc
 
@@ -121,6 +120,8 @@ def cal_roc_multi_class(label_name, df_likelihood):
 
 
 
+df_summary_new = pd.DataFrame([])
+
 # Make ROC for each weight
 likelihood_dir = os.path.join(datetime_dir, nervusenv.likelihood_dir)
 likelihood_path_list = sorted(glob.glob(likelihood_dir + '/*.csv'))
@@ -130,86 +131,96 @@ for likelihood_path in likelihood_path_list:
     logger.info(f"\nLikelihood: {likelihood_name}")
     df_likelihood = pd.read_csv(likelihood_path)
 
-    # Calculate ROC and AUC
-    label_list = list(df_likelihood.columns[df_likelihood.columns.str.startswith('label')])
-    metrics_roc = {}
-    for label_name in label_list:
-        num_class_in_label = df_likelihood[label_name].nunique()
-        if num_class_in_label > 2:
-            metrics_roc[label_name] = cal_roc_multi_class(label_name, df_likelihood)
-        else:
-            metrics_roc[label_name] = cal_roc_binary_class(label_name, df_likelihood)
+    for institution in df_likelihood['Institution'].unique():
+        df_institution_likelihood = df_likelihood.query('Institution == @institution')
+
+        # Calculate ROC and AUC
+        label_list = list(df_institution_likelihood.columns[df_institution_likelihood.columns.str.startswith('label')])
+        metrics_roc = {}
+
+        logger.info(f"{institution}:")
+        for label_name in label_list:
+            num_class_in_label = df_institution_likelihood[label_name].nunique()
+            if num_class_in_label > 2:
+                metrics_roc[label_name] = cal_roc_multi_class(label_name, df_institution_likelihood)
+            else:
+                metrics_roc[label_name] = cal_roc_binary_class(label_name, df_institution_likelihood)
 
 
+        # Plot ROC
+        num_rows = 1
+        num_cols = len(label_list)
+        base_size = 7
+        height = num_rows * base_size
+        width = num_cols * height
 
-    # Plot ROC
-    num_rows = 1
-    num_cols = len(label_list)
-    base_size = 7
-    height = num_rows * base_size
-    width = num_cols * height
+        fig = plt.figure(figsize=(width, height))
+        for i in range(len(label_list)):
+            offset = i + 1
+            label_name = label_list[i]
+            label_roc = metrics_roc[label_name]
+            num_class_in_label = df_institution_likelihood[label_name].nunique()
 
-    fig = plt.figure(figsize=(width, height))
-    for i in range(len(label_list)):
-        offset = i + 1
-        label_name = label_list[i]
-        label_roc = metrics_roc[label_name]
-        num_class_in_label = df_likelihood[label_name].nunique()
+            if num_class_in_label > 2:
+                # macro-average ROC for multiclass
+                fpr_val = label_roc.val.fpr.macro
+                tpr_val = label_roc.val.tpr.macro
+                auc_val = label_roc.val.auc.macro
+                fpr_test = label_roc.test.fpr.macro
+                tpr_test = label_roc.test.tpr.macro
+                auc_test = label_roc.test.auc.macro
+            else:
+                # Ordinary ROC for binaryclass
+                fpr_val = label_roc.val.fpr.micro
+                tpr_val = label_roc.val.tpr.micro
+                auc_val = label_roc.val.auc.micro
+                fpr_test = label_roc.test.fpr.micro
+                tpr_test = label_roc.test.tpr.micro
+                auc_test = label_roc.test.auc.micro
 
-        if num_class_in_label > 2:
-            # macro-average ROC for multiclass
-            fpr_val = label_roc.val.fpr.macro
-            tpr_val = label_roc.val.tpr.macro
-            auc_val = label_roc.val.auc.macro
-            fpr_test = label_roc.test.fpr.macro
-            tpr_test = label_roc.test.tpr.macro
-            auc_test = label_roc.test.auc.macro
-        else:
-            # Ordinary ROC for binaryclass
-            fpr_val = label_roc.val.fpr.micro
-            tpr_val = label_roc.val.tpr.micro
-            auc_val = label_roc.val.auc.micro
-            fpr_test = label_roc.test.fpr.micro
-            tpr_test = label_roc.test.tpr.micro
-            auc_test = label_roc.test.auc.micro
+            ax_i = fig.add_subplot(num_rows,
+                                num_cols,
+                                offset,
+                                title=institution + ': ' + label_name,
+                                xlabel='1 - Specificity',
+                                ylabel='Sensitivity',
+                                xmargin=0,
+                                ymargin=0)
 
-        ax_i = fig.add_subplot(num_rows,
-                            num_cols,
-                            offset,
-                            title=label_name,
-                            xlabel='1 - Specificity',
-                            ylabel='Sensitivity',
-                            xmargin=0,
-                            ymargin=0)
+            ax_i.plot(fpr_val, tpr_val, label=f"AUC_val = {auc_val:.2f}", marker='x')
+            ax_i.plot(fpr_test, tpr_test, label=f"AUC_test = {auc_test:.2f}", marker='o')
+            ax_i.grid()
+            ax_i.legend()
 
-        ax_i.plot(fpr_val, tpr_val, label=f"AUC_val = {auc_val:.2f}", marker='x')
-        ax_i.plot(fpr_test, tpr_test, label=f"AUC_test = {auc_test:.2f}", marker='o')
-        ax_i.grid()
-        ax_i.legend()
-
-    # Align subplots
-    fig.tight_layout()
+        # Align subplots
+        fig.tight_layout()
 
 
-    # Save ROC
-    #roc_path = os.path.join(datetime_dir, nervusenv.roc)
-    #likelihood_name = os.path.basename(likelihood_path)   # likelihood_weight_epoch-004-best.csv
-    roc_name = likelihood_name.replace(nervusenv.csv_name_likelihood, nervusenv.roc_name).replace('.csv', '.png')   # roc_weight_epoch-004-best.png
-    roc_dir = os.path.join(datetime_dir, nervusenv.roc_dir)
-    os.makedirs(roc_dir, exist_ok=True)
-    roc_path = os.path.join(roc_dir, roc_name)
-    plt.savefig(roc_path)
+        # Save ROC
+        roc_name = institution + '_' + likelihood_name.replace(nervusenv.csv_name_likelihood, nervusenv.roc_name).replace('.csv', '.png')   # roc_weight_epoch-004-best.png
+        roc_dir = os.path.join(datetime_dir, nervusenv.roc_dir)
+        os.makedirs(roc_dir, exist_ok=True)
+        roc_path = os.path.join(roc_dir, roc_name)
+        plt.savefig(roc_path)
 
-    # Save AUC
-    datetime = os.path.basename(datetime_dir)
-    weight_name = likelihood_name.replace(nervusenv.csv_name_likelihood + '_', '').replace('.csv', '.pt')   # weight_epoch-004-best.pt
-    summary_new = dict()
-    summary_new['datetime'] = [datetime]
-    summary_new['weight'] = [weight_name]
-    for label_name, label_roc in metrics_roc.items():
-        auc_val = label_roc.val.auc.micro if (label_roc.val.auc.micro is not None) else label_roc.val.auc.macro
-        auc_test = label_roc.test.auc.micro if (label_roc.test.auc.micro is not None) else label_roc.test.auc.macro
-        summary_new[label_name+'_val_auc'] = [f"{auc_val:.2f}"]
-        summary_new[label_name+'_test_auc'] = [f"{auc_test:.2f}"]
-    df_summary_new = pd.DataFrame(summary_new)
-    update_summary(nervusenv.summary_dir, nervusenv.csv_summary, df_summary_new)
+
+        # Save AUC
+        datetime = os.path.basename(datetime_dir)
+        weight_name = likelihood_name.replace(nervusenv.csv_name_likelihood + '_', '').replace('.csv', '.pt')   # weight_epoch-004-best.pt
+        summary_tmp = dict()
+        summary_tmp['datetime'] = [datetime]
+        summary_tmp['weight'] = [weight_name]
+        summary_tmp['Institution'] = [institution]
+        for label_name, label_roc in metrics_roc.items():
+            auc_val = label_roc.val.auc.micro if (label_roc.val.auc.micro is not None) else label_roc.val.auc.macro
+            auc_test = label_roc.test.auc.micro if (label_roc.test.auc.micro is not None) else label_roc.test.auc.macro
+            summary_tmp[label_name+'_val_auc'] = [f"{auc_val:.2f}"]
+            summary_tmp[label_name+'_test_auc'] = [f"{auc_test:.2f}"]
+
+        df_summary_tmp = pd.DataFrame(summary_tmp)
+        df_summary_new = pd.concat([df_summary_new, df_summary_tmp], ignore_index=True)
+
+
+# Update summary
+#df_summary_new = pd.DataFrame(summary_new)
+update_summary(nervusenv.summary_dir, nervusenv.csv_summary, df_summary_new)

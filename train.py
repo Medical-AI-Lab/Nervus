@@ -38,11 +38,8 @@ batch_size = args['batch_size']
 sampler = args['sampler']
 input_channel = args['input_channel']
 gpu_ids = args['gpu_ids']
-
 save_weight = args['save_weight']
-
 device = set_device(gpu_ids)
-
 
 
 image_dir = os.path.join(nervusenv.images_dir , args['image_dir'])
@@ -172,7 +169,7 @@ def _execute_single_label(phase:str, dataloader:Dataset) -> Tuple[float, float]:
     running_acc = 0.0
 
     # Regard internal label as just label
-    for i, (ids, raw_labels, labels, inputs_values_normed, images, splits) in enumerate(dataloader):
+    for i, (ids, institutions, examids, raw_labels, labels, inputs_values_normed, images, splits) in enumerate(dataloader):
         optimizer.zero_grad()
 
         with torch.set_grad_enabled(phase == 'train'):
@@ -209,7 +206,7 @@ def _execute_multi_label(phase:str, dataloader:Dataset) -> Tuple[float, float, D
     running_acc_label_wise = {label_name : running_acc for label_name in label_list}
 
     # Regard internal label as just label
-    for i, (ids, raw_labels_dict, labels_dict, inputs_values_normed, images, splits) in enumerate(dataloader):
+    for i, (ids, institutions, examids, raw_labels_dict, labels_dict, inputs_values_normed, images, splits) in enumerate(dataloader):
         optimizer.zero_grad()
 
         with torch.set_grad_enabled(phase == 'train'):
@@ -275,7 +272,7 @@ def _execute_deepsurv(phase:str, dataloader:Dataset) -> Tuple[float, float]:
     running_acc = 0.0
 
     # Regard internal label as just label
-    for i, (ids, raw_labels, labels, periods, inputs_values_normed, images, splits) in enumerate(dataloader):
+    for i, (ids, institutions, examids, raw_labels, labels, periods, inputs_values_normed, images, splits) in enumerate(dataloader):
         optimizer.zero_grad()
 
         with torch.set_grad_enabled(phase == 'train'):
