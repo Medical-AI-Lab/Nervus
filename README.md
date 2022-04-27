@@ -53,14 +53,15 @@ Examples:
 | 0009    | Institution_C  | 0002   | png_128/III.png | malignant    | test  |
 | :       | :              | :      | :               | :            | :     |
 
-Note `id_XXX` must be unique.
-`Institution` should be institution name.
-`ExamID` should be unique in each institution.
-`filepath` should have a path to images for the model.
-`label_XXX` should have a classification target. Any name is available. If you use more than two `label_XXX`, it will be automatically recognize multi-label classification and automatically prepare a proper number of classifiers (FCs). 
-`split` should have `train`, `val`, and `test`.
-When you use inputs other than image, `input_XXX` is needed. 
-When you use deepsurv, `periords_XXX` is needed as well.
+Note:
+- `id_XXX` must be unique.
+- `Institution` should be institution name.
+- `ExamID` should be unique in each institution.
+- `filepath` should have a path to images for the model.
+- `label_XXX` should have a classification target. Any name is available. If you use more than two `label_XXX`, it will be automatically recognize multi-label classification and automatically prepare a proper number of classifiers (FCs). 
+- `split` should have `train`, `val`, and `test`.
+- When you use inputs other than image, `input_XXX` is needed. 
+- When you use deepsurv, `periords_XXX` is needed as well.
 
 ## Model development
 For training, validation, and testing, `parameter.csv` and `work_all.sh` should be modified.
