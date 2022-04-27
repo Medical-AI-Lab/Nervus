@@ -37,23 +37,25 @@ https://colab.research.google.com/drive/1vpP-veRHPnTEwzDOzRZ0cXcHHY0u7-oJ
 # Detailed Preparation
 ## CSV
 This is the csv which we show as trials.csv in the brief usage section.  
-CSV must contain columns named `id_XXX`, `filepath`, `label_XXX`, and `split`.
+CSV must contain columns named `id_XXX`, `Institution`, `ExamID`, `filepath`, `label_XXX`, and `split`.
 
 Examples:
-| id_uniq | filepath | label_cancer | split |
-| -----| ----------- | --------- | ----- |
-| 0001 | png_128/AAA.png | malignant | train |
-| 0002 | png_128/BBB.png | benign | val |
-| 0003 | png_128/CCC.png | malignant | train |
-| 0004 | png_128/DDD.png | malignant | test |
-| 0005 | png_128/EEE.png | benign | train |
-| 0006 | png_128/FFF.png | malignant | train |
-| 0007 | png_128/GGG.png | benign | train |
-| 0008 | png_128/HHH.png | benign | val |
-| 0009 | png_128/III.png | malignant | test |
-| :  | : | : | : |
+| id_uniq | Institution    | ExamID | filepath        | label_cancer | split |
+| -----   | -------------- | ------ | -----------     | ---------    | ----- |
+| 0001    | Institution_A  | 0001   | png_128/AAA.png | malignant    | train |
+| 0002    | Institution_A  | 0002   | png_128/BBB.png | benign       | val   |
+| 0003    | Institution_A  | 0003   | png_128/CCC.png | malignant    | train |
+| 0004    | Institution_B  | 0001   | png_128/DDD.png | malignant    | test  |
+| 0005    | Institution_B  | 0002   | png_128/EEE.png | benign       | train |
+| 0006    | Institution_B  | 0003   | png_128/FFF.png | malignant    | train |
+| 0007    | Institution_B  | 0004   | png_128/GGG.png | benign       | train |
+| 0008    | Institution_C  | 0001   | png_128/HHH.png | benign       | val   |
+| 0009    | Institution_C  | 0002   | png_128/III.png | malignant    | test  |
+| :       | :              | :      | :               | :            | :     |
 
 Note `id_XXX` must be unique.
+`Institution` should be institution name.
+`ExamID` should be unique in each institution.
 `filepath` should have a path to images for the model.
 `label_XXX` should have a classification target. Any name is available. If you use more than two `label_XXX`, it will be automatically recognize multi-label classification and automatically prepare a proper number of classifiers (FCs). 
 `split` should have `train`, `val`, and `test`.
