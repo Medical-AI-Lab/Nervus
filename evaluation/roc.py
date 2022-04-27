@@ -59,12 +59,13 @@ def cal_roc_binary_class(label_name, df_likelihood):
         fpr_split, tpr_split, thresholds_split = metrics.roc_curve(y_true_split.astype('str'), y_score_split, pos_label=positive_class)
         if split == 'val':
             label_roc.val = ROC(fpr=AverageType(micro=fpr_split),
-                                 tpr=AverageType(micro=tpr_split),
-                                 auc=AverageType(micro=metrics.auc(fpr_split, tpr_split)))
+                                tpr=AverageType(micro=tpr_split),
+                                auc=AverageType(micro=metrics.auc(fpr_split, tpr_split)))
         else:
             label_roc.test = ROC(fpr=AverageType(micro=fpr_split),
-                                  tpr=AverageType(micro=tpr_split),
-                                  auc=AverageType(micro=metrics.auc(fpr_split, tpr_split)))
+                                 tpr=AverageType(micro=tpr_split),
+                                 auc=AverageType(micro=metrics.auc(fpr_split, tpr_split)))
+    
     logger.info(f"{label_name}, val: {label_roc.val.auc.micro:.2f}, test: {label_roc.test.auc.micro:.2f}")
     return label_roc
 
@@ -124,6 +125,7 @@ df_summary_new = pd.DataFrame([])
 # Make ROC for each weight
 likelihood_dir = os.path.join(datetime_dir, nervusenv.likelihood_dir)
 likelihood_path_list = sorted(glob.glob(likelihood_dir + '/*.csv'))
+
 for likelihood_path in likelihood_path_list:
     likelihood_name = os.path.basename(likelihood_path)   # likelihood_weight_epoch-004-best.csv
     logger.info(f"\nLikelihood: {likelihood_name}")
@@ -135,6 +137,8 @@ for likelihood_path in likelihood_path_list:
         # Calculate ROC and AUC
         label_list = list(df_institution_likelihood.columns[df_institution_likelihood.columns.str.startswith('label')])
         metrics_roc = {}
+
+        logger.info(f"{institution}:")
         for label_name in label_list:
             num_class_in_label = df_institution_likelihood[label_name].nunique()
             if num_class_in_label > 2:
@@ -200,7 +204,6 @@ for likelihood_path in likelihood_path_list:
         plt.savefig(roc_path)
 
 
-        # Update summary of AUC
         # Save AUC
         datetime = os.path.basename(datetime_dir)
         weight_name = likelihood_name.replace(nervusenv.csv_name_likelihood + '_', '').replace('.csv', '.pt')   # weight_epoch-004-best.pt
@@ -213,11 +216,11 @@ for likelihood_path in likelihood_path_list:
             auc_test = label_roc.test.auc.micro if (label_roc.test.auc.micro is not None) else label_roc.test.auc.macro
             summary_tmp[label_name+'_val_auc'] = [f"{auc_val:.2f}"]
             summary_tmp[label_name+'_test_auc'] = [f"{auc_test:.2f}"]
-        
+
         df_summary_tmp = pd.DataFrame(summary_tmp)
         df_summary_new = pd.concat([df_summary_new, df_summary_tmp], ignore_index=True)
 
 
-    # Save summary of AUC
-    #df_summary_new = pd.DataFrame(summary_new)
-    update_summary(nervusenv.summary_dir, nervusenv.csv_summary, df_summary_new)
+# Update summary
+#df_summary_new = pd.DataFrame(summary_new)
+update_summary(nervusenv.summary_dir, nervusenv.csv_summary, df_summary_new)
