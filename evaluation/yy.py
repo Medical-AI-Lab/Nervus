@@ -54,8 +54,8 @@ def cal_label_metrics_yy(label_name, df_likelihood):
             label_metrics_yy.test = MetricsYY(r2=r2, mse=mse, rmse=rmse, mae=mae)
 
     logger.info(label_name + ':')
-    logger.info(f"{'val':>5}, R2: {label_metrics_yy.val.r2:>6.2f}, MSE: {label_metrics_yy.val.mse:>6.2f}, RMES: {label_metrics_yy.val.rmse:>6.2f}, MAE: {label_metrics_yy.val.mae:>6.2f}")
-    logger.info(f"{'test':>5}, R2: {label_metrics_yy.test.r2:>6.2f}, MSE: {label_metrics_yy.test.mse:>6.2f}, RMES: {label_metrics_yy.test.rmse:>6.2f}, MAE: {label_metrics_yy.test.mae:>6.2f}")
+    logger.info(f"{'val':>5}, R2: {label_metrics_yy.val.r2:>6.2f}, MSE: {label_metrics_yy.val.mse:>6.2f}, RMSE: {label_metrics_yy.val.rmse:>6.2f}, MAE: {label_metrics_yy.val.mae:>6.2f}")
+    logger.info(f"{'test':>5}, R2: {label_metrics_yy.test.r2:>6.2f}, MSE: {label_metrics_yy.test.mse:>6.2f}, RMSE: {label_metrics_yy.test.rmse:>6.2f}, MAE: {label_metrics_yy.test.mae:>6.2f}")
     return label_metrics_yy
 
 
@@ -81,7 +81,7 @@ for likelihood_path in likelihood_path_list:
         metrics_yy = {label_name: cal_label_metrics_yy(label_name, df_institution_likelihood) for label_name in label_list}
 
         # Plot yy-graph
-        len_splits = len(['vat', 'test'])
+        len_splits = len(['val', 'test'])
         num_rows = 1
         num_cols = len(label_list) * len_splits
         base_size = 7
