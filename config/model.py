@@ -10,6 +10,9 @@ import torch.nn as nn
 import torchvision.models as models
 from torchinfo import summary
 
+import re
+
+
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from lib import *
 
@@ -230,7 +233,10 @@ class ConvNeXt_Multi(nn.Module):
 class ViT_Multi(nn.Module):
     def __init__(self, base_model, label_num_classes):
         super().__init__()
-        self.extractor = base_model
+        #self.extractor = base_model
+
+        self.extractor = base_model.vit_pretrained_aligned
+
         self.label_num_classes = label_num_classes
         self.label_list = list(label_num_classes.keys())
         _prefix_layer = 'heads_'
@@ -243,7 +249,10 @@ class ViT_Multi(nn.Module):
                     (head): Linear(in_features=768, out_features=1000, bias=True)
                 )
         """
-        _input_size_fc = self.extractor.heads.head.in_features
+
+        #_input_size_fc = self.extractor.heads.head.in_features
+        _input_size_fc = self.extractor.heads.head.out_features  # <-- (head): Linear(in_features=768, out_features=1000, bias=True)
+
         self.head_multi = nn.ModuleDict({
                             (_prefix_layer + label_name) : nn.Sequential(
                                                             OrderedDict([
@@ -253,7 +262,8 @@ class ViT_Multi(nn.Module):
                             })
 
         # Replace the original heads
-        self.extractor.heads = DUMMY_LAYER
+        #self.extractor.heads = DUMMY_LAYER
+        self.extractor.fc = DUMMY_LAYER
 
     def forward(self, x):
         x = self.extractor(x)
@@ -274,7 +284,7 @@ def mlp_net(num_inputs, label_num_classes):
     return mlp
 
 
-# Supposed that CNN includes ViT.
+# For convenience, supposed that CNN includes ViT.
 def set_model(cnn_name):
     if cnn_name == 'B0':
         cnn = models.efficientnet_b0
@@ -348,16 +358,56 @@ def align_1ch_channel(cnn_name, cnn):
 
     else:
         # should be ViT
-        cnn.conv_proj.in_channels = 1
-        cnn.conv_proj.weight = nn.Parameter(cnn.conv_proj.weight.sum(dim=1).unsqueeze(1))
+        cnn.vit_pretrained_aligned.conv_proj.in_channels = 1
+        cnn.vit_pretrained_aligned.conv_proj.weight = nn.Parameter(cnn.vit_pretrained_aligned.conv_proj.weight.sum(dim=1).unsqueeze(1))
 
     """
     # Might be no need to set gradient
     # because torch.nn.parameter.Parameter(data=None, requires_grad=True) as default
+    If set explicitly,
     for i, param in enumerate(self.cnn.parameters()):
         param.requires_grad = True #False
     """
     return cnn
+
+
+
+class ViTPretrained(nn.Module):
+    def __init__(self, vit_raw, patch_size, image_size, num_classes):
+        super().__init__()
+        self.vit_raw = vit_raw
+        self.patch_size = patch_size
+        self.image_size = image_size
+        self.num_classes = num_classes
+
+        # Modify weight of original weight of pretrained model
+        _vit_pretrained_raw = self.vit_raw(pretrained=True)
+
+        if image_size == 224:
+            # the original weight is avalibale
+            self.vit_pretrained_aligned = _vit_pretrained_raw
+        else:
+            # Modify shape of the weight of pretrained
+            self.weight_vit_pretrained_raw = _vit_pretrained_raw.state_dict()
+            self.weight_vit_pretrained_aligned = models.vision_transformer.interpolate_embeddings(image_size=self.image_size,
+                                                                                                  patch_size=self.patch_size,
+                                                                                                  model_state=self.weight_vit_pretrained_raw)
+                                                                                                  # interpolation_mode = 'bicubic' : Default
+                                                                                                  # reset_heads = False : Default
+            self.vit_pretrained_aligned = self.vit_raw(image_size=self.image_size)
+            self.vit_pretrained_aligned.load_state_dict(self.weight_vit_pretrained_aligned)
+
+
+        # Add fc, ie. classifier as the last layer
+        self.in_features_vit_pretrained_aligned = self.vit_pretrained_aligned.heads.head.out_features
+        self.fc = nn.Linear(in_features=self.in_features_vit_pretrained_aligned, out_features=self.num_classes)
+
+    def forward(self, x):
+        x = self.vit_pretrained_aligned(x)
+        x = self.fc(x)
+        return x
+
+
 
 # Note:
 # When use ViT, specified image size like ViTb16_<image_size>, eg. ViTb16_256, ViTb16_1024,
@@ -369,8 +419,10 @@ def conv_net(cnn_name, label_num_classes, input_channel):
     label_list = list(label_num_classes.keys())
     num_outputs_first_label = label_num_classes[label_list[0]]
     if cnn_name.startswith('ViT'):
-        image_size_for_vit = int(cnn_name.split('_')[-1])   # eg. 'ViTb16_256' -> 256
-        cnn = cnn(num_classes=num_outputs_first_label, image_size=image_size_for_vit)
+        # any of ViTb16_<image_size>, ViTb32_<image_size>, ViTl16_<image_size>, ViTl32_<image_size>
+        patch_size = int(re.sub(r'\D', '', cnn_name.split('_')[0]))                 # 'ViTb16_256' -> 'ViTb16' -> 16
+        image_size = int(cnn_name.split('_')[-1])                                   # 'ViTb16_256' -> '256' -> 256
+        cnn = ViTPretrained(cnn, patch_size, image_size, num_outputs_first_label)   # vit_raw, patch_size, image_size, num_classes
     else:
         cnn = cnn(num_classes=num_outputs_first_label)
 
@@ -511,5 +563,5 @@ def predict_by_model(model, hasMLP, hasCNN, device, inputs_values_normed, images
 def show_model_summary(model, batch_size, input_channel, image_size):
     input_size = (batch_size, input_channel, image_size, image_size)
     col_names = ['input_size', 'output_size', 'num_params']
-    config = summary(model=model, input_size=input_size, col_names=col_names, depth=3)
+    config = summary(model=model, input_size=input_size, col_names=col_names, depth=10)
     print(config)
