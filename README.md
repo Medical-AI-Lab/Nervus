@@ -79,8 +79,8 @@ Other parameters are defined in the `parameter.csv`.
 - model: model name
   - example
     - MLP only: MLP
-    - CNN only: B0, B2, B4, B6, ResNet, ResNet18, DenseNet, ConvNeXtTiny, ConvNeXtSmall, ConvNeXtBase, and ConvNeXtLarge.
-    - MLP+CNN : MLP+B0, MLP+ResNet, MLP+ConvNeXtTiny ... (combine above)
+    - CNN only: B0, B2, B4, B6, ResNet, ResNet18, DenseNet, ConvNeXtTiny, ConvNeXtSmall, ConvNeXtBase,ConvNeXtLarge, ViTb16_<image_size>, ViTb32_<image_size>, ViTl16_<image_size>, and ViTl32_<image_size>, where <image_size> is the size of input image.
+    - MLP+CNN : MLP+B0, MLP+ResNet, MLP+ConvNeXtTiny, MLP+ViTb16_256 ... (combine above)
 - criterion: Loss function
   - example: 
     - classification: CEL ※CEL=CrossEntropyLoss
