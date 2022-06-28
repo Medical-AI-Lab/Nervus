@@ -1,12 +1,14 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import os
-import numpy as np
+
 import pandas as pd
 
 
 class SplitProvider:
+    """_summary_
+        Label classes and cast tabular data
+    """
     def __init__(self, split_path, task):
         super().__init__()
 
@@ -37,7 +39,7 @@ class SplitProvider:
         self.raw_label_list = list(self.df_source.columns[self.df_source.columns.str.startswith(self.prefix_raw_label)])
         self.internal_label_list = list(self.df_source.columns[self.df_source.columns.str.startswith(self.prefix_internal_label)])
         self.class_name_in_raw_label = _class_name_in_raw_label
-        self.num_classes_in_internal_label = self._define_num_classes_in_internal_label(self.df_source, self.task)  
+        self.num_classes_in_internal_label = self._define_num_classes_in_internal_label(self.df_source, self.task)
         self.input_list = list(self.df_source.columns[self.df_source.columns.str.startswith(self.prefix_input)])
         self.num_inputs = len(self.input_list)
         self.id_column = list(self.df_source.columns[self.df_source.columns.str.startswith(self.prefix_id)])[0]               # should be one
@@ -61,8 +63,8 @@ class SplitProvider:
             class_list = _df_tmp[raw_label_name].value_counts().index.tolist() # {'A', 'B', ... } decending order
             _class_name_in_raw_label[raw_label_name] = {}
             if (task == 'classification') or (task == 'deepsurv'):
-                for i in range(len(class_list)):
-                    _class_name_in_raw_label[raw_label_name][class_list[i]] = i
+                for i, ith_class in enumerate(class_list):
+                    _class_name_in_raw_label[raw_label_name][ith_class] = i
             else:
                 _class_name_in_raw_label[raw_label_name] = {}                  # No need of labeling
 
