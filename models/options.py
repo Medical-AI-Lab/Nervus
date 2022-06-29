@@ -36,8 +36,8 @@ class Options:
         self.parser.add_argument('--batch_size',      type=int,   default=None,  metavar='N', help='batch size in training (Default: None)')
 
         # Preprocess for image
-        self.parser.add_argument('--augmentation',   type=str,   default=None,  help='Automatic Augmentation Transforms')
-        self.parser.add_argument('--normalize_image', type=str,   default='yes', help='image nomalization, yes no no (Default: yes)')
+        self.parser.add_argument('--augmentation',    type=str,   default=None,  help='Automatic Augmentation: randaug, trivialaugwide, augmix, no')
+        self.parser.add_argument('--normalize_image', type=str,   default='yes', help='image nomalization: yes, no (Default: yes)')
 
         # Sampler
         self.parser.add_argument('--sampler',         type=str,   default=None,  help='sample data in traning or not, yes or no (Default: None)')
@@ -59,6 +59,7 @@ class Options:
         self.args = self.parser.parse_args()
 
         # model
+        assert (self.args.model is not None), 'model is None.'
         _model = self.args.model.split('+')  # 'MLP', 'ResNet18', 'MLP+ResNet18' -> ['MLP'], ['ResNet18'], ['MLP', 'ResNet18']
 
         if 'MLP' in _model:
@@ -109,7 +110,7 @@ class Options:
         logger.info('\nRequired options have been specified.\n')
 
     def print_options(self):
-        ignore = ['mlp', 'cnn']
+        ignore = ['mlp', 'cnn', 'test_batch_size', 'test_datetime']
 
         message = ''
         message += '------------------------ Options --------------------------\n'
@@ -122,7 +123,7 @@ class Options:
                 str_default = str(default) if str(default) != '' else 'None'
                 str_v = str(v) if str(v) != '' else 'Not specified'
 
-                if k == 'csv_name':
+                if (k == 'csv_name') or (k == 'image_dir'):
                     str_v = Path(v).name
                 elif k == 'gpu_ids':
                     if str_v == '[]':
@@ -141,3 +142,4 @@ class Options:
         self.parse()
         self.is_option_specified()
         self.print_options()
+        return self.args
