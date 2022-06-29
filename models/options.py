@@ -123,7 +123,7 @@ class Options:
                 str_v = str(v) if str(v) != '' else 'Not specified'
 
                 if k == 'csv_name':
-                    str_v = Path(k).name
+                    str_v = Path(v).name
                 elif k == 'gpu_ids':
                     if str_v == '[]':
                         str_v = 'CPU selected'
