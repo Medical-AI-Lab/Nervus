@@ -12,7 +12,7 @@ from logger.logger import NervusLogger
 logger = NervusLogger.get_logger('options')
 
 
-class Options():
+class Options:
     def __init__(self):
         self.parser = argparse.ArgumentParser(description='Options for training or test')
 
@@ -92,7 +92,7 @@ class Options():
 
     def is_option_specified(self):
         """_summary_
-            Check any of must-options is not None.
+            Check if any of must-options is specified.
         """
         # Check must options
         must_opts = ['csv_name', 'task', 'model', 'criterion', 'optimizer', 'batch_size', 'sampler']
@@ -136,3 +136,8 @@ class Options():
                 pass
         message += '------------------------ End -------------------------------'
         logger.info(message)
+
+    def check_options(self):
+        self.parse()
+        self.is_option_specified()
+        self.print_options()
