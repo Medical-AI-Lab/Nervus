@@ -34,7 +34,8 @@ class NervusDataSet(Dataset):
         self.input_list = self.split_provider.input_list
 
         self.df_source = self.split_provider.df_source
-        self.df_split = self.split_provider.df_source[self.df_source['split'] == self.split].copy()
+        self.df_split = self.df_source[self.df_source['split'] == self.split].copy()  # index is not a serial number.
+        self.df_split.reset_index(inplace=True, drop=True)                            # Without reset_index, nan occurrs in iteration.
 
         # Nomalize inputs
         if (self.args.mlp is not None):
@@ -43,8 +44,8 @@ class NervusDataSet(Dataset):
             _ = self.scaler.fit(self.df_train[self.input_list])
             self.normed_input_list = ['normed_' + input for input in self.input_list]
             _normed_inputs = self.scaler.transform(self.df_split[self.input_list])
-            df_normed_inputs = pd.DataFrame(_normed_inputs, columns=self.normed_input_list)
-            self.df_split = pd.concat([self.df_split, df_normed_inputs], axis=1)
+            _df_normed_inputs = pd.DataFrame(_normed_inputs, columns=self.normed_input_list)
+            self.df_split = pd.concat([self.df_split, _df_normed_inputs], axis=1)
 
         # Preprocess for image
         if (self.args.cnn is not None):
@@ -79,14 +80,13 @@ class NervusDataSet(Dataset):
         elif self.args.augmentation == 'trivialaugwide':
             _augmentation.append(transforms.TrivialAugmentWide())
         elif self.args.augmentation == 'augmix':
-            _augmentation.append(transforms.AugMix())   # ! Cannot find in transforms
+            _augmentation.append(transforms.AugMix())   # ? Cannot find in transforms ?
         elif (self.args.augmentation == 'no'):
             pass
         else:
             logger.error(f"Invalid augmentation: {self.args.augmentation}.")
 
         _augmentation = transforms.Compose(_augmentation)
-
         return _augmentation
 
     def _normalized_value_to_single_tensor_if_mlp(self, idx):
@@ -96,7 +96,7 @@ class NervusDataSet(Dataset):
             return normed_inputs_value_normed
 
         index_normed_input_list = [self.index_dict[normed_input] for normed_input in self.normed_input_list]
-        s_normed_inputs_value = self.df_split.iloc[idx,  index_normed_input_list]
+        s_normed_inputs_value = self.df_split.iloc[idx, index_normed_input_list]
         normed_inputs_value_normed = np.array(s_normed_inputs_value, dtype=np.float64)
         normed_inputs_value_normed = torch.from_numpy(normed_inputs_value_normed.astype(np.float32)).clone()
         return normed_inputs_value_normed
@@ -134,7 +134,7 @@ class NervusDataSet(Dataset):
         return {
                 'Institution': institution,
                 'ExamID': examid,
-                'Filename': filepath,
+                'Filepath': filepath,
                 'raw_labels': raw_label_dict,
                 'internal_labels': internal_label_dict,
                 'normed_inputs': normed_inputs_value,
@@ -146,11 +146,8 @@ class NervusDataSet(Dataset):
 def _make_sampler(split_data):
     _target = []
     for _, data in enumerate(split_data):
-        # _target.append(list(data['internal_labels'].values())[0])
-        aaa = list(data['internal_labels'].values())[0]
-        print(aaa)
+        _target.append(list(data['internal_labels'].values())[0])
 
-    breakpoint()
     class_sample_count = np.array([len(np.where(_target == t)[0]) for t in np.unique(_target)])
     weight = 1. / class_sample_count
     samples_weight = np.array([weight[t] for t in _target])
@@ -161,13 +158,14 @@ def _make_sampler(split_data):
 def create_dataloader(args, split_provider, split_list=None, batch_size=None, sampler=None):
     split_data = NervusDataSet(args, split_provider, split_list)
 
+    # ! Not easy to read
     if (args.task == 'classification') or (args.task == 'deepsurv'):
         if sampler == 'yes':
-            if len(split_provider.raw_label_list) == 1:
+            if len(split_provider.raw_label_list) > 1:
+                logger.error("Cannot make sampler for multi-label.")
+            else:
                 sampler = _make_sampler(split_data)
                 shuffle = False
-            else:
-                logger.error("Cannot make sampler for multi-label.")
         else:
             sampler = None
             shuffle = True
