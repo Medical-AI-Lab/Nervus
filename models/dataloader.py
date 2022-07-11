@@ -35,13 +35,14 @@ class NervusDataSet(Dataset):
 
         self.df_source = self.split_provider.df_source
         self.df_split = self.df_source[self.df_source['split'] == self.split].copy()  # index is not a serial number.
-        self.df_split.reset_index(inplace=True, drop=True)                            # Without reset_index, nan occurrs in iteration.
+        self.df_split.reset_index(inplace=True, drop=True)                            # Without reset_index, nan occurrs in iteration. This may be bacause the index is missing in some place.
+
 
         # Nomalize inputs
         if (self.args.mlp is not None):
             self.df_train = self.df_source[self.df_source['split'] == 'train'].copy()  # should be normalized with min and max of training data
             self.scaler = MinMaxScaler()
-            _ = self.scaler.fit(self.df_train[self.input_list])
+            _ = self.scaler.fit(self.df_train[self.input_list])  # only fit
             self.normed_input_list = ['normed_' + input for input in self.input_list]
             _normed_inputs = self.scaler.transform(self.df_split[self.input_list])
             _df_normed_inputs = pd.DataFrame(_normed_inputs, columns=self.normed_input_list)
@@ -132,9 +133,9 @@ class NervusDataSet(Dataset):
         image = self._load_image_if_cnn(idx)
         split = self.df_split.iat[idx, self.index_dict['split']]
         return {
-                'Institution': institution,
+                'Filename': Path(filepath).name,
                 'ExamID': examid,
-                'Filepath': filepath,
+                'Institution': institution,
                 'raw_labels': raw_label_dict,
                 'internal_labels': internal_label_dict,
                 'normed_inputs': normed_inputs_value,
@@ -155,30 +156,21 @@ def _make_sampler(split_data):
     return sampler
 
 
-def create_dataloader(args, split_provider, split_list=None, batch_size=None, sampler=None):
-    split_data = NervusDataSet(args, split_provider, split_list)
+def create_dataloader(args, split_provider, split=None):
+    split_data = NervusDataSet(args, split_provider, split)
 
-    # ! Not easy to read
-    if (args.task == 'classification') or (args.task == 'deepsurv'):
-        if sampler == 'yes':
-            if len(split_provider.raw_label_list) > 1:
-                logger.error("Cannot make sampler for multi-label.")
-            else:
-                sampler = _make_sampler(split_data)
-                shuffle = False
-        else:
-            sampler = None
-            shuffle = True
+    if args.sampler == 'yes':
+        assert ((args.task == 'classification') or (args.task == 'deepsurv')), 'Cannot make sampler in regression.'
+        assert (len(split_provider.raw_label_list) == 1), 'Cannot make sampler for multi-label.'
+        shuffle = False
+        sampler = _make_sampler(split_data)
     else:
-        if sampler == 'yes':
-            logger.error("Cannot make sampler in regression.")
-        else:
-            sampler = None
-            shuffle = True
+        shuffle = True
+        sampler = None
 
     split_loader = DataLoader(
                             dataset=split_data,
-                            batch_size=batch_size,
+                            batch_size=args.batch_size,
                             shuffle=shuffle,
                             num_workers=0,
                             sampler=sampler
