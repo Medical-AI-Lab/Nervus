@@ -61,14 +61,13 @@ class Options:
         # model
         assert (self.args.model is not None), 'model is None.'
         _model = self.args.model.split('+')  # 'MLP', 'ResNet18', 'MLP+ResNet18' -> ['MLP'], ['ResNet18'], ['MLP', 'ResNet18']
-
         if 'MLP' in _model:
             self.args.mlp = 'MLP'
         else:
             self.args.mlp = None
 
-        _cnn = list(filter(lambda model_name: model_name != 'MLP', _model))
-        if (_cnn != []):
+        _cnn = [m for m in _model if m != 'MLP']
+        if _cnn != []:
             self.args.cnn = _cnn[0]
         else:
             self.args.cnn = None
@@ -93,7 +92,7 @@ class Options:
 
     def is_option_specified(self):
         """_summary_
-            Check if any of must-options is specified.
+            Check if each of must-options is specified.
         """
         # Check must options
         must_opts = ['csv_name', 'task', 'model', 'criterion', 'optimizer', 'batch_size', 'sampler']
@@ -123,13 +122,15 @@ class Options:
                 str_default = str(default) if str(default) != '' else 'None'
                 str_v = str(v) if str(v) != '' else 'Not specified'
 
-                if (k == 'csv_name') or (k == 'image_dir'):
+                if k == 'csv_name':
+                    str_v = Path(v).name
+                elif k == 'image_dir':
                     str_v = Path(v).name
                 elif k == 'gpu_ids':
                     if str_v == '[]':
                         str_v = 'CPU selected'
                     else:
-                        str_v = str_v + ' (Primary GPU:{})'.format(v[0])
+                        str_v = f"{str_v}  (Primary GPU:{v[0]})"
 
                 comment = f"\t[Default: {str_default}]" if k != 'gpu_ids' else '\t[Default: CPU]'
                 message += '{:>25}: {:<40}{}\n'.format(str(k), str_v, comment)
