@@ -12,7 +12,7 @@ from torch.utils.data.sampler import WeightedRandomSampler
 from PIL import Image
 
 
-class NervusDataSet(Dataset):
+class LoadDataSet(Dataset):
     """_summary_
 
     Args:
@@ -148,7 +148,7 @@ def _make_sampler(split_data):
 
 
 def create_dataloader(args, split_provider, split=None):
-    split_data = NervusDataSet(args, split_provider, split)
+    split_data = LoadDataSet(args, split_provider, split)
 
     if args.sampler == 'yes':
         assert ((args.task == 'classification') or (args.task == 'deepsurv')), 'Cannot make sampler in regression.'
