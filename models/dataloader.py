@@ -115,16 +115,16 @@ class NervusDataSet(Dataset):
         return len(self.df_split)
 
     def __getitem__(self, idx):
-        institution = self.df_split.iat[idx, self.col_index_dict['Institution']]
+        filename = Path(self.df_split.iat[idx, self.col_index_dict['filepath']]).name
         examid = self.df_split.iat[idx, self.col_index_dict['ExamID']]
-        filepath = self.df_split.iat[idx, self.col_index_dict['filepath']]
+        institution = self.df_split.iat[idx, self.col_index_dict['Institution']]
         raw_label_dict = {raw_label_name: self.df_split.iat[idx, self.col_index_dict[raw_label_name]] for raw_label_name in self.raw_label_list}
         internal_label_dict = {internal_label_name: self.df_split.iat[idx, self.col_index_dict[internal_label_name]] for internal_label_name in self.internal_label_list}
         inputs_value = self._input_value_to_single_tensor_if_mlp(idx)
         image = self._load_image_if_cnn(idx)
         split = self.df_split.iat[idx, self.col_index_dict['split']]
         return {
-                'Filename': Path(filepath).name,
+                'Filename': filename,
                 'ExamID': examid,
                 'Institution': institution,
                 'raw_labels': raw_label_dict,
