@@ -74,7 +74,7 @@ class LoadDataSet(Dataset):
         elif self.args.augmentation == 'trivialaugwide':
             _augmentation.append(transforms.TrivialAugmentWide())
         elif self.args.augmentation == 'augmix':
-            _augmentation.append(transforms.AugMix())   # ? Cannot find in transforms ?
+            _augmentation.append(transforms.AugMix())
         else:
             pass
 
