@@ -4,7 +4,7 @@
 import logging
 
 
-class NervusLogger:
+class Logger:
     _unexecuted_configure = True
 
     @classmethod

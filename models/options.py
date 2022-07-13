@@ -6,10 +6,10 @@ from pathlib import Path
 import argparse
 
 sys.path.append((Path().resolve() / '../').name)
-from logger.logger import NervusLogger
+from logger.logger import Logger
 
 
-logger = NervusLogger.get_logger('options')
+logger = Logger.get_logger('options')
 
 
 class Options:
@@ -53,7 +53,7 @@ class Options:
 
         # Test
         self.parser.add_argument('--test_batch_size', type=int,   default=64,    metavar='N', help='batch size for test (Default: 64)')
-        self.parser.add_argument('--test_datetime',   type=str,   default=None,  help='datetime in which the weigh is stored (Default: None)')
+        self.parser.add_argument('--test_datetime',   type=str,   default=None,  help='datetime when trained(Default: None)')
 
     def parse(self):
         self.args = self.parser.parse_args()
@@ -114,7 +114,7 @@ class Options:
         message = ''
         message += '------------------------ Options --------------------------\n'
 
-        for k, v in (self._get_args().items()):
+        for k, v in self._get_args().items():
             if k not in ignore:
                 comment = ''
                 default = self.parser.get_default(k)
