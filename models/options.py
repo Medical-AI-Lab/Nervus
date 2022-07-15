@@ -36,7 +36,7 @@ class Options:
         self.parser.add_argument('--batch_size',      type=int,   default=None,  metavar='N', help='batch size in training (Default: None)')
 
         # Preprocess for image
-        self.parser.add_argument('--augmentation',    type=str,   default=None,  help='Automatic Augmentation: randaug, trivialaugwide, augmix, noaug')
+        self.parser.add_argument('--augmentation',    type=str,   default=None,  help='Automatic Augmentation: randaug, trivialaugwide, augmix, no')
         self.parser.add_argument('--normalize_image', type=str,   default='yes', help='image nomalization: yes, no (Default: yes)')
 
         # Sampler
@@ -90,24 +90,6 @@ class Options:
     def _get_args(self):
         return vars(self.args)
 
-    def is_option_specified(self):
-        """_summary_
-            Check if each of must-options is specified.
-        """
-        # Check must options
-        must_opts = ['csv_name', 'task', 'model', 'criterion', 'optimizer', 'batch_size', 'sampler']
-        if (self.args.cnn is not None):
-            must_opts = must_opts + ['image_dir', 'augmentation', 'input_channel']
-
-        _args = self._get_args()
-        for opt in must_opts:
-            if _args[opt] is None:
-                logger.error('\nSpecify {}.\n'.format(opt))
-                exit()
-            else:
-                pass
-        logger.info('\nRequired options have been specified.\n')
-
     def print_options(self):
         ignore = ['mlp', 'cnn', 'test_batch_size', 'test_datetime']
 
@@ -141,6 +123,5 @@ class Options:
 
     def check_options(self):
         self.parse()
-        self.is_option_specified()
         self.print_options()
         return self.args

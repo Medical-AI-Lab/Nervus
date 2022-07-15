@@ -64,7 +64,7 @@ class LoadDataSet(Dataset):
         return _transforms
 
     def _make_augmentations(self):
-        _aug_list = ['randaug', 'trivialaugwide', 'augmix', 'noaug']
+        _aug_list = ['randaug', 'trivialaugwide', 'augmix', 'no']
         assert (self.args.augmentation in _aug_list), f"Invalid augmentation: {self.args.augmentation}."
 
         _augmentation = []
