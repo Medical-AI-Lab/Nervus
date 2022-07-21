@@ -1,13 +1,13 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-r
 
+import torch.nn as nn
 import torchvision.models as models
 from torchvision.ops import MLP
-from torchvision.models.feature_extraction import create_feature_extractor
 
 
 class BaseNet:
-    cnns = {
+    nets = {
             'ResNet18': models.resnet18,
             'ResNet': models.resnet50,
             'DenseNet': models.densenet161,
@@ -18,69 +18,79 @@ class BaseNet:
             'ConvNeXtTiny': models.convnext_tiny,
             'ConvNeXtSmall': models.convnext_small,
             'ConvNeXtBase': models.convnext_base,
-            'ConvNeXtLarge': models.convnext_large
-            }
-
-    vits = {
+            'ConvNeXtLarge': models.convnext_large,
             'ViTb16': models.vit_b_16,
             'ViTb32': models.vit_b_32,
             'ViTl16': models.vit_l_16,
             'ViTl32': models.vit_l_32
             }
 
-    nets = {**cnns, **vits}
-
-
-class FeatureExtractor(BaseNet):
-    # * {'target layer': 'reference name'}
-    ref_feature = 'feature'
-    feature_extractors = {
-                    'ResNet18': {'avgpool': ref_feature},
-                    'ResNet': {'avgpool': ref_feature},
-                    'DenseNet': {'features': ref_feature},
-                    'B0': {'avgpool': ref_feature},
-                    'B2': {'avgpool': ref_feature},
-                    'B4': {'avgpool': ref_feature},
-                    'B6': {'avgpool': ref_feature},
-                    'ConvNeXtTiny': {'avgpool': ref_feature},
-                    'ConvNeXtSmall': {'avgpool': ref_feature},
-                    'ConvNeXtBase': {'avgpool': ref_feature},
-                    'ConvNeXtLarge': {'avgpool': ref_feature},
-                    'ViTb16': {'encoder.ln': ref_feature},
-                    'ViTb32': {'encoder.ln': ref_feature},
-                    'ViTl16': {'encoder.ln': ref_feature},
-                    'ViTl32': {'encoder.ln': ref_feature}
-                    }
-
-    def __init__(self):
-        super().__init__()
+    DUMMY = nn.Identity()
 
     @classmethod
     def set_net(cls, net_name):
         assert (net_name in cls.nets), f"No specified net: {net_name}."
-        net = cls.nets[net_name]()  # * Since cls.nets[net_name] is just an object, it is required to inistantiate with ().
+        net = cls.nets[net_name]()
         return net
 
     @classmethod
-    def create_extractor(cls, net_name):
-        net = cls.set_net(net_name)
-        extractor = create_feature_extractor(net, cls.feature_extractors[net_name])
+    def MLPNet(cls, num_inputs):
+        """
+        Args:
+            num_inputs (int): the number of inputs
+
+        Returns:
+            torchvision.ops.misc.MLP : MLP has no output layer.
+        """
+        hidden_channels = [256, 256, 256]
+        dropout = 0.2
+        mlp = MLP(in_channels=num_inputs, hidden_channels=hidden_channels, dropout=dropout)
+        return mlp
+
+    @classmethod
+    def create_feature_extractor(cls, net_name):
+        extractor = cls.nets[net_name]()
+        if net_name.startswith('ResNet'):
+            extractor.fc = cls.DUMMY
+        elif net_name.startswith('DenseNet'):
+            extractor.classifier = cls.DUMMY
+        elif net_name.startswith('B'):
+            extractor.classifier = cls.DUMMY
+        elif net_name.startswith('Conv'):
+            extractor.classifier = cls.DUMMY
+        else:
+            # ViT
+            extractor.heads = cls.DUMMY
         return extractor
 
     @classmethod
-    def get_feature(cls, feature_dict):
-        return feature_dict[cls.ref_feature].squeeze() # Without squeeze(), shape does not match between feature and classfifer
+    def get_classifier(cls, net_name):
+        net = cls.nets[net_name]()
+        if net_name.startswith('ResNet'):
+            classifier = net.fc
+        elif net_name.startswith('DenseNet'):
+            classifier = net.classifier
+        elif net_name.startswith('B'):
+            classifier = net.classifier
+        elif net_name.startswith('Conv'):
+            classifier = net.classifier
+        else:
+            # ViT
+            classifier = net.heads
+        return classifier
 
-
-def MLPNet(num_inputs):
-    """
-    Args:
-        num_inputs (int): the number of inputs
-
-    Returns:
-        torchvision.ops.misc.MLP : MLP has no output layer.
-    """
-    hidden_channels = [256, 256, 256]
-    dropout = 0.2
-    mlp = MLP(in_channels=num_inputs, hidden_channels=hidden_channels, dropout=dropout)
-    return mlp
+    @classmethod
+    def get_in_features(cls, net_name):
+        net = cls.nets[net_name]()
+        if net_name.startswith('ResNet'):
+            in_features = net.fc.in_features
+        elif net_name.startswith('DenseNet'):
+            in_features = net.classifier.in_features
+        elif net_name.startswith('B'):
+            in_features = net.classifier[1].in_features
+        elif net_name.startswith('Conv'):
+            in_features = net.classifier[2].in_features
+        else:
+            # ViT
+            in_features = net.heads.head.in_features
+        return in_features
