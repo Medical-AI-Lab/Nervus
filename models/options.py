@@ -59,24 +59,24 @@ class Options:
         self.args = self.parser.parse_args()
 
         # model
-        assert (self.args.model is not None), 'model is None.'
+        assert (self.args.model is not None), 'Specify model.'
         _model = self.args.model.split('+')  # 'MLP', 'ResNet18', 'MLP+ResNet18' -> ['MLP'], ['ResNet18'], ['MLP', 'ResNet18']
         if 'MLP' in _model:
             self.args.mlp = 'MLP'
         else:
             self.args.mlp = None
 
-        _cnn = [m for m in _model if m != 'MLP']
-        if _cnn != []:
-            self.args.cnn = _cnn[0]
+        _net = [m for m in _model if m != 'MLP']
+        if _net != []:
+            self.args.net = _net[0]
         else:
-            self.args.cnn = None
+            self.args.net = None
 
         # split path
         self.args.csv_name = Path('./materials/splits', self.args.csv_name)
 
         # image directory
-        if (self.args.cnn is not None):
+        if (self.args.net is not None):
             self.args.image_dir = Path('./materials/images', self.args.image_dir)
 
         # GPU IDs
@@ -91,7 +91,7 @@ class Options:
         return vars(self.args)
 
     def print_options(self):
-        ignore = ['mlp', 'cnn', 'test_batch_size', 'test_datetime']
+        ignore = ['mlp', 'net', 'test_batch_size', 'test_datetime']
 
         message = ''
         message += '------------------------ Options --------------------------\n'
