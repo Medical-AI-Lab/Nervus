@@ -1,23 +1,19 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-import os
-import sys
 
 import torch
 import torch.nn as nn
 
-sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
-from lib import NervusLogger
-
-logger = NervusLogger.get_logger('config.criterion')
 
 class RMSELoss(nn.Module):
-    def __init__(self):
+    def __init__(self, eps=1e-7):
         super().__init__()
         self.mse = nn.MSELoss()
+        self.eps = eps
 
     def forward(self, yhat, y):
-        return torch.sqrt(self.mse(yhat, y))
+        _loss = self.mse(yhat, y) + self.eps
+        return torch.sqrt(_loss)
 
 
 class Regularization(object):
@@ -51,15 +47,14 @@ class NegativeLogLikelihood(nn.Module):
         self.device = device
 
     def forward(self, risk_pred, y, e, model):
-        mask = torch.ones(y.shape[0], y.shape[0]).to(self.device)
+        mask = torch.ones(y.shape[0], y.shape[0]).to(self.device)  # risk_pred and mask should be on the same device.
         mask[(y.T - y) > 0] = 0
         loss_1 = torch.exp(risk_pred) * mask
         loss_1 = torch.sum(loss_1, dim=0) / torch.sum(mask, dim=0)
         loss_1 = torch.log(loss_1).reshape(-1, 1)
         num_occurs = torch.sum(e)
         if num_occurs.item() == 0.0:
-            # To avoid dividing with zero, set small value as loss
-            loss = torch.tensor([1e-7], requires_grad=True)
+            loss = torch.tensor([1e-7], requires_grad=True)  # To avoid zero division, set small value as loss
         else:
             neg_log_loss = -torch.sum((risk_pred-loss_1) * e) / num_occurs
             l2_loss = self.reg(model)
@@ -67,26 +62,20 @@ class NegativeLogLikelihood(nn.Module):
         return loss
 
 
+criterions = {
+    'CEL': nn.CrossEntropyLoss,
+    'MSE': nn.MSELoss,
+    'RMSE': RMSELoss,
+    'MAE': nn.L1Loss,
+    'NLL': NegativeLogLikelihood
+    }
+
+
 def set_criterion(criterion_name, device):
-    if criterion_name == 'CEL':
-        criterion = nn.CrossEntropyLoss()
+    assert (criterion_name in criterions), f"No specified criterion: {criterion_name}."
 
-    elif criterion_name == 'MSE':
-        criterion = nn.MSELoss()
-
-    elif criterion_name == 'RMSE':
-        criterion = RMSELoss()
-
-    elif criterion_name == 'MAE':
-        criterion = nn.L1Loss()
-
-    elif criterion_name == 'NLL':
-        criterion = NegativeLogLikelihood(device).to(device)
-
+    if criterion_name == 'NLL':
+        criterion = criterions[criterion_name](device).to(device)
     else:
-        logger.error(f"No specified criterion: {criterion_name}.")
-
+        criterion = criterions[criterion_name]()
     return criterion
-
-
-# ----- EOF -----
