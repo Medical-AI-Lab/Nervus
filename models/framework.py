@@ -5,12 +5,16 @@ import torch
 import torch.nn as nn
 from torchinfo import summary
 
-from net import BaseNet
-
 from abc import ABC, abstractmethod
+
+from .net import BaseNet
+from .criterion import set_criterion
+from .optimizer import set_optimizer
+from .loss import LossRegistory
 
 import sys
 from pathlib import Path
+
 sys.path.append((Path().resolve() / '../').name)
 from logger.logger import Logger
 
@@ -25,7 +29,7 @@ class MultiMixin:
             output[internal_label_name] = unit(out_features)
         return output
 
-    def get_output(self, multi_output, internal_label_name):
+    def get_label_output(self, multi_output, internal_label_name):
         return multi_output[internal_label_name]
 
 
@@ -57,7 +61,7 @@ class MultiNet(MultiWidget):
 
 class MultiNetFusion(MultiWidget):
     def __init__(self, net_name, num_classes_in_internal_label, mlp_num_inputs=None, in_channels=None, vit_image_size=None):
-        assert (net_name != 'MLP'), "net_name should not be MLP."
+        assert (net_name != 'MLP'), 'net_name should not be MLP.'
 
         super().__init__()
 
@@ -92,46 +96,31 @@ class MultiNetFusion(MultiWidget):
         return output
 
 
-def create_model(args, split_provider, device=None, gpu_ids=None):
-    # 1ch, 3ch
-    # MLP, CNN, or MLP+CNN
-    # MultiNet or MultiNetFusion
-    mlp = args.mlp
-    net = args.net
-    in_channels = args.in_channels
-    vit_image_size = args.vit_image_size
-    mlp_num_inputs = len(split_provider.input_list)
-    num_classes_in_internal_label = split_provider.num_classes_in_internal_label
-
+def create_model(mlp, net, num_classes_in_internal_label, mlp_num_inputs, in_channels, vit_image_size):
     if (mlp is not None) and (net is None):
-        multi_net = MultiNet('MLP', num_classes_in_internal_label, mlp_num_inputs=mlp_num_inputs, in_channels=None, vit_image_size=None)
+        multi_net = MultiNet('MLP', num_classes_in_internal_label, mlp_num_inputs=mlp_num_inputs, in_channels=in_channels, vit_image_size=vit_image_size)
+
     elif (mlp is None) and (net is not None):
-        multi_net = MultiNet(net, num_classes_in_internal_label, mlp_num_inputs=None, in_channels=in_channels, vit_image_size=vit_image_size)
+        multi_net = MultiNet(net, num_classes_in_internal_label, mlp_num_inputs=mlp_num_inputs, in_channels=in_channels, vit_image_size=vit_image_size)
+
     elif (mlp is not None) and (net is not None):
         multi_net = MultiNetFusion(net, num_classes_in_internal_label, mlp_num_inputs=mlp_num_inputs, in_channels=in_channels, vit_image_size=vit_image_size)
+
     else:
-        logger.error("Cannot identify net type.")
+        logger.error('Cannot identify net type.')
+
     return multi_net
 
-"""
+
 class BaseModel(ABC):
-    def __init__(self, args, split_provider, gpu_ids=None):
-        self.args = args
-        self.sp = split_provider
-        self.mlp = args.mlp
-        self.net = args.mlp
-        self.criterion_name = args.criterion
-        self.optimizer_name = args.optimizer
-        self.gpu_ids = gpu_ids
-        self.device = self.gpu_ids[0]
+    def __init__(self):
+        pass
 
-    @property
     def train(self):
-        self.net.train()
+        self.network.train()
 
-    @property
     def eval(self):
-        self.net.eval()
+        self.network.eval()
 
     @abstractmethod
     def set_data(self, data):
@@ -151,55 +140,88 @@ class BaseModel(ABC):
     def forward(self):
         pass
 
+    @abstractmethod
     def backward(self):
         pass
 
+    @abstractmethod
     def optimize_paramters(self):
         pass
 
+    def save_weight(self, strategy):
+        pass
 
-class ModelMLP(BaseModel):
-    def __init__(self, args, split_provider):
-        super().__init__()
+    def load_wight(self, datatime=None):
+        pass
 
-        self.net = ...
+    def save_oprtions(self):
+        pass
 
-    def set_data(self, data):
-        inputs = data['inputs'].to(self.device)
-        return inputs
-
-    def forward(self, inputs):
-        output = self.net(inputs)
+    def load_options(self):
+        # train_parameter.augmantation = 'no'
+        pass
 
 
 class ModelNet(BaseModel):
     def __init__(self, args, split_provider):
         super().__init__()
 
+        self.args = args
+        self.sp = split_provider
+
+        self.mlp = self.args.mlp
+        self.net = self.args.net
+        self.num_classes_in_internal_label = self.sp.num_classes_in_internal_label
+        self.mlp_num_inputs = len(self.sp.input_list)
+        self.in_channels = self.args.in_channels
+        self.vit_image_size = self.args.vit_image_size
+        self.lr = self.args.lr
+        self.network = create_model(self.mlp, self.net, self.num_classes_in_internal_label, self.mlp_num_inputs, self.in_channels, self.vit_image_size)
+
+        self.gpu_ids = self.args.gpu_ids
+        self.device = torch.device(f"cuda:{self.gpu_ids[0]}") if self.gpu_ids else torch.device('cpu')
+
+        self.criterion = set_criterion(args.criterion, self.device)
+        self.optimizer = set_optimizer(args.optimizer, self.network, self.lr)
+
+        self.internal_label_list = self.sp.internal_label_list
+        self.loss_reg = LossRegistory(self.criterion, self.internal_label_list, self.device)
+
     def set_data(self, data):
-        image = data['image'].to(self.device)
-        return image
+        self.image = data['image'].to(self.device)
+        self.multi_label = data['internal_labels']
+        for internal_label_name in self.internal_label_list:
+            self.multi_label[internal_label_name] = self.multi_label[internal_label_name].to(self.device)
 
-    def forward(self, image):
-        output = self.net(image)
+    def forward(self):
+        self.multi_output = self.network(self.image)
+
+    def store_raw_loss(self):
+        self.loss_reg.store_raw_loss(self.multi_output, self.multi_label)
+
+    def backward(self):
+        self.loss = self.loss_reg.get_raw_loss()
+        self.loss.backward()
+
+    def optimize_paramters(self):
+        self.optimizer.step()
+
+    def store_iter_loss(self):
+        self.loss_reg.store_iter_loss()
+
+    def store_epoch_loss(self, phase, len_dataloader):
+        self.loss_reg.store_epoch_loss(phase, len_dataloader)
+
+    def print_epoch_loss(self, num_epochs, epoch):
+        train_loss = self.loss_reg.get_epoch_loss('train')
+        val_loss = self.loss_reg.get_epoch_loss('val')
+        epoch_comm = f"epoch [{epoch+1:>3}/{num_epochs:<3}]"
+        train_comm = f"train_loss: {train_loss:.4f}"
+        val_comm = f"val_loss: {val_loss:.4f}"
+        updated_commemt = self.loss_reg.check_loss_updated()
+        comment = epoch_comm + ', ' + train_comm + ', ' + val_comm + updated_commemt
+        logger.info(comment)
 
 
-class ModelFusion(BaseModel):
-    def __init__(self, args, split_provider):
-        super().__init__()
-
-    def set_data(self, data):
-        image = data['image'].to(self.device)
-        inputs = data['inputs'].to(self.device)
-        return inputs, image
-
-    def forward(self, inputs, image):
-        output = self.net(inputs, image)
-
-
-class Loss:
-    def __init__(self, label_list):
-        self.label_list = label_list
-        train_loss = []
-        val_loss = []
-"""
+# class ModelMLP(BaseModel):
+# class ModelFusion(BaseModel):

@@ -41,19 +41,19 @@ class LoadDataSet(Dataset):
 
         self.col_index_dict = {col_name: self.df_split.columns.get_loc(col_name) for col_name in self.df_split.columns}
 
-        if (self.args.cnn is not None):
+        if (self.args.net is not None):
             self.transform = self._make_transforms()
             self.augmentation = self._make_augmentations()
 
     def _make_transforms(self):
-        assert ((self.args.input_channel == 1) or (self.args.input_channel == 3)), f"Invalid input channel: {self.args.input_channel}."
+        assert ((self.args.in_channels == 1) or (self.args.in_channels == 3)), f"Invalid input channel: {self.args.in_channels}."
 
         _transforms = []
         _transforms.append(transforms.ToTensor())
 
         if self.args.normalize_image == 'yes':
             # transforms.Normalize accepts only Tensor.
-            if self.args.input_channel == 1:
+            if self.args.in_channels == 1:
                 _transforms.append(transforms.Normalize(mean=(0.5, ), std=(0.5, )))
             else:
                 _transforms.append(transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]))
@@ -96,13 +96,13 @@ class LoadDataSet(Dataset):
     def _load_image_if_cnn(self, idx):
         image = ''
 
-        if self.args.cnn is None:
+        if self.args.net is None:
             return image
 
         filepath = self.df_split.iat[idx, self.col_index_dict['filepath']]
         image_path = Path(self.args.image_dir, filepath)
 
-        if self.args.input_channel == 1:
+        if self.args.in_channels == 1:
             image = Image.open(image_path).convert('L')
         else:
             image = Image.open(image_path).convert('RGB')

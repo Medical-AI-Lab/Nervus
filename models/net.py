@@ -8,6 +8,7 @@ from torchvision.ops import MLP
 
 import sys
 from pathlib import Path
+
 sys.path.append((Path().resolve() / '../').name)
 from logger.logger import Logger
 
@@ -42,44 +43,74 @@ class BaseNet:
             }
 
     vit_weight = {
-                'ViTb16': models.ViT_B_16_Weights.DEFAULT, # DEFAULT =
-                'ViTb32': models.ViT_B_32_Weights.DEFAULT, # DEFAULT =
-                'ViTl16': models.ViT_L_16_Weights.DEFAULT, # DEFAULT =
-                'ViTl32': models.ViT_L_32_Weights.DEFAULT, # DEFAULT =
+                'ViTb16': models.ViT_B_16_Weights.DEFAULT, # DEFAULT = IMAGENET1K_V1
+                'ViTb32': models.ViT_B_32_Weights.DEFAULT, # DEFAULT = IMAGENET1K_V1
+                'ViTl16': models.ViT_L_16_Weights.DEFAULT, # DEFAULT = IMAGENET1K_V1
+                'ViTl32': models.ViT_L_32_Weights.DEFAULT, # DEFAULT = IMAGENET1K_V1
                 'ViTH14': models.ViT_H_14_Weights.DEFAULT  # DEFAULT = IMAGENET1K_SWAG_E2E_V1
                 }
 
     net = {**cnn, **vit}
 
+    _classifier = {
+            'ResNet': 'fc',
+            'DenseNet': 'classifier',
+            'EfficientNet': 'classifier',
+            'ConvNext': 'classifier',
+            'ViT': 'heads'
+            }
+
     classifier = {
-                'ResNet18': 'fc',
-                'ResNet': 'fc',
-                'DenseNet': 'classifier',
-                'EfficientNetB0': 'classifier',
-                'EfficientNetB2': 'classifier',
-                'EfficientNetB4': 'classifier',
-                'EfficientNetB6': 'classifier',
-                'EfficientNetV2s': 'classifier',
-                'EfficientNetV2m': 'classifier',
-                'EfficientNetV2l': 'classifier',
-                'ConvNeXtTiny': 'classifier',
-                'ConvNeXtSmall': 'classifier',
-                'ConvNeXtBase': 'classifier',
-                'ConvNeXtLarge': 'classifier',
-                'ViTb16': 'heads',
-                'ViTb32': 'heads',
-                'ViTl16': 'heads',
-                'ViTl32': 'heads',
-                'ViTH14': 'heads'
+                'ResNet18': _classifier['ResNet'],
+                'ResNet': _classifier['ResNet'],
+                'DenseNet': _classifier['DenseNet'],
+                'EfficientNetB0': _classifier['EfficientNet'],
+                'EfficientNetB2': _classifier['EfficientNet'],
+                'EfficientNetB4': _classifier['EfficientNet'],
+                'EfficientNetB6': _classifier['EfficientNet'],
+                'EfficientNetV2s': _classifier['EfficientNet'],
+                'EfficientNetV2m': _classifier['EfficientNet'],
+                'EfficientNetV2l': _classifier['EfficientNet'],
+                'ConvNeXtTiny': _classifier['ConvNext'],
+                'ConvNeXtSmall': _classifier['ConvNext'],
+                'ConvNeXtBase':  _classifier['ConvNext'],
+                'ConvNeXtLarge':  _classifier['ConvNext'],
+                'ViTb16': _classifier['ViT'],
+                'ViTb32': _classifier['ViT'],
+                'ViTl16': _classifier['ViT'],
+                'ViTl32': _classifier['ViT'],
+                'ViTH14': _classifier['ViT']
                 }
 
-    in_layrer = {
-            'ResNet': ['conv1'],
-            'DenseNet': ['features', 'conv0'],       # ._module['features']._module['conv0']
-            'EfficientNet': ['features', '0', '0'],  # ._module['features']._module['0']._module['0]
-            'ConvNeXt': ['features', '0', '0'],
-            'ViT': ['conv_proj']
+    _in_layrer = {
+            'ResNet': ['conv1'],                     # ._module.conv1
+            'DenseNet': ['features', 'conv0'],       # ._module.features.conv0
+            'EfficientNet': ['features', '0', '0'],  # ._module.features[0][0]
+            'ConvNeXt': ['features', '0', '0'],      # ._module.features[0][0]
+            'ViT': ['conv_proj']                     # ._module.conv_proj
     }
+
+    in_layer = {
+                'ResNet18': _in_layrer['ResNet'],
+                'ResNet': _in_layrer['ResNet'],
+                'DenseNet': _in_layrer['DenseNet'],
+                'EfficientNetB0': _in_layrer['EfficientNet'],
+                'EfficientNetB2': _in_layrer['EfficientNet'],
+                'EfficientNetB4': _in_layrer['EfficientNet'],
+                'EfficientNetB6': _in_layrer['EfficientNet'],
+                'EfficientNetV2s': _in_layrer['EfficientNet'],
+                'EfficientNetV2m': _in_layrer['EfficientNet'],
+                'EfficientNetV2l': _in_layrer['EfficientNet'],
+                'ConvNeXtTiny': _in_layrer['ConvNeXt'],
+                'ConvNeXtSmall': _in_layrer['ConvNeXt'],
+                'ConvNeXtBase': _in_layrer['ConvNeXt'],
+                'ConvNeXtLarge': _in_layrer['ConvNeXt'],
+                'ViTb16': _in_layrer['ViT'],
+                'ViTb32': _in_layrer['ViT'],
+                'ViTl16': _in_layrer['ViT'],
+                'ViTl32': _in_layrer['ViT'],
+                'ViTH14': _in_layrer['ViT']
+                }
 
     mlp_config = {
                 'hidden_channels': [256, 256, 256],
@@ -94,11 +125,29 @@ class BaseNet:
         mlp = MLP(in_channels=mlp_num_inputs, hidden_channels=cls.mlp_config['hidden_channels'], inplace=inplace, dropout=cls.mlp_config['dropout'])
         return mlp
 
+    """
+    def _getattr(cls, target, attr):
+        value = target
+        for attr in attrs:
+            value = getattr(value, attr)
+        return value
+    """
+
+    """
+    def _setattr(cls, target, attr):
+        pass
+    """
+
     @classmethod
     def align_in_channels_1ch(cls, net_name, net):
+        """
         # in_layer = ......
         # in_layer.in_features = 1
         # in_layer_in_channels = nn.Parameter(in_layer.weight.sum(dim=1).unsqueeze(1))
+        net.conv1
+        net.features[0][0]
+        net.conv_proj
+        """
         if net_name.startswith('ResNet'):
             net.conv1.in_channels = 1
             net.conv1.weight = nn.Parameter(net.conv1.weight.sum(dim=1).unsqueeze(1))
@@ -160,19 +209,22 @@ class BaseNet:
             extractor = cls.MLPNet(mlp_num_inputs)
         else:
             extractor = cls.set_net(net_name, in_channels, vit_image_size)
-            extractor._modules[cls.classifier[net_name]] = cls.DUMMY
+            setattr(extractor, cls.classifier[net_name], cls.DUMMY)  # -> _setattr ?
         return extractor
 
     @classmethod
     def get_classifier(cls, net_name):
         net = cls.net[net_name]()
-        classifier = net._modules[cls.classifier[net_name]]
+        classifier = getattr(net, cls.classifier[net_name])  # -> _getattr ?
         return classifier
 
     @classmethod
     def construct_multi_classifier(cls, net_name, num_classes_in_internal_label):
+        """
+        Required:
+        in_feature, dropout, layer_norm, flatten
+        """
         classifiers = dict()
-
         if net_name == 'MLP':
             in_features = cls.mlp_config['hidden_channels'][-1]
             for internal_label_name, num_classes in num_classes_in_internal_label.items():
@@ -222,13 +274,20 @@ class BaseNet:
 
     @classmethod
     def get_classifier_in_features(cls, net_name):
-        """ This is used in class MultiNetFusion(MultiWidget() only.
+        """ This is used in class MultiNetFusion() only.
 
         Args:
-            net_name (_type_): _description_
+            net_name (str): net_name
 
         Returns:
-            _type_: _description_
+            int : in_feature
+        """
+        """
+        Required:
+        classifier.in_feature
+        classifier.[1].in_features
+        classifier.[2].in_features
+        classifier.head.in_features
         """
         if net_name == 'MLP':
             in_features = cls.mlp_config['hidden_channels'][-1]
@@ -264,11 +323,11 @@ class BaseNet:
             nn.Module: layers
         """
         # * Needs to align shape of the feature extractor when ConvNeXt
-        #  >>> BaseNet.get_classifier('ConvNeXtTiny')
-        # Sequential(
-        # (0): LayerNorm2d((768,), eps=1e-06, elementwise_affine=True)
-        # (1): Flatten(start_dim=1, end_dim=-1)
-        # (2): Linear(in_features=768, out_features=1000, bias=True)
+        # (classifier):
+        #  Sequential(
+        #   (0): LayerNorm2d((768,), eps=1e-06, elementwise_affine=True)
+        #   (1): Flatten(start_dim=1, end_dim=-1)
+        #   (2): Linear(in_features=768, out_features=1000, bias=True)
         # )
         aux_module = cls.DUMMY
         if net_name.startswith('ConvNeXt'):

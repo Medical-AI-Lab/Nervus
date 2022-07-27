@@ -13,8 +13,8 @@ optimizers = {
     }
 
 
-def set_optimizer(optimizer_name, model, lr):
+def set_optimizer(optimizer_name, network, lr):
     assert (optimizer_name in optimizers), f"No specified optimizer: {optimizer_name}."
 
-    opritmizer = optimizers[optimizer_name](model.parameters(), lr=lr)
+    opritmizer = optimizers[optimizer_name](network.parameters(), lr=lr)
     return opritmizer

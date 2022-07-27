@@ -43,7 +43,8 @@ class Options:
         self.parser.add_argument('--sampler',         type=str,   default=None,  help='sample data in traning or not, yes or no (Default: None)')
 
         # Input channel
-        self.parser.add_argument('--input_channel',   type=int,   default=None,  help='channel of input image (Default: None)')
+        self.parser.add_argument('--in_channels',      type=int,   default=None,  help='channel of input image (Default: None)')
+        self.parser.add_argument('--vit_image_size',   type=int,   default=None,  help='imput image size for ViT(Default: None)')
 
         # Weight saving strategy
         self.parser.add_argument('--save_weight',     type=str,   choices=['best', 'each'], default='best', help='Save weight: best, or each(ie. save each time loss decreases when multi-label output) (Default: None)')
