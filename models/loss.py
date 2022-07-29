@@ -11,9 +11,8 @@ class LossStorage:
 """
 
 # raw_loss -> iter_loss^* -> epoch_loss
-class LossRegistory():
+class LossRegistory:
     def __init__(self, criterion, internal_label_list, device):
-        super().__init__()
 
         self.criterion = criterion
         self.internal_label_list = internal_label_list

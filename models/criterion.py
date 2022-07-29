@@ -62,20 +62,21 @@ class NegativeLogLikelihood(nn.Module):
         return loss
 
 
-criterions = {
-    'CEL': nn.CrossEntropyLoss,
-    'MSE': nn.MSELoss,
-    'RMSE': RMSELoss,
-    'MAE': nn.L1Loss,
-    'NLL': NegativeLogLikelihood
-    }
+class Criterion:
+    criterions = {
+        'CEL': nn.CrossEntropyLoss,
+        'MSE': nn.MSELoss,
+        'RMSE': RMSELoss,
+        'MAE': nn.L1Loss,
+        'NLL': NegativeLogLikelihood
+        }
 
+    @classmethod
+    def set_criterion(cls, criterion_name, device):
+        assert (criterion_name in cls.criterions), f"No specified criterion: {criterion_name}."
 
-def set_criterion(criterion_name, device):
-    assert (criterion_name in criterions), f"No specified criterion: {criterion_name}."
-
-    if criterion_name == 'NLL':
-        criterion = criterions[criterion_name](device).to(device)
-    else:
-        criterion = criterions[criterion_name]()
-    return criterion
+        if criterion_name == 'NLL':
+            criterion = cls.criterions[criterion_name](device).to(device)
+        else:
+            criterion = cls.criterions[criterion_name]()
+        return criterion

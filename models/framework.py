@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import scipy as sp
 import torch
 import torch.nn as nn
 from torchinfo import summary
@@ -8,8 +9,8 @@ from torchinfo import summary
 from abc import ABC, abstractmethod
 
 from .net import BaseNet
-from .criterion import set_criterion
-from .optimizer import set_optimizer
+from .criterion import Criterion
+from .optimizer import Optimizer
 from .loss import LossRegistory
 
 import sys
@@ -29,8 +30,8 @@ class MultiMixin:
             output[internal_label_name] = unit(out_features)
         return output
 
-    def get_label_output(self, multi_output, internal_label_name):
-        return multi_output[internal_label_name]
+    # def get_label_output(self, multi_output, internal_label_name):
+    #    return multi_output[internal_label_name]
 
 
 class MultiWidget(nn.Module, BaseNet, MultiMixin):
@@ -96,7 +97,7 @@ class MultiNetFusion(MultiWidget):
         return output
 
 
-def create_model(mlp, net, num_classes_in_internal_label, mlp_num_inputs, in_channels, vit_image_size):
+def create_model(mlp, net, num_classes_in_internal_label, mlp_num_inputs, in_channels, vit_image_size, gpu_ids):
     if (mlp is not None) and (net is None):
         multi_net = MultiNet('MLP', num_classes_in_internal_label, mlp_num_inputs=mlp_num_inputs, in_channels=in_channels, vit_image_size=vit_image_size)
 
@@ -112,9 +113,74 @@ def create_model(mlp, net, num_classes_in_internal_label, mlp_num_inputs, in_cha
     return multi_net
 
 
-class BaseModel(ABC):
-    def __init__(self):
+class ModelMixin:
+    def multi_label_to_device(self, multi_label, device):
+        for internal_label_name, each_data in multi_label.items():
+            multi_label[internal_label_name] = each_data.to(device)
+        return multi_label
+
+    def print_epoch_loss(self, num_epochs, epoch):
+        train_loss = self.loss_reg.get_epoch_loss('train')
+        val_loss = self.loss_reg.get_epoch_loss('val')
+        epoch_comm = f"epoch [{epoch+1:>3}/{num_epochs:<3}]"
+        train_comm = f"train_loss: {train_loss:.4f}"
+        val_comm = f"val_loss: {val_loss:.4f}"
+        updated_commemt = self.loss_reg.check_loss_updated()
+        comment = epoch_comm + ', ' + train_comm + ', ' + val_comm + updated_commemt
+        logger.info(comment)
+
+    def save_weight(self, strategy):
         pass
+
+    def load_wight(self, datetime=None):
+        pass
+
+    def save_oprtions(self):
+        pass
+
+    def load_options(self):
+        # train_parameter.augmantation = 'no'
+        pass
+
+
+def create_loss_reg(criterion, internal_label_list, device):
+    loss_reg = LossRegistory(criterion, internal_label_list, device)
+    return loss_reg
+
+
+def set_criterion(criterion, device):
+    criterion = Criterion.set_criterion(criterion, device)
+    return criterion
+
+
+def set_optimizer(optimizer, network, lr):
+    optimizer = Optimizer.set_optimizer(optimizer, network, lr)
+    return optimizer
+
+
+class BaseModel(ABC):
+    def __init__(self, args, split_provider):
+        self.args = args
+        self.sp = split_provider
+
+        self.mlp = self.args.mlp
+        self.net = self.args.net
+        self.internal_label_list = self.sp.internal_label_list
+        self.num_classes_in_internal_label = self.sp.num_classes_in_internal_label
+        self.mlp_num_inputs = len(self.sp.input_list)
+        self.in_channels = self.args.in_channels
+        self.vit_image_size = self.args.vit_image_size
+        self.lr = self.args.lr
+
+        self.gpu_ids = self.args.gpu_ids
+        self.device = torch.device(f"cuda:{self.gpu_ids[0]}") if self.gpu_ids else torch.device('cpu')
+
+        # Pass to GPU
+        # DataParallel
+        self.network = create_model(self.mlp, self.net, self.num_classes_in_internal_label, self.mlp_num_inputs, self.in_channels, self.vit_image_size, self.gpu_ids)
+        self.criterion = set_criterion(args.criterion, self.device)
+        self.optimizer = set_optimizer(args.optimizer, self.network, self.lr)
+        self.loss_reg = create_loss_reg(self.criterion, self.internal_label_list, self.device)
 
     def train(self):
         self.network.train()
@@ -139,62 +205,7 @@ class BaseModel(ABC):
     @abstractmethod
     def forward(self):
         pass
-
-    @abstractmethod
-    def backward(self):
-        pass
-
-    @abstractmethod
-    def optimize_paramters(self):
-        pass
-
-    def save_weight(self, strategy):
-        pass
-
-    def load_wight(self, datatime=None):
-        pass
-
-    def save_oprtions(self):
-        pass
-
-    def load_options(self):
-        # train_parameter.augmantation = 'no'
-        pass
-
-
-class ModelNet(BaseModel):
-    def __init__(self, args, split_provider):
-        super().__init__()
-
-        self.args = args
-        self.sp = split_provider
-
-        self.mlp = self.args.mlp
-        self.net = self.args.net
-        self.num_classes_in_internal_label = self.sp.num_classes_in_internal_label
-        self.mlp_num_inputs = len(self.sp.input_list)
-        self.in_channels = self.args.in_channels
-        self.vit_image_size = self.args.vit_image_size
-        self.lr = self.args.lr
-        self.network = create_model(self.mlp, self.net, self.num_classes_in_internal_label, self.mlp_num_inputs, self.in_channels, self.vit_image_size)
-
-        self.gpu_ids = self.args.gpu_ids
-        self.device = torch.device(f"cuda:{self.gpu_ids[0]}") if self.gpu_ids else torch.device('cpu')
-
-        self.criterion = set_criterion(args.criterion, self.device)
-        self.optimizer = set_optimizer(args.optimizer, self.network, self.lr)
-
-        self.internal_label_list = self.sp.internal_label_list
-        self.loss_reg = LossRegistory(self.criterion, self.internal_label_list, self.device)
-
-    def set_data(self, data):
-        self.image = data['image'].to(self.device)
-        self.multi_label = data['internal_labels']
-        for internal_label_name in self.internal_label_list:
-            self.multi_label[internal_label_name] = self.multi_label[internal_label_name].to(self.device)
-
-    def forward(self):
-        self.multi_output = self.network(self.image)
+        # self.multi_output = self.network(self.image)
 
     def store_raw_loss(self):
         self.loss_reg.store_raw_loss(self.multi_output, self.multi_label)
@@ -212,16 +223,52 @@ class ModelNet(BaseModel):
     def store_epoch_loss(self, phase, len_dataloader):
         self.loss_reg.store_epoch_loss(phase, len_dataloader)
 
-    def print_epoch_loss(self, num_epochs, epoch):
-        train_loss = self.loss_reg.get_epoch_loss('train')
-        val_loss = self.loss_reg.get_epoch_loss('val')
-        epoch_comm = f"epoch [{epoch+1:>3}/{num_epochs:<3}]"
-        train_comm = f"train_loss: {train_loss:.4f}"
-        val_comm = f"val_loss: {val_loss:.4f}"
-        updated_commemt = self.loss_reg.check_loss_updated()
-        comment = epoch_comm + ', ' + train_comm + ', ' + val_comm + updated_commemt
-        logger.info(comment)
+
+class ModelWidget(BaseModel, ModelMixin):
+    """
+    Class for a widght to inherit multiple classes simultaneously
+    """
+    pass
 
 
-# class ModelMLP(BaseModel):
-# class ModelFusion(BaseModel):
+class CVModel(ModelWidget):
+    def __init__(self, args, split_provider):
+        super().__init__(args, split_provider)
+        # self.network = create_model(self.mlp, self.net, self.num_classes_in_internal_label, self.mlp_num_inputs, self.in_channels, self.vit_image_size, self.gpu_ids)
+        # self.optimizer = set_optimizer(args.optimizer, self.network, self.lr)
+
+    def set_data(self, data):
+        self.image = data['image'].to(self.device)
+        self.multi_label = self.multi_label_to_device(data['internal_labels'], self.device)
+
+    def forward(self):
+        self.multi_output = self.network(self.image)
+
+
+class MLPModel(ModelWidget):
+    def __init__(self, args, split_provider):
+        super().__init__(args, split_provider)
+        # self.network = create_model(self.mlp, self.net, self.num_classes_in_internal_label, self.mlp_num_inputs, self.in_channels, self.vit_image_size, self.gpu_ids)
+        # self.optimizer = set_optimizer(args.optimizer, self.network, self.lr)
+
+    def set_data(self, data):
+        self.inputs = data['inputs'].to(self.device)
+        self.multi_label = self.multi_label_to_device(data['internal_labels'], self.device)
+
+    def forward(self):
+        self.multi_output = self.network(self.inputs)
+
+
+class FusionModel(ModelWidget):
+    def __init__(self, args, split_provider):
+        super().__init__(args, split_provider)
+        # self.network = create_model(self.mlp, self.net, self.num_classes_in_internal_label, self.mlp_num_inputs, self.in_channels, self.vit_image_size, self.gpu_ids)
+        # self.optimizer = set_optimizer(args.optimizer, self.network, self.lr)
+
+    def set_data(self, data):
+        self.inputs = data['inputs'].to(self.device)
+        self.image = data['image'].to(self.device)
+        self.multi_label = self.multi_label_to_device(data['internal_labels'], self.device)
+
+    def forward(self):
+        self.multi_output = self.network(self.inputs, self.image)
