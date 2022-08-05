@@ -2,51 +2,70 @@
 # -*- coding: utf-8 -*-
 
 import datetime
-import os
-import copy
-import pandas as pd
+from pathlib import Path
 from typing import Tuple, Dict
 
 import torch
-from torch.utils.data.dataset import Dataset
-from models import options
-from models import env
-from models import dataloader
-from models.framework import CVModel, MLPModel,  FusionModel
+
+from models.options import Options
+from models.env import SplitProvider
+from models.dataloader import create_dataloader
+from models.framework import create_model
+from logger.logger import Logger
+
+logger = Logger.get_logger('train')
 
 
-args = options.Options().check_options()
-sp = env.SplitProvider(args.csv_name, args.task)
+# Create directory for save
+date_now = datetime.datetime.now()
+date_name = date_now.strftime('%Y-%m-%d-%H-%M-%S')
+save_dir = Path('results/sets', date_name)
+save_dir.mkdir(parents=True, exist_ok=True)
 
-train_loader = dataloader.create_dataloader(args, sp,  split='train')
-val_loader = dataloader.create_dataloader(args, sp,  split='val')
 
-# model = Create_Model(args, sp)
-# model = MLPModel(args, sp)
-model = CVModel(args, sp)
-# model = FusionModel(args, sp)
+args = Options().check_options()
+sp = SplitProvider(args.csv_name, args.task)
+
+train_loader = create_dataloader(args, sp, split='train')
+val_loader = create_dataloader(args, sp, split='val')
+model = create_model(args, sp)
+
 
 for epoch in range(args.epochs):
     for phase in ['train', 'val']:
         if phase == 'train':
             model.train()
-            dataloader = train_loader
+            split_dataloader = train_loader
         else:
             model.eval()
-            dataloader = val_loader
+            split_dataloader = val_loader
 
-        for i, data in enumerate(dataloader):
+        for i, data in enumerate(split_dataloader):
+            model.optimizer.zero_grad()
+            model.set_data(data)
+
             with torch.set_grad_enabled(phase == 'train'):
-                model.set_data(data)
                 model.forward()
-                model.store_raw_loss()
+                model.cal_batch_loss()
 
                 if phase == 'train':
                     model.backward()
                     model.optimize_paramters()
 
-            model.store_iter_loss()
+            batch_size = len(data['split'])
+            model.cal_running_loss(batch_size)
 
-        model.store_epoch_loss(phase, len(dataloader))
+        dataset_size = len(split_dataloader.dataset)
+        model.cal_epoch_loss(phase, dataset_size)
+
+    # if args.save_weight == 'each':
+        # save weight every time val loss decreases label-wise.
+        # model.save_weight(save_dir, frequency)
 
     model.print_epoch_loss(args.epochs, epoch)
+
+# Save parameters
+# Save weight
+# Save learning curve for oveerall and label-wise
+
+logger.info('Training finisehd.')

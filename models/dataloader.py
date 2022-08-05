@@ -46,14 +46,14 @@ class LoadDataSet(Dataset):
             self.augmentation = self._make_augmentations()
 
     def _make_transforms(self):
-        assert ((self.args.in_channels == 1) or (self.args.in_channels == 3)), f"Invalid input channel: {self.args.in_channels}."
+        assert ((self.args.in_channel == 1) or (self.args.in_channel == 3)), f"Invalid input channel: {self.args.in_channel}."
 
         _transforms = []
         _transforms.append(transforms.ToTensor())
 
         if self.args.normalize_image == 'yes':
             # transforms.Normalize accepts only Tensor.
-            if self.args.in_channels == 1:
+            if self.args.in_channel == 1:
                 _transforms.append(transforms.Normalize(mean=(0.5, ), std=(0.5, )))
             else:
                 _transforms.append(transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]))
@@ -84,7 +84,7 @@ class LoadDataSet(Dataset):
     def _input_value_to_single_tensor_if_mlp(self, idx):
         inputs_value = ''
 
-        if (self.args.mlp is None):
+        if self.args.mlp is None:
             return inputs_value
 
         index_input_list = [self.col_index_dict[input] for input in self.input_list]
@@ -102,7 +102,7 @@ class LoadDataSet(Dataset):
         filepath = self.df_split.iat[idx, self.col_index_dict['filepath']]
         image_path = Path(self.args.image_dir, filepath)
 
-        if self.args.in_channels == 1:
+        if self.args.in_channel == 1:
             image = Image.open(image_path).convert('L')
         else:
             image = Image.open(image_path).convert('RGB')
@@ -110,6 +110,16 @@ class LoadDataSet(Dataset):
         image = self.augmentation(image)
         image = self.transform(image)
         return image
+
+    """
+    def _load_priods_if_deepsurv(self, idx):
+        period = ''
+        if self.args.task != 'deepsurv':
+            return period
+
+        period = self.df_split.iat[idx, self.col_index_dict['periods']]
+        return period
+    """
 
     def __len__(self):
         return len(self.df_split)

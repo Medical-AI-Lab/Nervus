@@ -43,7 +43,7 @@ class Options:
         self.parser.add_argument('--sampler',         type=str,   default=None,  help='sample data in traning or not, yes or no (Default: None)')
 
         # Input channel
-        self.parser.add_argument('--in_channels',      type=int,   default=None,  help='channel of input image (Default: None)')
+        self.parser.add_argument('--in_channel',      type=int,   default=None,  help='channel of input image (Default: None)')
         self.parser.add_argument('--vit_image_size',   type=int,   default=None,  help='imput image size for ViT(Default: None)')
 
         # Weight saving strategy

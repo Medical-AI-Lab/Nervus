@@ -173,15 +173,15 @@ class BaseNet:
         return net
 
     @classmethod
-    def set_net(cls, net_name, in_channels=None, vit_image_size=None):
+    def set_net(cls, net_name, in_channel=None, vit_image_size=None):
         assert net_name in cls.net, f"No specified net: {net_name}."
-        assert (in_channels == 1) or (in_channels == 3), f"Invalid in_channels: {in_channels}."
+        assert (in_channel == 1) or (in_channel == 3), f"Invalid in_channels: {in_channel}."
         if net_name in cls.cnn:
             net = cls.cnn[net_name]()
         else:
             net = cls.set_vit(net_name, vit_image_size)
 
-        if in_channels == 1:
+        if in_channel == 1:
             net = cls.align_in_channels_1ch(net_name, net)
         return net
 
@@ -204,11 +204,11 @@ class BaseNet:
         return aligned_vit
 
     @classmethod
-    def constuct_extractor(cls, net_name, mlp_num_inputs=None, in_channels=None, vit_image_size=None):
+    def constuct_extractor(cls, net_name, mlp_num_inputs=None, in_channel=None, vit_image_size=None):
         if net_name == 'MLP':
             extractor = cls.MLPNet(mlp_num_inputs)
         else:
-            extractor = cls.set_net(net_name, in_channels, vit_image_size)
+            extractor = cls.set_net(net_name, in_channel, vit_image_size)
             setattr(extractor, cls.classifier[net_name], cls.DUMMY)  # -> _setattr ?
         return extractor
 
