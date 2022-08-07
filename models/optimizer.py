@@ -13,9 +13,9 @@ class Optimizer:
         'RAdam': optim.RAdam
         }
 
-    @classmethod
-    def set_optimizer(cls, optimizer_name, network, lr):
-        assert (optimizer_name in cls.optimizers), f"No specified optimizer: {optimizer_name}."
 
-        opritmizer = cls.optimizers[optimizer_name](network.parameters(), lr=lr)
-        return opritmizer
+def set_optimizer(optimizer_name, network, lr):
+    assert (optimizer_name in Optimizer.optimizers), f"No specified optimizer: {optimizer_name}."
+
+    opritmizer = Optimizer.optimizers[optimizer_name](network.parameters(), lr=lr)
+    return opritmizer

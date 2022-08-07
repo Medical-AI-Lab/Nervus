@@ -71,12 +71,12 @@ class Criterion:
         'NLL': NegativeLogLikelihood
         }
 
-    @classmethod
-    def set_criterion(cls, criterion_name, device):
-        assert (criterion_name in cls.criterions), f"No specified criterion: {criterion_name}."
 
-        if criterion_name == 'NLL':
-            criterion = cls.criterions[criterion_name](device).to(device)
-        else:
-            criterion = cls.criterions[criterion_name]()
-        return criterion
+def set_criterion(criterion_name, device):
+    assert (criterion_name in Criterion.criterions), f"No specified criterion: {criterion_name}."
+
+    if criterion_name == 'NLL':
+        criterion = Criterion.criterions[criterion_name](device).to(device)
+    else:
+        criterion = Criterion.criterions[criterion_name]()
+    return criterion

@@ -56,7 +56,7 @@ for epoch in range(args.epochs):
             model.cal_running_loss(batch_size)
 
         dataset_size = len(split_dataloader.dataset)
-        model.cal_epoch_loss(phase, dataset_size)
+        model.cal_epoch_loss(epoch, phase, dataset_size)
 
     # if args.save_weight == 'each':
         # save weight every time val loss decreases label-wise.

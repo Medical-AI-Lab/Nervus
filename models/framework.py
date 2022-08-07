@@ -9,13 +9,12 @@ import pandas as pd
 from abc import ABC, abstractmethod
 
 import torch
-import torch.nn as nn
 from torchinfo import summary
 
-from .net import BaseNet
-from .criterion import Criterion
-from .optimizer import Optimizer
-from .loss import LossRegistory
+from .net import create_net
+from .criterion import set_criterion
+from .optimizer import set_optimizer
+from .loss import create_loss_reg
 
 import sys
 from pathlib import Path
@@ -25,105 +24,6 @@ from logger.logger import Logger
 
 
 logger = Logger.get_logger('models.framework')
-
-
-class MultiMixin:
-    def multi_forward(self, out_features):
-        output = dict()
-        for internal_label_name, classifier in self.multi_classifier.items():
-            output[internal_label_name] = classifier(out_features)
-        return output
-
-
-class MultiWidget(nn.Module, BaseNet, MultiMixin):
-    """
-    Class for a widget to inherit multiple classes simultaneously
-    """
-    pass
-
-
-class MultiNet(MultiWidget):
-    def __init__(self, net_name, num_classes_in_internal_label, mlp_num_inputs=None, in_channel=None, vit_image_size=None):
-        super().__init__()
-
-        self.net_name = net_name
-        self.num_classes_in_internal_label = num_classes_in_internal_label
-        self.mlp_num_inputs = mlp_num_inputs
-        self.in_channel = in_channel
-        self.vit_image_size = vit_image_size
-
-        self.extractor = self.constuct_extractor(self.net_name, mlp_num_inputs=self.mlp_num_inputs, in_channel=self.in_channel, vit_image_size=self.vit_image_size)
-        self.multi_classifier = self.construct_multi_classifier(self.net_name, self.num_classes_in_internal_label)
-
-    def forward(self, x):
-        out_features = self.extractor(x)
-        output = self.multi_forward(out_features)
-        return output
-
-
-class MultiNetFusion(MultiWidget):
-    def __init__(self, net_name, num_classes_in_internal_label, mlp_num_inputs=None, in_channel=None, vit_image_size=None):
-        assert (net_name != 'MLP'), 'net_name should not be MLP.'
-
-        super().__init__()
-
-        self.net_name = net_name
-        self.num_classes_in_internal_label = num_classes_in_internal_label
-        self.mlp_num_inputs = mlp_num_inputs
-        self.in_channel = in_channel
-        self.vit_image_size = vit_image_size
-
-        # Extractor of MLP and Net
-        self.extractor_mlp = self.constuct_extractor('MLP', mlp_num_inputs=self.mlp_num_inputs)
-        self.extractor_net = self.constuct_extractor(self.net_name, in_channel=self.in_channel, vit_image_size=self.vit_image_size)
-        self.aux_module = self.construct_aux_module(self.net_name)
-
-        # Intermediate MLP
-        self.in_featues_from_mlp = self.get_classifier_in_features('MLP')
-        self.in_features_from_net = self.get_classifier_in_features(self.net_name)
-        self.inter_mlp_in_feature = self.in_featues_from_mlp + self.in_features_from_net
-        self.inter_mlp = self.MLPNet(self.inter_mlp_in_feature, inplace=False)  # ! If inplace==True, cannot backweard  Check!
-
-        # Multi classifier
-        self.multi_classifier = self.construct_multi_classifier('MLP', num_classes_in_internal_label)
-
-    def forward(self, x_mlp, x_net):
-        out_mlp = self.extractor_mlp(x_mlp)
-        out_net = self.extractor_net(x_net)
-        out_net = self.aux_module(out_net)
-
-        out_features = torch.cat([out_mlp, out_net], dim=1)
-        out_features = self.inter_mlp(out_features)
-        output = self.multi_forward(out_features)
-        return output
-
-
-def create_net(mlp, net, num_classes_in_internal_label, mlp_num_inputs, in_channel, vit_image_size, gpu_ids):
-    if (mlp is not None) and (net is None):
-        multi_net = MultiNet('MLP', num_classes_in_internal_label, mlp_num_inputs=mlp_num_inputs, in_channel=in_channel, vit_image_size=vit_image_size)
-    elif (mlp is None) and (net is not None):
-        multi_net = MultiNet(net, num_classes_in_internal_label, mlp_num_inputs=mlp_num_inputs, in_channel=in_channel, vit_image_size=vit_image_size)
-    elif (mlp is not None) and (net is not None):
-        multi_net = MultiNetFusion(net, num_classes_in_internal_label, mlp_num_inputs=mlp_num_inputs, in_channel=in_channel, vit_image_size=vit_image_size)
-    else:
-        logger.error('Cannot identify net type.')
-    # DataParallel
-    return multi_net
-
-
-def set_criterion(criterion, device):
-    criterion = Criterion.set_criterion(criterion, device)
-    return criterion
-
-
-def set_optimizer(optimizer, network, lr):
-    optimizer = Optimizer.set_optimizer(optimizer, network, lr)
-    return optimizer
-
-
-def create_loss_reg(task, criterion, internal_label_list, device):
-    loss_reg = LossRegistory(task, criterion, internal_label_list, device)
-    return loss_reg
 
 
 class BaseModel(ABC):
@@ -168,6 +68,7 @@ class BaseModel(ABC):
         #        'internal_labels': internal_label_dict,
         #        'inputs': inputs_value,
         #        'image': image,
+        #        # 'period': period,
         #        'split': split
         #        }
 
@@ -183,11 +84,18 @@ class BaseModel(ABC):
     def cal_batch_loss(self):
         self.loss_reg.cal_batch_loss(self.multi_output, self.multi_label)
 
+    """
+    When DeepSurv
+    def cal_batch_loss(self):
+        self.period = self.period.float().to(self.device)
+        self.loss_reg.cal_batch_loss(self.multi_output, self.multi_label, self.period, self.network)
+    """
+
     def cal_running_loss(self, batch_size):
         self.loss_reg.cal_running_loss(batch_size)
 
-    def cal_epoch_loss(self, phase, dataset_size):
-        self.loss_reg.cal_epoch_loss(phase, dataset_size)
+    def cal_epoch_loss(self, epoch, phase, dataset_size):
+        self.loss_reg.cal_epoch_loss(epoch, phase, dataset_size)
 
     def print_epoch_loss(self, num_epochs, epoch):
         self.loss_reg.print_epoch_loss(num_epochs, epoch)
@@ -213,8 +121,7 @@ class ModelMixin:
     likelihood_dir = 'likelihoods'
     csv_likelihood = 'likelihood'
 
-    @classmethod
-    def save_parameter(cls, args, datetime):
+    def save_parameter(self, args, datetime):
         pass
         """
         df_parameter = pd.DataFrame(list(args.items()), columns=['option', 'value'])
@@ -222,8 +129,7 @@ class ModelMixin:
         df_parameter.to_csv(save_path, index=False)
         """
 
-    @classmethod
-    def load_parameter(cls, datetime=None):
+    def load_parameter(self, datetime=None):
         pass
         """
         load_path = Path(cls.sets_dir, datetime, cls.csv_parameter)
@@ -240,8 +146,7 @@ class ModelMixin:
         parameter['in_channel'] = int(parameter['input_channel'])
         """
 
-    @classmethod
-    def save_weight(cls, datetime, epoch):
+    def save_weight(self, model, datetime, epoch):
         pass
         # weight_epoch-065-best.pt
         # if best:
@@ -252,16 +157,14 @@ class ModelMixin:
         torch.save(weight, save_path)
         """
 
-    @classmethod
-    def load_wight(cls, datetime=None, weight_name = None):
+    def load_wight(self, datetime=None, weight_name=None):
         pass
         """
         load_path = Path(cls.sets_dir, datetime, cls.weight_dir, weight_name)
         cls.model.load_state_dict(load_path)
         """
 
-    @classmethod
-    def save_learning_curve(cls, datetime, loss_dict):
+    def save_learning_curve(self, epoch_loss, datetime):
         pass
         """
         save_name = cls.csv_learning_curve + (label | overall) +'.csv'
@@ -271,23 +174,14 @@ class ModelMixin:
         """
 
 
+
+
 class ModelWidget(BaseModel, ModelMixin):
     """
     Class for a widget to inherit multiple classes simultaneously
     """
     pass
 
-
-class CVModel(ModelWidget):
-    def __init__(self, args, split_provider):
-        super().__init__(args, split_provider)
-
-    def set_data(self, data):
-        self.image = data['image'].to(self.device)
-        self.multi_label = self.multi_label_to_device(data['internal_labels'])
-
-    def forward(self):
-        self.multi_output = self.network(self.image)
 
 
 class MLPModel(ModelWidget):
@@ -300,6 +194,18 @@ class MLPModel(ModelWidget):
 
     def forward(self):
         self.multi_output = self.network(self.inputs)
+
+
+class CVModel(ModelWidget):
+    def __init__(self, args, split_provider):
+        super().__init__(args, split_provider)
+
+    def set_data(self, data):
+        self.image = data['image'].to(self.device)
+        self.multi_label = self.multi_label_to_device(data['internal_labels'])
+
+    def forward(self):
+        self.multi_output = self.network(self.image)
 
 
 class FusionModel(ModelWidget):

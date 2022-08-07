@@ -2,6 +2,8 @@
 # -*- coding: utf-8 -*-r
 
 from collections import OrderedDict
+
+import torch
 import torch.nn as nn
 import torchvision.models as models
 from torchvision.ops import MLP
@@ -126,28 +128,20 @@ class BaseNet:
         return mlp
 
     """
+    #  The below funstions are onew to get and set nested attibute.
+
     def _getattr(cls, target, attr):
         value = target
         for attr in attrs:
             value = getattr(value, attr)
         return value
-    """
 
-    """
     def _setattr(cls, target, attr):
         pass
     """
 
     @classmethod
     def align_in_channels_1ch(cls, net_name, net):
-        """
-        # in_layer = ......
-        # in_layer.in_features = 1
-        # in_layer_in_channels = nn.Parameter(in_layer.weight.sum(dim=1).unsqueeze(1))
-        net.conv1
-        net.features[0][0]
-        net.conv_proj
-        """
         if net_name.startswith('ResNet'):
             net.conv1.in_channels = 1
             net.conv1.weight = nn.Parameter(net.conv1.weight.sum(dim=1).unsqueeze(1))
@@ -209,13 +203,13 @@ class BaseNet:
             extractor = cls.MLPNet(mlp_num_inputs)
         else:
             extractor = cls.set_net(net_name, in_channel, vit_image_size)
-            setattr(extractor, cls.classifier[net_name], cls.DUMMY)  # -> _setattr ?
+            setattr(extractor, cls.classifier[net_name], cls.DUMMY)
         return extractor
 
     @classmethod
     def get_classifier(cls, net_name):
         net = cls.net[net_name]()
-        classifier = getattr(net, cls.classifier[net_name])  # -> _getattr ?
+        classifier = getattr(net, cls.classifier[net_name]) 
         return classifier
 
     @classmethod
@@ -339,3 +333,89 @@ class BaseNet:
                                 flatten
                                 )
         return aux_module
+
+
+class MultiMixin:
+    def multi_forward(self, out_features):
+        output = dict()
+        for internal_label_name, classifier in self.multi_classifier.items():
+            output[internal_label_name] = classifier(out_features)
+        return output
+
+
+class MultiWidget(nn.Module, BaseNet, MultiMixin):
+    """
+    Class for a widget to inherit multiple classes simultaneously
+    """
+    pass
+
+
+class MultiNet(MultiWidget):
+    def __init__(self, net_name, num_classes_in_internal_label, mlp_num_inputs=None, in_channel=None, vit_image_size=None):
+        super().__init__()
+
+        self.net_name = net_name
+        self.num_classes_in_internal_label = num_classes_in_internal_label
+        self.mlp_num_inputs = mlp_num_inputs
+        self.in_channel = in_channel
+        self.vit_image_size = vit_image_size
+
+        self.extractor = self.constuct_extractor(self.net_name, mlp_num_inputs=self.mlp_num_inputs, in_channel=self.in_channel, vit_image_size=self.vit_image_size)
+        self.multi_classifier = self.construct_multi_classifier(self.net_name, self.num_classes_in_internal_label)
+
+    def forward(self, x):
+        out_features = self.extractor(x)
+        output = self.multi_forward(out_features)
+        return output
+
+
+class MultiNetFusion(MultiWidget):
+    def __init__(self, net_name, num_classes_in_internal_label, mlp_num_inputs=None, in_channel=None, vit_image_size=None):
+        assert (net_name != 'MLP'), 'net_name should not be MLP.'
+
+        super().__init__()
+
+        self.net_name = net_name
+        self.num_classes_in_internal_label = num_classes_in_internal_label
+        self.mlp_num_inputs = mlp_num_inputs
+        self.in_channel = in_channel
+        self.vit_image_size = vit_image_size
+
+        # Extractor of MLP and Net
+        self.extractor_mlp = self.constuct_extractor('MLP', mlp_num_inputs=self.mlp_num_inputs)
+        self.extractor_net = self.constuct_extractor(self.net_name, in_channel=self.in_channel, vit_image_size=self.vit_image_size)
+        self.aux_module = self.construct_aux_module(self.net_name)
+
+        # Intermediate MLP
+        self.in_featues_from_mlp = self.get_classifier_in_features('MLP')
+        self.in_features_from_net = self.get_classifier_in_features(self.net_name)
+        self.inter_mlp_in_feature = self.in_featues_from_mlp + self.in_features_from_net
+        self.inter_mlp = self.MLPNet(self.inter_mlp_in_feature, inplace=False)  # ! If inplace==True, cannot backweard  Check!
+
+        # Multi classifier
+        self.multi_classifier = self.construct_multi_classifier('MLP', num_classes_in_internal_label)
+
+    def forward(self, x_mlp, x_net):
+        out_mlp = self.extractor_mlp(x_mlp)
+        out_net = self.extractor_net(x_net)
+        out_net = self.aux_module(out_net)
+
+        out_features = torch.cat([out_mlp, out_net], dim=1)
+        out_features = self.inter_mlp(out_features)
+        output = self.multi_forward(out_features)
+        return output
+
+
+def create_net(mlp, net, num_classes_in_internal_label, mlp_num_inputs, in_channel, vit_image_size, gpu_ids):
+    if (mlp is not None) and (net is None):
+        multi_net = MultiNet('MLP', num_classes_in_internal_label, mlp_num_inputs=mlp_num_inputs, in_channel=in_channel, vit_image_size=vit_image_size)
+    elif (mlp is None) and (net is not None):
+        multi_net = MultiNet(net, num_classes_in_internal_label, mlp_num_inputs=mlp_num_inputs, in_channel=in_channel, vit_image_size=vit_image_size)
+    elif (mlp is not None) and (net is not None):
+        multi_net = MultiNetFusion(net, num_classes_in_internal_label, mlp_num_inputs=mlp_num_inputs, in_channel=in_channel, vit_image_size=vit_image_size)
+    else:
+        logger.error('Cannot identify net type.')
+
+    # DataParallel
+    # multi_net = DataParallel(multi_net, gpu_ids)
+    return multi_net

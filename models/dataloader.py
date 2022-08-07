@@ -118,6 +118,8 @@ class LoadDataSet(Dataset):
             return period
 
         period = self.df_split.iat[idx, self.col_index_dict['periods']]
+        period = np.array(period, dtype=np.float64)
+        period = torch.from_numpy(period.astype(np.float32)).clone()
         return period
     """
 
@@ -132,6 +134,7 @@ class LoadDataSet(Dataset):
         internal_label_dict = {internal_label_name: self.df_split.iat[idx, self.col_index_dict[internal_label_name]] for internal_label_name in self.internal_label_list}
         inputs_value = self._input_value_to_single_tensor_if_mlp(idx)
         image = self._load_image_if_cnn(idx)
+        # period = self._load_priods_if_deepsurv(idx)
         split = self.df_split.iat[idx, self.col_index_dict['split']]
         return {
                 'Filename': filename,
@@ -141,6 +144,7 @@ class LoadDataSet(Dataset):
                 'internal_labels': internal_label_dict,
                 'inputs': inputs_value,
                 'image': image,
+                # 'period': period,
                 'split': split
                 }
 
