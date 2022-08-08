@@ -111,17 +111,17 @@ class LoadDataSet(Dataset):
         image = self.transform(image)
         return image
 
-    """
     def _load_priods_if_deepsurv(self, idx):
         period = ''
         if self.args.task != 'deepsurv':
             return period
 
-        period = self.df_split.iat[idx, self.col_index_dict['periods']]
+        assert (self.args.task == 'deepsurv') and (len(self.internal_label_list)==1), 'Deepsurv cannot work in multi-label.'
+        period_key = [key for key in self.col_index_dict if key.startswith('period')][0]
+        period = self.df_split.iat[idx, self.col_index_dict[period_key]]
         period = np.array(period, dtype=np.float64)
         period = torch.from_numpy(period.astype(np.float32)).clone()
         return period
-    """
 
     def __len__(self):
         return len(self.df_split)
@@ -134,7 +134,7 @@ class LoadDataSet(Dataset):
         internal_label_dict = {internal_label_name: self.df_split.iat[idx, self.col_index_dict[internal_label_name]] for internal_label_name in self.internal_label_list}
         inputs_value = self._input_value_to_single_tensor_if_mlp(idx)
         image = self._load_image_if_cnn(idx)
-        # period = self._load_priods_if_deepsurv(idx)
+        period = self._load_priods_if_deepsurv(idx)
         split = self.df_split.iat[idx, self.col_index_dict['split']]
         return {
                 'Filename': filename,
@@ -144,7 +144,7 @@ class LoadDataSet(Dataset):
                 'internal_labels': internal_label_dict,
                 'inputs': inputs_value,
                 'image': image,
-                # 'period': period,
+                'period': period,
                 'split': split
                 }
 

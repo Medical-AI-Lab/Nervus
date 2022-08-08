@@ -68,7 +68,7 @@ class BaseModel(ABC):
         #        'internal_labels': internal_label_dict,
         #        'inputs': inputs_value,
         #        'image': image,
-        #        # 'period': period,
+        #        'period': period,
         #        'split': split
         #        }
 
@@ -81,15 +81,9 @@ class BaseModel(ABC):
     def forward(self):
         pass
 
+    @abstractmethod
     def cal_batch_loss(self):
-        self.loss_reg.cal_batch_loss(self.multi_output, self.multi_label)
-
-    """
-    When DeepSurv
-    def cal_batch_loss(self):
-        self.period = self.period.float().to(self.device)
-        self.loss_reg.cal_batch_loss(self.multi_output, self.multi_label, self.period, self.network)
-    """
+        pass
 
     def cal_running_loss(self, batch_size):
         self.loss_reg.cal_running_loss(batch_size)
@@ -195,6 +189,9 @@ class MLPModel(ModelWidget):
     def forward(self):
         self.multi_output = self.network(self.inputs)
 
+    def cal_batch_loss(self):
+        self.loss_reg.cal_batch_loss(self.multi_output, self.multi_label)
+
 
 class CVModel(ModelWidget):
     def __init__(self, args, split_provider):
@@ -206,6 +203,9 @@ class CVModel(ModelWidget):
 
     def forward(self):
         self.multi_output = self.network(self.image)
+
+    def cal_batch_loss(self):
+        self.loss_reg.cal_batch_loss(self.multi_output, self.multi_label)
 
 
 class FusionModel(ModelWidget):
@@ -220,16 +220,95 @@ class FusionModel(ModelWidget):
     def forward(self):
         self.multi_output = self.network(self.inputs, self.image)
 
+    def cal_batch_loss(self):
+        self.loss_reg.cal_batch_loss(self.multi_output, self.multi_label)
+
+
+class MLPDeepSurv(ModelWidget):
+    def __init__(self, args, split_provider):
+        super().__init__(args, split_provider)
+
+    def set_data(self, data):
+        self.inputs = data['inputs'].to(self.device)
+        self.multi_label = self.multi_label_to_device(data['internal_labels'])
+        self.period = data['period'].float().to(self.device)
+
+    def forward(self):
+        self.multi_output = self.network(self.inputs)
+
+    def cal_batch_loss(self):
+        self.loss_reg.cal_batch_loss(self.multi_output, self.multi_label, self.period, self.network)
+
+
+class CVDeepSurv(ModelWidget):
+    def __init__(self, args, split_provider):
+        super().__init__(args, split_provider)
+
+    def set_data(self, data):
+        self.image = data['image'].to(self.device)
+        self.multi_label = self.multi_label_to_device(data['internal_labels'])
+        self.period = data['period'].float().to(self.device)
+
+    def forward(self):
+        self.multi_output = self.network(self.image)
+
+    def cal_batch_loss(self):
+        self.loss_reg.cal_batch_loss(self.multi_output, self.multi_label, self.period, self.network)
+
+
+class FusionDeepSurv(ModelWidget):
+    def __init__(self, args, split_provider):
+        super().__init__(args, split_provider)
+
+    def set_data(self, data):
+        self.inputs = data['inputs'].to(self.device)
+        self.image = data['image'].to(self.device)
+        self.multi_label = self.multi_label_to_device(data['internal_labels'])
+        self.period = data['period'].float().to(self.device)
+
+    def forward(self):
+        self.multi_output = self.network(self.inputs, self.image)
+
+    def cal_batch_loss(self):
+        self.loss_reg.cal_batch_loss(self.multi_output, self.multi_label, self.period, self.network)
+
 
 def create_model(args, split_provider):
+    task = args.task
     mlp = args.mlp
     net = args.net
-    if (mlp is not None) and (net is None):
-        model = MLPModel(args, split_provider)
-    elif (mlp is None) and (net is not None):
-        model = CVModel(args, split_provider)
-    elif (mlp is not None) and (net is not None):
-        model = FusionModel(args, split_provider)
-    else:
-        logger.error('Cannot identify model type.')
+
+    if (task == 'classification') or (task == 'regression'):
+        if (mlp is not None) and (net is None):
+            model = MLPModel(args, split_provider)
+        elif (mlp is None) and (net is not None):
+            model = CVModel(args, split_provider)
+        elif (mlp is not None) and (net is not None):
+            model = FusionModel(args, split_provider)
+        else:
+            logger.error(f"Cannot identify model type for {task}.")
+
+    elif task == 'deepsurv':
+        if (mlp is not None) and (net is None):
+            model = MLPDeepSurv(args, split_provider)
+        elif (mlp is None) and (net is not None):
+            model = CVDeepSurv(args, split_provider)
+        elif (mlp is not None) and (net is not None):
+            model = FusionDeepSurv(args, split_provider)
+        else:
+            logger.error(f"Cannot identify model type for {task}.")
+
     return model
+
+
+
+
+
+
+
+
+
+
+
+
+

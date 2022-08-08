@@ -48,10 +48,10 @@ class EpochLoss:
     def set_best_epoch(self, best_epoch):
         self.best_epoch = best_epoch
 
-    def flag_up(self):
+    def up_update_flag(self):
         self.update_flag = True
 
-    def flag_down(self):
+    def down_update_flag(self):
         self.update_flag = False
 
     def is_updated(self):
@@ -68,12 +68,12 @@ class EpochLoss:
             if _latest_val_loss < _best_val_loss:
                 self.set_best_val_loss(_latest_val_loss)
                 self.set_best_epoch(epoch+1)
-                self.flag_up()
+                self.up_update_flag()
             else:
-                self.flag_down()
+                self.down_update_flag()
 
 
-class LossRegistory(ABC, EpochLoss):
+class LossRegistory(ABC):
     """
     raw_loss -> iter_loss -> epoch_loss
 
@@ -205,18 +205,27 @@ class RegressionLoss(LossWidget):
         self.batch_loss['total'] = _total
 
 
-"""
 class DeepSurvLoss(LossWidget):
     def __init__(self, criterion, internal_label_list, device):
-        super().__init__(criterion, internal_label_list, device)
+        super().__init__(internal_label_list)
+
+        self.criterion = criterion
+        self.device = device
 
     def cal_batch_loss(self, multi_output, multi_label, period, network):
-        internal_label_name = list(multi_label.keys())[0]  # should be unique
-        _pred = multi_output[internal_label_name]
-        _label = multi_label[internal_label_name].reshape(-1, 1)
-        _period = period.reshape(-1, 1)
-        self.batch_loss['total'] = self.criterion(_pred, _period, _label, network)  # No need for each label
-"""
+        #internal_label_name = list(multi_label.keys())[0]  # should be unique
+        # multi_labelの中にinternal_label_nameは1つだけでなので、上のClassification, Regressionの形を合わせる
+        for internal_label_name in multi_label.keys():
+            _pred = multi_output[internal_label_name]
+            _label = multi_label[internal_label_name].reshape(-1, 1)
+            _period = period.reshape(-1, 1)
+            self.batch_loss[internal_label_name] = self.criterion(_pred, _period, _label, network)
+
+        _total = torch.tensor([0.0]).to(self.device)
+        for internal_label_name in multi_label.keys():
+            _total = torch.add(_total, self.batch_loss[internal_label_name])
+
+        self.batch_loss['total'] = _total
 
 
 def create_loss_reg(task, criterion, internal_label_list, device):
@@ -224,8 +233,8 @@ def create_loss_reg(task, criterion, internal_label_list, device):
         loss_reg = ClassificationLoss(criterion, internal_label_list, device)
     elif task == 'regression':
         loss_reg = RegressionLoss(criterion, internal_label_list, device)
-#     elif task == 'deepsurv':
-#        loss_reg = DeepSurvLoss(criterion, internal_label_list, device)
+    elif task == 'deepsurv':
+        loss_reg = DeepSurvLoss(criterion, internal_label_list, device)
     else:
         logger.error(f"Cannot identify task: {task}.")
     return loss_reg
