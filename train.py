@@ -28,6 +28,7 @@ sp = SplitProvider(args.csv_name, args.task)
 
 train_loader = create_dataloader(args, sp, split='train')
 val_loader = create_dataloader(args, sp, split='val')
+
 model = create_model(args, sp)
 
 
@@ -36,9 +37,11 @@ for epoch in range(args.epochs):
         if phase == 'train':
             model.train()
             split_dataloader = train_loader
+            dataset_size = len(train_loader.dataset)
         else:
             model.eval()
             split_dataloader = val_loader
+            dataset_size = len(val_loader.dataset)
 
         for i, data in enumerate(split_dataloader):
             model.optimizer.zero_grad()
@@ -52,20 +55,16 @@ for epoch in range(args.epochs):
                     model.backward()
                     model.optimize_paramters()
 
-            batch_size = len(data['split'])
-            model.cal_running_loss(batch_size)
+            model.cal_running_loss(batch_size=len(data['split']))
 
-        dataset_size = len(split_dataloader.dataset)
-        model.cal_epoch_loss(epoch, phase, dataset_size)
-
-    # if args.save_weight == 'each':
-        # save weight every time val loss decreases label-wise.
-        # model.save_weight(save_dir, frequency)
+        model.cal_epoch_loss(epoch, phase, dataset_size=dataset_size)
 
     model.print_epoch_loss(args.epochs, epoch)
 
-# Save parameters
-# Save weight
-# Save learning curve for oveerall and label-wise
+    # Save weight after checking total epoch loss is updated or not.
+    model.save_weight(date_name, save_weight=args.save_weight, num_epochs=args.epochs, epoch=epoch)
+
+model.save_parameter(date_name)
+model.save_learning_curve(date_name)
 
 logger.info('Training finisehd.')

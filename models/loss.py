@@ -18,6 +18,12 @@ logger = Logger.get_logger('models.loss')
 
 @dataclasses.dataclass
 class EpochLoss:
+    """
+    epoch loss for each internal label is stored in this class.
+
+    Returns:
+        _type_: _description_
+    """
     train: List[float] = dataclasses.field(default_factory=list)
     val: List[float] = dataclasses.field(default_factory=list)
     best_val_loss: float = None
@@ -26,8 +32,7 @@ class EpochLoss:
 
     def append_epoch_loss(self, phase, new_epoch_loss):
         prev_loss_list = getattr(self, phase)
-        prev_loss_list.append(new_epoch_loss)
-
+        prev_loss_list.append(new_epoch_loss) # No need to setattr
         # ! Below does not work as expected
         # new_epoch_loss = prev_loss_list.append(new_epoch_loss)
         # setattr(self, phase, new_epoch_loss)
@@ -54,20 +59,20 @@ class EpochLoss:
     def down_update_flag(self):
         self.update_flag = False
 
-    def is_updated(self):
+    def is_val_loss_updated(self):
         return self.update_flag
 
-    def update_best_val_loss_epoch(self, epoch):
+    def check_best_val_loss_epoch(self, epoch):
         if epoch == 0:
             _best_val_loss = self.get_latest_loss('val')
             self.set_best_val_loss(_best_val_loss)
-            self.set_best_epoch(epoch+1)
+            self.set_best_epoch(epoch + 1)
         else:
             _latest_val_loss = self.get_latest_loss('val')
             _best_val_loss = self.get_best_val_loss()
             if _latest_val_loss < _best_val_loss:
                 self.set_best_val_loss(_latest_val_loss)
-                self.set_best_epoch(epoch+1)
+                self.set_best_epoch(epoch + 1)
                 self.up_update_flag()
             else:
                 self.down_update_flag()
@@ -87,9 +92,6 @@ class LossRegistory(ABC):
         self.batch_loss = self._init_batch_loss()       # For every batch
         self.running_loss = self._init_running_loss()   # accumlates bacth loss
         self.epoch_loss = self._init_epoch_loss()       # For every epoch
-
-        self.best_val_loss = None
-        self.best_epoch = None
 
     def _init_batch_loss(self):
         _batch_loss = dict()
@@ -114,13 +116,15 @@ class LossRegistory(ABC):
         pass
 
     # batch_loss is accumated in runnning_loss
-    def cal_running_loss(self, batch_size):
+    def cal_running_loss(self, batch_size=None):
+        assert (batch_size is not None), 'Invalid batch_size: batch_size=None.'
         for internal_label_name in self.internal_label_list:
             _running_loss = self.running_loss[internal_label_name] + (self.batch_loss[internal_label_name].item() * batch_size)
             self.running_loss[internal_label_name] = _running_loss
             self.running_loss['total'] = self.running_loss['total'] + _running_loss
 
-    def cal_epoch_loss(self, epoch, phase, dataset_size):
+    def cal_epoch_loss(self, epoch, phase, dataset_size=None):
+        assert (dataset_size is not None), 'Invalid dataset_size: dataset_size=None.'
         # Update loss list label-wise
         _total = 0.0
         for internal_label_name in self.internal_label_list:
@@ -134,7 +138,7 @@ class LossRegistory(ABC):
         # Updated val_best_loss and best_epoch label-wise when val
         if phase == 'val':
             for internal_label_name in self.internal_label_list + ['total']:
-                self.epoch_loss[internal_label_name].update_best_val_loss_epoch(epoch)
+                self.epoch_loss[internal_label_name].check_best_val_loss_epoch(epoch)
 
         # Initialize
         self.batch_loss = self._init_batch_loss()
@@ -148,11 +152,11 @@ class LossMixin:
         train_loss = _total_epoch_loss.get_latest_loss('train')
         val_loss = _total_epoch_loss.get_latest_loss('val')
         epoch_comm = f"epoch [{epoch+1:>3}/{num_epochs:<3}]"
-        train_comm = f"train_loss: {train_loss:.4f}"
-        val_comm = f"val_loss: {val_loss:.4f}"
+        train_comm = f"train_loss: {train_loss:>8.4f}"
+        val_comm = f"val_loss: {val_loss:>8.4f}"
 
         updated_commemt = ''
-        if _total_epoch_loss.is_updated():
+        if _total_epoch_loss.is_val_loss_updated():
             updated_commemt = '   Updated val_loss!'
         comment = epoch_comm + ', ' + train_comm + ', ' + val_comm + updated_commemt
         logger.info(comment)

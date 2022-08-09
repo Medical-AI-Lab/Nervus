@@ -3,7 +3,6 @@
 
 import copy
 from pathlib import Path
-import numpy as np
 import pandas as pd
 
 from abc import ABC, abstractmethod
@@ -17,7 +16,6 @@ from .optimizer import set_optimizer
 from .loss import create_loss_reg
 
 import sys
-from pathlib import Path
 
 sys.path.append((Path().resolve() / '../').name)
 from logger.logger import Logger
@@ -85,10 +83,10 @@ class BaseModel(ABC):
     def cal_batch_loss(self):
         pass
 
-    def cal_running_loss(self, batch_size):
+    def cal_running_loss(self, batch_size=None):
         self.loss_reg.cal_running_loss(batch_size)
 
-    def cal_epoch_loss(self, epoch, phase, dataset_size):
+    def cal_epoch_loss(self, epoch, phase, dataset_size=None):
         self.loss_reg.cal_epoch_loss(epoch, phase, dataset_size)
 
     def print_epoch_loss(self, num_epochs, epoch):
@@ -102,28 +100,45 @@ class BaseModel(ABC):
         self.optimizer.step()
 
 
-class ModelMixin:
+class SaveLoadMixin:
     sets_dir = 'results/sets'
     csv_parameter = 'parameter.csv'
-
     weight_dir = 'weights'
     weight_name = 'weight'
-
     learning_curve_dir = 'learning_curves'
     csv_learning_curve = 'learning_curve'
-
     likelihood_dir = 'likelihoods'
     csv_likelihood = 'likelihood'
 
-    def save_parameter(self, args, datetime):
-        pass
-        """
-        df_parameter = pd.DataFrame(list(args.items()), columns=['option', 'value'])
-        save_path = Path(cls.sets_dir, datetime, cls.csv_parameter)
-        df_parameter.to_csv(save_path, index=False)
-        """
+    # キープ用
+    tentative_best_epoch = None
+    tentative_best_weight = None
 
-    def load_parameter(self, datetime=None):
+    def save_parameter(self, date_name):
+        saved_args = copy.deepcopy(vars(self.args))
+
+        for option, parameter in saved_args.items():
+            if parameter is None:
+                saved_args[option] = 'NONE_IN_TRAINING'
+        # saved_args['test_batch_size'] = 'NO_USED_IN_TRAINING'
+        # saved_args['test_datetime'] = 'NO_USED_IN_TRAINING'
+        del saved_args['test_batch_size']
+        del saved_args['test_datetime']
+
+        if saved_args['gpu_ids'] == []:
+            saved_args['gpu_ids'] = 'CPU'
+        else:
+            _gpu_ids = [str(i) for i in saved_args['gpu_ids']]
+            _gpu_ids = 'GPU-' + '-'.join(_gpu_ids)
+            saved_args['gpu_ids'] = _gpu_ids
+
+        df_parameter = pd.DataFrame(saved_args.items(), columns=['option', 'parameter'])
+        save_dir = Path(self.sets_dir, date_name)
+        save_dir.mkdir(parents=True, exist_ok=True)
+        save_path = Path(save_dir, self.csv_parameter)
+        df_parameter.to_csv(save_path, index=False)
+
+    def load_parameter(self, raw_args, date_name=None):
         pass
         """
         load_path = Path(cls.sets_dir, datetime, cls.csv_parameter)
@@ -139,43 +154,125 @@ class ModelMixin:
         parameter['batch_size'] = int(parameter['batch_size'])
         parameter['in_channel'] = int(parameter['input_channel'])
         """
+        # raw_args = Options().parse()
+        # raw_args と 読み込んだ parameter をマージ
+        # 'NONE_IN_TRAINING' -> Noneに置き換える
+        # gpu_ids = CPU -> []
+        # gpu_ids = GPU-0-1-2-3 -> [0,1,2,3]
 
-    def save_weight(self, model, datetime, epoch):
+    def _deepcopy_weight(self):
+        _gpu_ids = self.gpu_ids
+        _model = self.network
+        if _gpu_ids == []:
+            # CPU
+            _weight = copy.deepcopy(_model.state_dict())
+        else:
+            # DataParallel -> CPUに移す
+            # weight = copy.deepcopy(self.newtwork.module.state_dict().to(torch.device('cpu')))
+            _weight = copy.deepcopy(_model.module.state_dict())  # No need of to(torch.device('cpu')) ?
+        return _weight
+
+
+    def _keep_temporal_best_weight(self):
         pass
-        # weight_epoch-065-best.pt
-        # if best:
-        """
-        weight_name = cls.weight_name + '_epoch-' + str(epoch).zfill(3) + best + '.pt'
-        save_path = Path(cls.sets_dir, datetime, cls.weight_dir, weight_name)
-        weight = copy.deepcopy(cls.model.state_dict()).to('cpu')  #
-        torch.save(weight, save_path)
-        """
 
-    def load_wight(self, datetime=None, weight_name=None):
+
+    # lossが下がらなかったら、保存されない。
+    def save_weight(self, date_name, save_weight=None, num_epochs=None, epoch=None):
+        # self.device = torch.device(f"cuda:{self.gpu_ids[0]}") if self.gpu_ids else torch.device('cpu')
+        total_epoch_loss = self.loss_reg.epoch_loss['total']
+
+        save_dir = Path(self.sets_dir, date_name, self.weight_dir)
+        save_dir.mkdir(parents=True, exist_ok=True)
+
+        # そもそも、下がらなければ、保存しない
+        if total_epoch_loss.is_val_loss_updated():
+            # total lossが下がったら、その時点の weightとepochを、best_weight、best_weightとして、キープしとく
+            self.tentative_best_epoch = total_epoch_loss.get_best_epoch()
+            self.tentative_best_weight = self._deepcopy_weight()
+
+            # eg. weight_epoch-30.pt
+            # eg. weight_epoch-30-best.pt
+            if save_weight == 'best':
+                if num_epochs > epoch:
+                    # 途中のepochでは、保存しない。キープだけ
+                    pass
+                else:
+                    breakpoint()
+                    # 最終epochの時だけ存保
+                    save_name = self.weight_name + '_epoch-' + str(self.tentative_best_epoch).zfill(3) + '-best' + '.pt'
+                    save_path = Path(save_dir, save_name)
+                    torch.save(self.tentative_best_weight, save_path)
+
+            elif save_weight == 'each':
+                if num_epochs > epoch:
+                    # eachの時は、下がるたびに保存
+                    save_name = self.weight_name + '_epoch-' + str(self.tentative_best_epoch).zfill(3) + '.pt'
+                    save_path = Path(save_dir, save_name)
+                    torch.save(self.tentative_best_weight, save_path)
+                else:
+                    # 最終epochの時
+                    save_name = self.weight_name + '_epoch-' + str(self.tentative_best_epoch).zfill(3) + '-best' + '.pt'
+                    save_path = Path(save_dir, save_name)
+                    torch.save(self.tentative_best_weight, save_path)
+
+                    """
+                    # すでに、保存されてるかもしれない
+                    save_name = self.weight_name + '_epoch-' + str(self.tentative_best_epoch).zfill(3) + '.pt'
+                    save_path = Path(save_dir, save_name)
+
+                    if save_path.exists():
+                        # あったら、'-best' を付けてrename
+                        new_save_name = self.weight_name + '_epoch-' + str(self.tentative_best_epoch).zfill(3) + '-best' + '.pt'
+                        new_save_path = Path(save_dir, new_save_name)
+                        save_path.rename(new_save_path)
+                    else:
+                        save_name = self.weight_name + '_epoch-' + str(self.tentative_best_epoch).zfill(3) + '-best' + '.pt'
+                        save_path = Path(save_dir, save_name)
+                        torch.save(self.best_weight, save_path)
+                    """
+
+            else:
+                logger.error(f"Invalid save_weight: {save_weight}.")
+
+        else:
+            pass
+            #その時点のepochで、下がってない時
+            # best-epoch, best-weightはキープされている
+
+
+
+
+    def load_weight(self, date_name=None, weight_name=None):
         pass
         """
         load_path = Path(cls.sets_dir, datetime, cls.weight_dir, weight_name)
         cls.model.load_state_dict(load_path)
         """
 
-    def save_learning_curve(self, epoch_loss, datetime):
-        pass
-        """
-        save_name = cls.csv_learning_curve + (label | overall) +'.csv'
-        save_path = Path(cls.sets_dir, datetime, cls.learning_curve_dir, save_name)
-        df_learning_curve = pd.DataFrame(loss_dict)
-        df_learning_curve.to_csv(save_path, index=False)
-        """
+    def save_learning_curve(self, data_name):
+        save_dir = Path(self.sets_dir, data_name, self.learning_curve_dir)
+        save_dir.mkdir(parents=True, exist_ok=True)
+        epoch_loss = self.loss_reg.epoch_loss
+        for internal_label_name in self.internal_label_list + ['total']:
+            each_epoch_loss = epoch_loss[internal_label_name]
+            df_each_epoch_loss = pd.DataFrame({
+                                                'train_loss': each_epoch_loss.train,
+                                                'val_loss': each_epoch_loss.val
+                                            })
+            label_name = internal_label_name.replace('internal_', '') if internal_label_name.startswith('internal') else 'total'
+            best_epoch = str(each_epoch_loss.get_best_epoch()).zfill(3)
+            best_val_loss = f"{each_epoch_loss.get_best_val_loss():.4f}"
+            save_name = self.csv_learning_curve + '_' + label_name + '_val-best_epoch-' + best_epoch + '_val-best-loss-' + best_val_loss + '.csv'
+            save_path = Path(save_dir, save_name)
+            df_each_epoch_loss.to_csv(save_path, index=False)
 
 
-
-
-class ModelWidget(BaseModel, ModelMixin):
+class ModelWidget(BaseModel, SaveLoadMixin):
     """
     Class for a widget to inherit multiple classes simultaneously
     """
     pass
-
 
 
 class MLPModel(ModelWidget):
