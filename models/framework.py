@@ -79,6 +79,13 @@ class BaseModel(ABC):
     def forward(self):
         pass
 
+    def backward(self):
+        self.loss = self.loss_reg.batch_loss['total']
+        self.loss.backward()
+
+    def optimize_paramters(self):
+        self.optimizer.step()
+
     @abstractmethod
     def cal_batch_loss(self):
         pass
@@ -89,15 +96,13 @@ class BaseModel(ABC):
     def cal_epoch_loss(self, epoch, phase, dataset_size=None):
         self.loss_reg.cal_epoch_loss(epoch, phase, dataset_size)
 
+    def is_total_val_loss_updated(self):
+        _total_epoch_loss = self.loss_reg.epoch_loss['total']
+        is_updated = _total_epoch_loss.is_val_loss_updated()
+        return is_updated
+
     def print_epoch_loss(self, num_epochs, epoch):
         self.loss_reg.print_epoch_loss(num_epochs, epoch)
-
-    def backward(self):
-        self.loss = self.loss_reg.batch_loss['total']
-        self.loss.backward()
-
-    def optimize_paramters(self):
-        self.optimizer.step()
 
 
 class SaveLoadMixin:
@@ -110,20 +115,20 @@ class SaveLoadMixin:
     likelihood_dir = 'likelihoods'
     csv_likelihood = 'likelihood'
 
-    # キープ用
-    tentative_best_epoch = None
-    tentative_best_weight = None
+    # variables to keep best_weight and best_epoch
+    acting_best_weight = None
+    acting_best_epoch = None
 
     def save_parameter(self, date_name):
         saved_args = copy.deepcopy(vars(self.args))
 
         for option, parameter in saved_args.items():
             if parameter is None:
-                saved_args[option] = 'NONE_IN_TRAINING'
-        # saved_args['test_batch_size'] = 'NO_USED_IN_TRAINING'
-        # saved_args['test_datetime'] = 'NO_USED_IN_TRAINING'
-        del saved_args['test_batch_size']
-        del saved_args['test_datetime']
+                saved_args[option] = 'NONE'
+        saved_args['test_batch_size'] = 'NO_USED_IN_TRAINING'
+        saved_args['test_datetime'] = 'NO_USED_IN_TRAINING'
+        # del saved_args['test_batch_size']
+        # del saved_args['test_datetime']
 
         if saved_args['gpu_ids'] == []:
             saved_args['gpu_ids'] = 'CPU'
@@ -160,90 +165,38 @@ class SaveLoadMixin:
         # gpu_ids = CPU -> []
         # gpu_ids = GPU-0-1-2-3 -> [0,1,2,3]
 
-    def _deepcopy_weight(self):
-        _gpu_ids = self.gpu_ids
-        _model = self.network
-        if _gpu_ids == []:
-            # CPU
-            _weight = copy.deepcopy(_model.state_dict())
+    def store_weight(self):
+        self.acting_best_epoch = self.loss_reg.epoch_loss['total'].get_best_epoch()
+
+        if hasattr(self.network, 'module'):
+            # When DataParallel used
+            # self.tentative_best_weight = copy.deepcopy(self.network.module.state_dict().to(torch.device('cpu')))
+            self.acting_best_weight = copy.deepcopy(self.network.module.state_dict())
         else:
-            # DataParallel -> CPUに移す
-            # weight = copy.deepcopy(self.newtwork.module.state_dict().to(torch.device('cpu')))
-            _weight = copy.deepcopy(_model.module.state_dict())  # No need of to(torch.device('cpu')) ?
-        return _weight
+            self.acting_best_weight = copy.deepcopy(self.network.state_dict())
 
-
-    def _keep_temporal_best_weight(self):
-        pass
-
-
-    # lossが下がらなかったら、保存されない。
-    def save_weight(self, date_name, save_weight=None, num_epochs=None, epoch=None):
-        # self.device = torch.device(f"cuda:{self.gpu_ids[0]}") if self.gpu_ids else torch.device('cpu')
-        total_epoch_loss = self.loss_reg.epoch_loss['total']
+    def save_weight(self, date_name, as_best=None):
+        assert isinstance(as_best, bool), 'Argument as_best should be bool.'
 
         save_dir = Path(self.sets_dir, date_name, self.weight_dir)
         save_dir.mkdir(parents=True, exist_ok=True)
+        save_name = self.weight_name + '_epoch-' + str(self.acting_best_epoch).zfill(3) + '.pt'
+        save_path = Path(save_dir, save_name)
 
-        # そもそも、下がらなければ、保存しない
-        if total_epoch_loss.is_val_loss_updated():
-            # total lossが下がったら、その時点の weightとepochを、best_weight、best_weightとして、キープしとく
-            self.tentative_best_epoch = total_epoch_loss.get_best_epoch()
-            self.tentative_best_weight = self._deepcopy_weight()
+        if as_best:
+            save_name_as_best = self.weight_name + '_epoch-' + str(self.acting_best_epoch).zfill(3) + '_best' + '.pt'
+            save_path_as_best = Path(save_dir, save_name_as_best)
 
-            # eg. weight_epoch-30.pt
-            # eg. weight_epoch-30-best.pt
-            if save_weight == 'best':
-                if num_epochs > epoch:
-                    # 途中のepochでは、保存しない。キープだけ
-                    pass
-                else:
-                    breakpoint()
-                    # 最終epochの時だけ存保
-                    save_name = self.weight_name + '_epoch-' + str(self.tentative_best_epoch).zfill(3) + '-best' + '.pt'
-                    save_path = Path(save_dir, save_name)
-                    torch.save(self.tentative_best_weight, save_path)
-
-            elif save_weight == 'each':
-                if num_epochs > epoch:
-                    # eachの時は、下がるたびに保存
-                    save_name = self.weight_name + '_epoch-' + str(self.tentative_best_epoch).zfill(3) + '.pt'
-                    save_path = Path(save_dir, save_name)
-                    torch.save(self.tentative_best_weight, save_path)
-                else:
-                    # 最終epochの時
-                    save_name = self.weight_name + '_epoch-' + str(self.tentative_best_epoch).zfill(3) + '-best' + '.pt'
-                    save_path = Path(save_dir, save_name)
-                    torch.save(self.tentative_best_weight, save_path)
-
-                    """
-                    # すでに、保存されてるかもしれない
-                    save_name = self.weight_name + '_epoch-' + str(self.tentative_best_epoch).zfill(3) + '.pt'
-                    save_path = Path(save_dir, save_name)
-
-                    if save_path.exists():
-                        # あったら、'-best' を付けてrename
-                        new_save_name = self.weight_name + '_epoch-' + str(self.tentative_best_epoch).zfill(3) + '-best' + '.pt'
-                        new_save_path = Path(save_dir, new_save_name)
-                        save_path.rename(new_save_path)
-                    else:
-                        save_name = self.weight_name + '_epoch-' + str(self.tentative_best_epoch).zfill(3) + '-best' + '.pt'
-                        save_path = Path(save_dir, save_name)
-                        torch.save(self.best_weight, save_path)
-                    """
-
+            if save_path.exists():
+                # best_epochがすでに保存されていた時(eachの場合で、最終epochがbest_weightの時)、保存されたいるものをrename
+                save_path.rename(save_path_as_best)
             else:
-                logger.error(f"Invalid save_weight: {save_weight}.")
-
+                # 0th epochの時がbestだった時
+                torch.save(self.acting_best_weight, save_path_as_best)
         else:
-            pass
-            #その時点のepochで、下がってない時
-            # best-epoch, best-weightはキープされている
+            torch.save(self.acting_best_weight, save_path)
 
-
-
-
-    def load_weight(self, date_name=None, weight_name=None):
+    def load_weight(self, date_name=None, which_epoch='best'):
         pass
         """
         load_path = Path(cls.sets_dir, datetime, cls.weight_dir, weight_name)
@@ -394,6 +347,9 @@ def create_model(args, split_provider):
             model = FusionDeepSurv(args, split_provider)
         else:
             logger.error(f"Cannot identify model type for {task}.")
+
+    else:
+        logger.error(f"Invalid task: {task}.")
 
     return model
 

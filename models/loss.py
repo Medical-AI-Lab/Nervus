@@ -67,6 +67,7 @@ class EpochLoss:
             _best_val_loss = self.get_latest_loss('val')
             self.set_best_val_loss(_best_val_loss)
             self.set_best_epoch(epoch + 1)
+            self.up_update_flag()
         else:
             _latest_val_loss = self.get_latest_loss('val')
             _best_val_loss = self.get_best_val_loss()
@@ -115,7 +116,7 @@ class LossRegistory(ABC):
     def cal_batch_loss(cls, multi_output, multi_label, period=None, network=None):
         pass
 
-    # batch_loss is accumated in runnning_loss
+    # batch_loss is accumulated in runnning_loss
     def cal_running_loss(self, batch_size=None):
         assert (batch_size is not None), 'Invalid batch_size: batch_size=None.'
         for internal_label_name in self.internal_label_list:
@@ -148,7 +149,6 @@ class LossRegistory(ABC):
 class LossMixin:
     def print_epoch_loss(self, num_epochs, epoch):
         _total_epoch_loss = self.epoch_loss['total']
-
         train_loss = _total_epoch_loss.get_latest_loss('train')
         val_loss = _total_epoch_loss.get_latest_loss('val')
         epoch_comm = f"epoch [{epoch+1:>3}/{num_epochs:<3}]"
@@ -156,7 +156,7 @@ class LossMixin:
         val_comm = f"val_loss: {val_loss:>8.4f}"
 
         updated_commemt = ''
-        if _total_epoch_loss.is_val_loss_updated():
+        if (epoch > 0) and (_total_epoch_loss.is_val_loss_updated()):
             updated_commemt = '   Updated val_loss!'
         comment = epoch_comm + ', ' + train_comm + ', ' + val_comm + updated_commemt
         logger.info(comment)
@@ -217,7 +217,7 @@ class DeepSurvLoss(LossWidget):
         self.device = device
 
     def cal_batch_loss(self, multi_output, multi_label, period, network):
-        #internal_label_name = list(multi_label.keys())[0]  # should be unique
+        # internal_label_name = list(multi_label.keys())[0]  # should be unique
         # multi_labelの中にinternal_label_nameは1つだけでなので、上のClassification, Regressionの形を合わせる
         for internal_label_name in multi_label.keys():
             _pred = multi_output[internal_label_name]

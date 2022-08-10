@@ -22,7 +22,6 @@ date_name = date_now.strftime('%Y-%m-%d-%H-%M-%S')
 save_dir = Path('results/sets', date_name)
 save_dir.mkdir(parents=True, exist_ok=True)
 
-
 args = Options().check_options()
 sp = SplitProvider(args.csv_name, args.task)
 
@@ -61,9 +60,12 @@ for epoch in range(args.epochs):
 
     model.print_epoch_loss(args.epochs, epoch)
 
-    # Save weight after checking total epoch loss is updated or not.
-    model.save_weight(date_name, save_weight=args.save_weight, num_epochs=args.epochs, epoch=epoch)
+    if model.is_total_val_loss_updated():
+        model.store_weight()
+        if (epoch > 0) and (args.save_weight == 'each'):
+            model.save_weight(date_name, as_best=False)
 
+model.save_weight(date_name, as_best=True)
 model.save_parameter(date_name)
 model.save_learning_curve(date_name)
 

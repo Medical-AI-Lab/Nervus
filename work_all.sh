@@ -4,7 +4,7 @@ set -eu
 
 gpu_ids="-1"
 save_weight="best"
-parameter_csv="./parameters/parameter.csv"
+parameter_csv="./parameter.csv"
 
 
 train_log="./logs/train.log"

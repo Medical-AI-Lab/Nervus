@@ -209,7 +209,7 @@ class BaseNet:
     @classmethod
     def get_classifier(cls, net_name):
         net = cls.net[net_name]()
-        classifier = getattr(net, cls.classifier[net_name]) 
+        classifier = getattr(net, cls.classifier[net_name])
         return classifier
 
     @classmethod
@@ -416,6 +416,7 @@ def create_net(mlp, net, num_classes_in_internal_label, mlp_num_inputs, in_chann
     else:
         logger.error('Cannot identify net type.')
 
-    # DataParallel
-    # multi_net = DataParallel(multi_net, gpu_ids)
+    if gpu_ids:
+        multi_net = nn.DataParallel(multi_net, gpu_ids)
+
     return multi_net
