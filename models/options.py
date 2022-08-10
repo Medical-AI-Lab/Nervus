@@ -28,7 +28,7 @@ class Options:
 
         # Training and Internal validation
         self.parser.add_argument('--criterion',       type=str,   default=None,  help='criterion: CEL, MSE, RMSE, MAE, NLL (Default: None)')
-        self.parser.add_argument('--optimizer',       type=str,   default=None,  help='optimzer:SGD, Adadelta, RMSprop, Adam, RAdam (Default: None)')
+        self.parser.add_argument('--optimizer',       type=str,   default=None,  help='optimzer: SGD, Adadelta, RMSprop, Adam, RAdam (Default: None)')
         self.parser.add_argument('--lr',              type=float, default=0.001, metavar='N', help='learning rate: (Default: 0.001)')
         self.parser.add_argument('--epochs',          type=int,   default=10,    metavar='N', help='number of epochs (Default: 10)')
 

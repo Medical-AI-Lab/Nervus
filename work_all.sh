@@ -6,7 +6,6 @@ gpu_ids="-1"
 save_weight="best"
 parameter_csv="./parameter.csv"
 
-
 train_log="./logs/train.log"
 test_log="./logs/test.log"
 roc_log="./logs/roc.log"
@@ -19,9 +18,6 @@ python="python"
 
 train_code="train.py"
 test_code="test.py"
-roc_code="./evaluation/roc.py"
-yy_code="./evaluation/yy.py"
-c_index_code="./evaluation/c_index.py"
 
 # Delete previous logs.
 rm -f "$train_log"
@@ -48,7 +44,7 @@ done
 #8  batch_size,
 #9  sampler,
 #10 augmtntation,
-#11 input_channel
+#11 in_channel
 total=$(tail -n +2 "$parameter_csv" | wc -l)
 i=1
 for row in $(tail -n +2 "$parameter_csv"); do
@@ -62,14 +58,14 @@ for row in $(tail -n +2 "$parameter_csv"); do
   batch_size=$(echo "$row" | cut -d "," -f8)
   sampler=$(echo "$row" | cut -d "," -f9)
   augmentation=$(echo "$row" | cut -d "," -f10)
-  input_channel=$(echo "$row" | cut -d "," -f11)
+  in_channel=$(echo "$row" | cut -d "," -f11)
   echo "$i/$total: Training starts..."
 
   echo ""
 
   # Traning
-  echo "$python $train_code --task $task --csv_name $csv_name --image_dir $image_dir --model $model --criterion $criterion --optimizer $optimizer --epochs $epochs --batch_size $batch_size --sampler $sampler --augmentation $augmentation --input_channel $input_channel --save_weight $save_weight --gpu_ids $gpu_ids"
-  "$python" "$train_code" --task "$task" --csv_name "$csv_name" --image_dir "$image_dir" --model "$model" --criterion "$criterion" --optimizer "$optimizer" --epochs "$epochs" --batch_size "$batch_size" --sampler "$sampler" --augmentation "$augmentation" --input_channel "$input_channel" --save_weight "$save_weight" --gpu_ids "$gpu_ids" 2>&1 | tee -a "$train_log"
+  echo "$python $train_code --task $task --csv_name $csv_name --image_dir $image_dir --model $model --criterion $criterion --optimizer $optimizer --epochs $epochs --batch_size $batch_size --sampler $sampler --augmentation $augmentation --in_channel $in_channel --save_weight $save_weight --gpu_ids $gpu_ids"
+  "$python" "$train_code" --task "$task" --csv_name "$csv_name" --image_dir "$image_dir" --model "$model" --criterion "$criterion" --optimizer "$optimizer" --epochs "$epochs" --batch_size "$batch_size" --sampler "$sampler" --augmentation "$augmentation" --in_channel "$in_channel" --save_weight "$save_weight" --gpu_ids "$gpu_ids" 2>&1 | tee -a "$train_log"
 
   echo ""
 
