@@ -186,15 +186,15 @@ class SaveLoadMixin:
         if as_best:
             save_name_as_best = self.weight_name + '_epoch-' + str(self.acting_best_epoch).zfill(3) + '_best' + '.pt'
             save_path_as_best = Path(save_dir, save_name_as_best)
-
             if save_path.exists():
-                # best_epochがすでに保存されていた時(eachの場合で、最終epochがbest_weightの時)、保存されたいるものをrename
+                # Check if best weight already saved. If so, just rename with '-best'
                 save_path.rename(save_path_as_best)
             else:
-                # 0th epochの時がbestだった時
                 torch.save(self.acting_best_weight, save_path_as_best)
         else:
+            save_name = self.weight_name + '_epoch-' + str(self.acting_best_epoch).zfill(3) + '.pt'
             torch.save(self.acting_best_weight, save_path)
+
 
     def load_weight(self, date_name=None, which_epoch='best'):
         pass
