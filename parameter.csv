@@ -1,0 +1,6 @@
+task,csv_name,image_dir,model,criterion,optimizer,epochs,batch_size,sampler,augmentation,in_channel
+classification,trial.csv,128,ResNet18,CEL,RAdam,50,64,no,trivialaugwide,3
+classification,trial.csv,128,MLP+ResNet18,CEL,RAdam,50,64,no,trivialaugwide,1
+regression,trial.csv,128,ResNet18,MSE,RAdam,50,64,no,trivialaugwide,1
+regression,ctrial.csv,128,MLP+ResNet18,MSE,RAdam,50,64,no,trivialaugwide,1
+deepsurv,trial.csv,128,MLP+ResNet18,NLL,RAdam,50,64,no,trivialaugwide,1

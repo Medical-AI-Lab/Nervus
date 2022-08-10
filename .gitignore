@@ -135,8 +135,7 @@ dmypy.json
 # Additional
 __pycache__/
 results/
-train_opt_logs/
-weights/
+materials/
 tmp/
 
 .DS_Store

@@ -1,25 +1,28 @@
 # ----- Define variables -----
-# CSV_NAME = trials.csv
+# CSV_NAME = trial.csv
 # IMAGE_DIR = 128 | covid | png256
 # TASK = classification | regression | deepsurv
-# MODEL = MLP | [CNN name] | MLP+[CNN name]
-# CRITERION = CEL | MSE | NLL
+# MODEL = MLP | [CNN or ViT name] | MLP+[CNN or ViT name]
+# CRITERION = CEL | MSE | RMSE | MAE | NLL
+# OPTIMIZER = SGD | Adadelta | RMSprop | Adam | RAdam
+# AUGMENTATION = randaug | trivialaugwide | augmix | no
 # SAMPLER = yes | no   # should be no when regression or multi-label
-# INPUT_CHANNEL = 1 | 3
+# IN_CHANNEL = 1 | 3
 # SAVE_WEIGHT = best | each
 # GPU_IDS = -1 | 0,1,2
-CSV_NAME := trials.csv
+
+CSV_NAME := trial.csv
 IMAGE_DIR := 128
 TASK := classification
 MODEL := ResNet18
 CRITERION := CEL
 OPTIMIZER := Adam
-EPOCHS := 3
+EPOCHS := 20
 BATCH_SIZE := 64
 SAMPLER := no
 AUGMENTATION := no
-INPUT_CHANNEL := 3
-SAVE_WEIGHT := best
+IN_CHANNEL := 3
+SAVE_WEIGHT := each
 GPU_IDS := -1
 
 TRAIN_OPT := \
@@ -33,7 +36,7 @@ TRAIN_OPT := \
 --batch_size $(BATCH_SIZE) \
 --sampler $(SAMPLER) \
 --augmentation $(AUGMENTATION) \
---input_channel $(INPUT_CHANNEL) \
+--in_channel $(IN_CHANNEL) \
 --save_weight $(SAVE_WEIGHT) \
 --gpu_ids $(GPU_IDS)
 
@@ -43,12 +46,8 @@ PYTHON := python -i
 
 TRAIN_CODE := train.py
 TEST_CODE := test.py
-ROC_CODE := ./evaluation/roc.py
-YY_CODE := ./evaluation/yy.py
-C_INDEX_CODE := ./evaluation/c_index.py
 
-# Directory
-PARAMETER_DIR := ./parameters
+PARAMETER := ./parameters.csv
 RESULTS_DIR := ./results
 SETS_DIR := $(RESULTS_DIR)/sets
 SUMMARY_DIR := $(RESULTS_DIR)/summary
@@ -62,13 +61,11 @@ temp:
 	-mkdir -p $(SETS_DIR)/$(TMP_DIR)
 	-mkdir -p $(SUMMARY_DIR)/$(TMP_DIR)
 	-mkdir -p $(LOG_DIR)/$(TMP_DIR)
-#	@#-mkdir -p $(PARAMETER_DIR)/$(TMP_DIR)
 
 clean:
 	-mv $(LOG_DATETIME) $(SETS_DIR)/$(TMP_DIR)
 	-mv $(SUMMARY_DIR)/summary.csv $(SUMMARY_DIR)/$(TMP_DIR)/summary_$(DATETIME).csv
 	-mv $(LOG_DIR)/*.log $(LOG_DIR)/$(TMP_DIR)
-#	@#-mv $(PARAMETER_DIR)/*.csv $(PARAMETER_DIR)/$(TMP_DIR)
 
 
 active:
@@ -82,12 +79,3 @@ train:
 
 test:
 	$(PYTHON) $(TEST_CODE)
-
-roc:
-	$(PYTHON) $(ROC_CODE)
-
-yy:
-	$(PYTHON) $(YY_CODE)
-
-c_index:
-	$(PYTHON) $(C_INDEX_CODE)
