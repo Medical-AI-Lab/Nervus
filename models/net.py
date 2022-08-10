@@ -416,7 +416,4 @@ def create_net(mlp, net, num_classes_in_internal_label, mlp_num_inputs, in_chann
     else:
         logger.error('Cannot identify net type.')
 
-    if gpu_ids:
-        multi_net = nn.DataParallel(multi_net, gpu_ids)
-
     return multi_net

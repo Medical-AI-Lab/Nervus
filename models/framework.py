@@ -8,6 +8,7 @@ import pandas as pd
 from abc import ABC, abstractmethod
 
 import torch
+import torch.nn as nn
 from torchinfo import summary
 
 from .net import create_net
@@ -45,6 +46,10 @@ class BaseModel(ABC):
         self.device = torch.device(f"cuda:{self.gpu_ids[0]}") if self.gpu_ids else torch.device('cpu')
 
         self.network = create_net(self.mlp, self.net, self.num_classes_in_internal_label, self.mlp_num_inputs, self.in_channel, self.vit_image_size, self.gpu_ids)
+        if self.gpu_ids != []:
+            self.network.to(self.device)
+            self.network = nn.DataParallel(self.network, device_ids=self.gpu_ids)
+
         self.criterion = set_criterion(self.criterion_name, self.device)
         self.optimizer = set_optimizer(self.optimizer_name, self.network, self.lr)
         self.loss_reg = create_loss_reg(self.task, self.criterion, self.internal_label_list, self.device)
@@ -167,13 +172,12 @@ class SaveLoadMixin:
 
     def store_weight(self):
         self.acting_best_epoch = self.loss_reg.epoch_loss['total'].get_best_epoch()
-
-        if hasattr(self.network, 'module'):
+        _network = copy.deepcopy(self.network)
+        if hasattr(_network, 'module'):
             # When DataParallel used
-            # self.tentative_best_weight = copy.deepcopy(self.network.module.state_dict().to(torch.device('cpu')))
-            self.acting_best_weight = copy.deepcopy(self.network.module.state_dict())
+            self.acting_best_weight = copy.deepcopy(_network.module.to(torch.device('cpu')).state_dict())
         else:
-            self.acting_best_weight = copy.deepcopy(self.network.state_dict())
+            self.acting_best_weight = copy.deepcopy(_network.state_dict())
 
     def save_weight(self, date_name, as_best=None):
         assert isinstance(as_best, bool), 'Argument as_best should be bool.'
@@ -216,7 +220,7 @@ class SaveLoadMixin:
             label_name = internal_label_name.replace('internal_', '') if internal_label_name.startswith('internal') else 'total'
             best_epoch = str(each_epoch_loss.get_best_epoch()).zfill(3)
             best_val_loss = f"{each_epoch_loss.get_best_val_loss():.4f}"
-            save_name = self.csv_learning_curve + '_' + label_name + '_val-best_epoch-' + best_epoch + '_val-best-loss-' + best_val_loss + '.csv'
+            save_name = self.csv_learning_curve + '_' + label_name + '_val-best-epoch-' + best_epoch + '_val-best-loss-' + best_val_loss + '.csv'
             save_path = Path(save_dir, save_name)
             df_each_epoch_loss.to_csv(save_path, index=False)
 
@@ -352,16 +356,3 @@ def create_model(args, split_provider):
         logger.error(f"Invalid task: {task}.")
 
     return model
-
-
-
-
-
-
-
-
-
-
-
-
-
