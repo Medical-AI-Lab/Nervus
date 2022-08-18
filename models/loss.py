@@ -31,11 +31,7 @@ class EpochLoss:
     update_flag: bool = False
 
     def append_epoch_loss(self, phase, new_epoch_loss):
-        prev_loss_list = getattr(self, phase)
-        prev_loss_list.append(new_epoch_loss) # No need to setattr
-        # ! Below does not work as expected
-        # new_epoch_loss = prev_loss_list.append(new_epoch_loss)
-        # setattr(self, phase, new_epoch_loss)
+        getattr(self, phase).append(new_epoch_loss)
 
     def get_latest_loss(self, phase):
         latest_loss = getattr(self, phase)[-1]
