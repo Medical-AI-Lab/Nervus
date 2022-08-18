@@ -307,12 +307,13 @@ def create_model(args, split_provider, weight_path=None):
         logger.error(f"Invalid task: {task}.")
 
     # When test
+    # load weight should be done before GPU setting.
     if not args.isTrain:
         assert (weight_path is not None), 'Specify weight_path.'
         model.load_weight(weight_path)
 
     if args.gpu_ids != []:
-        assert torch.cuda.is_available(), 'No avalibale GPU on this machine. Use CPU.'
+        assert torch.cuda.is_available(), 'No avalibale GPU on this machine.'
         model.enable_gpu()
 
     return model

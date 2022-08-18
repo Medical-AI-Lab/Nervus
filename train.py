@@ -22,7 +22,7 @@ save_dir = Path('results/sets', date_name)
 save_dir.mkdir(parents=True, exist_ok=True)
 
 opt = Options()
-args = opt.check_train_options()  # fixed isTrain
+args = opt.check_train_options()
 
 sp = SplitProvider(args.csv_name, args.task)
 

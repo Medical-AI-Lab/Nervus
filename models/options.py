@@ -63,44 +63,49 @@ class Options:
         self.args = self.parser.parse_args()
         self.args.isTrain = isTrain
 
+    def _parse_model(self, model_name):
+        assert (model_name is not None), 'Specify model.'
+        _model = model_name.split('+')  # 'MLP', 'ResNet18', 'MLP+ResNet18' -> ['MLP'], ['ResNet18'], ['MLP', 'ResNet18']
+        mlp = 'MLP' if 'MLP' in _model else None
+        _net = [_n for _n in _model if _n != 'MLP']
+        net = _net[0] if _net != [] else None
+        return mlp, net
+
+    def _parse_gpu_ids(self, gpu_ids):
+        str_ids = gpu_ids.split(',')
+        _gpu_ids = []
+        for str_id in str_ids:
+            id = int(str_id)
+            if id >= 0:
+                _gpu_ids.append(id)
+        return _gpu_ids
+
+    def _get_latest_test_datetime(self):
+        date_names = Path('./results/sets/').glob('*')
+        latest = max(date_names, key=lambda date_name: date_name.stat().st_mtime).name
+        return latest
+
     def parse(self):
         if self.args.isTrain:
             # model
-            assert (self.args.model is not None), 'Specify model.'
-            _model = self.args.model.split('+')  # 'MLP', 'ResNet18', 'MLP+ResNet18' -> ['MLP'], ['ResNet18'], ['MLP', 'ResNet18']
-            if 'MLP' in _model:
-                self.args.mlp = 'MLP'
-            else:
-                self.args.mlp = None
-
-            _net = [m for m in _model if m != 'MLP']
-            if _net != []:
-                self.args.net = _net[0]
-            else:
-                self.args.net = None
+            mlp, net = self._parse_model(self.args.model)
+            self.args.mlp = mlp
+            self.args.net = net
 
             # split path
             assert (self.args.csv_name is not None), 'Specify csv_name.'
             self.args.csv_name = Path('./materials/splits', self.args.csv_name)
 
             # image directory
-            if (self.args.image_dir is not None):
+            if self.args.image_dir is not None:
                 self.args.image_dir = Path('./materials/images', self.args.image_dir)
 
             # GPU IDs
-            str_ids = self.args.gpu_ids.split(',')
-            self.args.gpu_ids = []
-            for str_id in str_ids:
-                id = int(str_id)
-                if id >= 0:
-                    self.args.gpu_ids.append(id)
+            self.args.gpu_ids = self._parse_gpu_ids(self.args.gpu_ids)
 
         else:
-            # When test_datatime is not specified, latest one is selected.
             if self.args.test_datetime is None:
-                date_names = Path('./results/sets/').glob('*')
-                latest = max(date_names, key=lambda date_name: date_name.stat().st_mtime).name
-                setattr(self.args, 'test_datetime', latest)
+                self.args.test_datetime = self._get_latest_test_datetime()
 
     def _get_args(self):
         return vars(self.args)
@@ -196,29 +201,9 @@ class Options:
                 else:
                     setattr(self.args, option, parameter)
 
-        # The below should be 'no'  when test.
+        # The below should be 'no' when test.
         setattr(self.args, 'augmentation', 'no')
         setattr(self.args, 'sampler', 'no')
-
-        # option, parameter
-        # csv_name materials/splits/clean_cla_multi_output_bin_class.csv
-        # image_dir 128
-        # task classification
-        # model MLP
-        ## criterion CEL
-        ## optimizer Adam
-        ## lr 0.001
-        ## epochs 3
-        ## batch_size 64
-        # augmentation no
-        # normalize_image yes
-        # sampler no
-        # in_channel 3
-        # vit_image_size NONE
-        ## save_weight each
-        # gpu_ids CPU
-        # mlp MLP
-        # net NONE
 
     # For training
     def check_train_options(self):
