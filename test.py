@@ -106,7 +106,7 @@ weight_paths.sort(key=lambda path: path.stat().st_mtime)
 
 
 for weight_path in weight_paths:
-    logger.info(f"Load {weight_path.name}.")
+    logger.info(f"Inference with {weight_path.name}.")
 
     model = create_model(args, sp, weight_path=weight_path)
     model.eval()
@@ -124,3 +124,5 @@ for weight_path in weight_paths:
             lh.make_likehood(data, model.get_output())
 
     lh.save_likelihood(weight_name=weight_path.stem)
+
+logger.info('Inference finished.')
