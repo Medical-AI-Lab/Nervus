@@ -173,9 +173,6 @@ class SaveLoadMixin:
             save_path = Path(save_dir, save_name)
             df_each_epoch_loss.to_csv(save_path, index=False)
 
-    def save_likelihood(self, date_name):
-        pass
-
 
 class ModelWidget(BaseModel, SaveLoadMixin):
     """
