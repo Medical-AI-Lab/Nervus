@@ -17,26 +17,6 @@ from logger.logger import Logger
 
 logger = Logger.get_logger('test')
 
-opt = check_test_options()
-args = opt.args
-sp = SplitProvider(args.csv_name, args.task)
-
-dataloaders = {
-    'train': create_dataloader(args, sp, split='train'),
-    'val': create_dataloader(args, sp, split='val'),
-    'test': create_dataloader(args, sp, split='test')
-    }
-
-train_total = len(dataloaders['train'].dataset)
-val_total = len(dataloaders['val'].dataset)
-test_total = len(dataloaders['test'].dataset)
-logger.info(f"train_data = {train_total}")
-logger.info(f"  val_data = {val_total}")
-logger.info(f" test_data = {test_total}")
-
-weight_paths = list(Path('./results/sets', args.test_datetime, 'weights').glob('*'))
-weight_paths.sort(key=lambda path: path.stat().st_mtime)
-
 
 class Likelihood:
     def __init__(self, task, num_classes_in_internal_label, test_datetime):
@@ -57,6 +37,13 @@ class Likelihood:
         return pred_names
 
     def make_likehood(self, data, output):
+        """
+        Updates DataFrame of likelihood every batch
+
+        Args:
+            data (dict): batch data from dataloader
+        """
+
         _df_new = pd.DataFrame({
                             'Filename': data['Filename'],
                             'Institution': data['Institution'],
@@ -68,34 +55,6 @@ class Likelihood:
                                 })
             _df_new = pd.concat([_df_new, _df_period], axis=1)
 
-        """
-        # eg. separated format
-        # label_A, label_B, internal_label_A, internal_label_B, pred_label_A_0,  pred_label_A_1, pred_label_B_0, pred_label_B_1
-        # label
-        _df_raw_label = pd.DataFrame(data['raw_labels'])
-        _df_new = pd.concat([_df_new, _df_raw_label], axis=1)
-
-        if self.task == 'deepsurv':
-            _internal_label_dict = dict()
-            for internal_label_name, label_value in data['internal_labels'].items():
-                _internal_label_dict[internal_label_name] = self._convert_to_numpy(label_value)
-            _df_internal_label = pd.DataFrame(_internal_label_dict)
-            _df_new = pd.concat([_df_new, _df_internal_label], axis=1)
-
-        # output
-        _df_output = pd.DataFrame()
-        for internal_label_name, output in output.items():
-            pred_names = self._make_pred_names(internal_label_name, self.num_classes_in_internal_label[internal_label_name])
-            _df_each = pd.DataFrame(self._convert_to_numpy(output), columns=pred_names)
-            _df_output = pd.concat([_df_output, _df_each], axis=1)
-        _df_new = pd.concat([_df_new, _df_output], axis=1)
-        """
-
-        # eg. merged format
-        # label_A,  internal_label_A,　pred_label_A_0,  pred_label_A_1, label_B, internal_label_B, pred_label_B_0, pred_label_B_1
-        # data['raw_labels']
-        # data['internal_labels']
-        # output
         for internal_label_name, output in output.items():
             # raw_label
             raw_label_name = internal_label_name.replace('internal_', '')
@@ -125,6 +84,27 @@ class Likelihood:
         self.df_likelihood.to_csv(save_path, index=False)
 
 
+opt = check_test_options()
+args = opt.args
+sp = SplitProvider(args.csv_name, args.task)
+
+dataloaders = {
+    'train': create_dataloader(args, sp, split='train'),
+    'val': create_dataloader(args, sp, split='val'),
+    'test': create_dataloader(args, sp, split='test')
+    }
+
+train_total = len(dataloaders['train'].dataset)
+val_total = len(dataloaders['val'].dataset)
+test_total = len(dataloaders['test'].dataset)
+logger.info(f"train_data = {train_total}")
+logger.info(f"  val_data = {val_total}")
+logger.info(f" test_data = {test_total}")
+
+weight_paths = list(Path('./results/sets', args.test_datetime, 'weights').glob('*'))
+weight_paths.sort(key=lambda path: path.stat().st_mtime)
+
+
 for weight_path in weight_paths:
     logger.info(f"Load {weight_path.name}.")
 
@@ -141,18 +121,6 @@ for weight_path in weight_paths:
             with torch.no_grad():
                 model.forward()
 
-            lh.make_likehood(data, model.get_output())  # batchごとにlikelihoodを追加していく
+            lh.make_likehood(data, model.get_output())
 
     lh.save_likelihood(weight_name=weight_path.stem)
-
-# data = {
-#        'Filename': filename,
-#        'ExamID': examid,
-#        'Institution': institution,
-#        'raw_labels': raw_label_dict,
-#        # 'internal_labels': internal_label_dict,
-#        # 'inputs': inputs_value,
-#        # 'image': image,
-#        'period': period,
-#        'split': split
-#        }
