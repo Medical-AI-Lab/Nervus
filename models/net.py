@@ -406,7 +406,7 @@ class MultiNetFusion(MultiWidget):
         return output
 
 
-def create_net(mlp, net, num_classes_in_internal_label, mlp_num_inputs, in_channel, vit_image_size, gpu_ids):
+def create_net(mlp, net, num_classes_in_internal_label, mlp_num_inputs, in_channel, vit_image_size):
     if (mlp is not None) and (net is None):
         multi_net = MultiNet('MLP', num_classes_in_internal_label, mlp_num_inputs=mlp_num_inputs, in_channel=in_channel, vit_image_size=vit_image_size)
     elif (mlp is None) and (net is not None):

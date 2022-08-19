@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import os
 import copy
 from pathlib import Path
 import pandas as pd
@@ -38,27 +39,27 @@ class BaseModel(ABC):
         self.mlp_num_inputs = len(self.sp.input_list)
         self.in_channel = self.args.in_channel
         self.vit_image_size = self.args.vit_image_size
-        self.lr = self.args.lr
-        self.criterion_name = args.criterion
-        self.optimizer_name = args.optimizer
-
         self.gpu_ids = self.args.gpu_ids
-        self.device = torch.device(f"cuda:{self.gpu_ids[0]}") if self.gpu_ids else torch.device('cpu')
 
-        self.network = create_net(self.mlp, self.net, self.num_classes_in_internal_label, self.mlp_num_inputs, self.in_channel, self.vit_image_size, self.gpu_ids)
-        if self.gpu_ids != []:
-            self.network.to(self.device)
-            self.network = nn.DataParallel(self.network, device_ids=self.gpu_ids)
+        self.device = torch.device(f"cuda:{self.gpu_ids[0]}") if self.gpu_ids != [] else torch.device('cpu')
+        self.network = create_net(self.mlp, self.net, self.num_classes_in_internal_label, self.mlp_num_inputs, self.in_channel, self.vit_image_size)
 
-        self.criterion = set_criterion(self.criterion_name, self.device)
-        self.optimizer = set_optimizer(self.optimizer_name, self.network, self.lr)
-        self.loss_reg = create_loss_reg(self.task, self.criterion, self.internal_label_list, self.device)
+        self.isTrain = self.args.isTrain
+
+        if self.isTrain:
+            self.criterion = set_criterion(args.criterion, self.device)
+            self.optimizer = set_optimizer(args.optimizer, self.network, args.lr)
+            self.loss_reg = create_loss_reg(self.task, self.criterion, self.internal_label_list, self.device)
 
     def train(self):
         self.network.train()
 
     def eval(self):
         self.network.eval()
+
+    def enable_gpu(self):
+        self.network.to(self.device)
+        self.network = nn.DataParallel(self.network, device_ids=self.gpu_ids)
 
     @abstractmethod
     def set_data(self, data):
@@ -84,6 +85,9 @@ class BaseModel(ABC):
     def forward(self):
         pass
 
+    def get_output(self):
+        return self.multi_output
+
     def backward(self):
         self.loss = self.loss_reg.batch_loss['total']
         self.loss.backward()
@@ -106,69 +110,18 @@ class BaseModel(ABC):
         is_updated = _total_epoch_loss.is_val_loss_updated()
         return is_updated
 
-    def print_epoch_loss(self, num_epochs, epoch):
-        self.loss_reg.print_epoch_loss(num_epochs, epoch)
+    def print_epoch_loss(self, epoch):
+        self.loss_reg.print_epoch_loss(self.args.epochs, epoch)
 
 
 class SaveLoadMixin:
     sets_dir = 'results/sets'
-    csv_parameter = 'parameter.csv'
     weight_dir = 'weights'
-    weight_name = 'weight'
     learning_curve_dir = 'learning_curves'
-    csv_learning_curve = 'learning_curve'
-    likelihood_dir = 'likelihoods'
-    csv_likelihood = 'likelihood'
 
     # variables to keep best_weight and best_epoch
     acting_best_weight = None
     acting_best_epoch = None
-
-    def save_parameter(self, date_name):
-        saved_args = copy.deepcopy(vars(self.args))
-
-        for option, parameter in saved_args.items():
-            if parameter is None:
-                saved_args[option] = 'NONE'
-        saved_args['test_batch_size'] = 'NO_USED_IN_TRAINING'
-        saved_args['test_datetime'] = 'NO_USED_IN_TRAINING'
-        # del saved_args['test_batch_size']
-        # del saved_args['test_datetime']
-
-        if saved_args['gpu_ids'] == []:
-            saved_args['gpu_ids'] = 'CPU'
-        else:
-            _gpu_ids = [str(i) for i in saved_args['gpu_ids']]
-            _gpu_ids = 'GPU-' + '-'.join(_gpu_ids)
-            saved_args['gpu_ids'] = _gpu_ids
-
-        df_parameter = pd.DataFrame(saved_args.items(), columns=['option', 'parameter'])
-        save_dir = Path(self.sets_dir, date_name)
-        save_dir.mkdir(parents=True, exist_ok=True)
-        save_path = Path(save_dir, self.csv_parameter)
-        df_parameter.to_csv(save_path, index=False)
-
-    def load_parameter(self, raw_args, date_name=None):
-        pass
-        """
-        load_path = Path(cls.sets_dir, datetime, cls.csv_parameter)
-        df_parameter = pd.read_csv(load_path, index_col=0)
-        df_parameter = df_parameter.fillna(np.nan).replace([np.nan], [None])
-        parameter = df_parameter.to_dict()['value']
-
-        parameter['augmentation'] = 'no'  # No need of augmentation when inference
-
-        # Cast
-        parameter['lr'] = float(parameter['lr'])
-        parameter['epochs'] = int(parameter['epochs'])
-        parameter['batch_size'] = int(parameter['batch_size'])
-        parameter['in_channel'] = int(parameter['input_channel'])
-        """
-        # raw_args = Options().parse()
-        # raw_args と 読み込んだ parameter をマージ
-        # 'NONE_IN_TRAINING' -> Noneに置き換える
-        # gpu_ids = CPU -> []
-        # gpu_ids = GPU-0-1-2-3 -> [0,1,2,3]
 
     def store_weight(self):
         self.acting_best_epoch = self.loss_reg.epoch_loss['total'].get_best_epoch()
@@ -184,31 +137,27 @@ class SaveLoadMixin:
 
         save_dir = Path(self.sets_dir, date_name, self.weight_dir)
         save_dir.mkdir(parents=True, exist_ok=True)
-        save_name = self.weight_name + '_epoch-' + str(self.acting_best_epoch).zfill(3) + '.pt'
+        save_name = 'weight_epoch-' + str(self.acting_best_epoch).zfill(3) + '.pt'
         save_path = Path(save_dir, save_name)
 
         if as_best:
-            save_name_as_best = self.weight_name + '_epoch-' + str(self.acting_best_epoch).zfill(3) + '_best' + '.pt'
+            save_name_as_best = 'weight_epoch-' + str(self.acting_best_epoch).zfill(3) + '_best' + '.pt'
             save_path_as_best = Path(save_dir, save_name_as_best)
             if save_path.exists():
-                # Check if best weight already saved. If so, just rename with '-best'
+                # Check if best weight already saved. If exists, rename with '-best'
                 save_path.rename(save_path_as_best)
             else:
                 torch.save(self.acting_best_weight, save_path_as_best)
         else:
-            save_name = self.weight_name + '_epoch-' + str(self.acting_best_epoch).zfill(3) + '.pt'
+            save_name = 'weight_epoch-' + str(self.acting_best_epoch).zfill(3) + '.pt'
             torch.save(self.acting_best_weight, save_path)
 
+    def load_weight(self, weight_path):
+        weight = torch.load(weight_path)
+        self.network.load_state_dict(weight)
 
-    def load_weight(self, date_name=None, which_epoch='best'):
-        pass
-        """
-        load_path = Path(cls.sets_dir, datetime, cls.weight_dir, weight_name)
-        cls.model.load_state_dict(load_path)
-        """
-
-    def save_learning_curve(self, data_name):
-        save_dir = Path(self.sets_dir, data_name, self.learning_curve_dir)
+    def save_learning_curve(self, date_name):
+        save_dir = Path(self.sets_dir, date_name, self.learning_curve_dir)
         save_dir.mkdir(parents=True, exist_ok=True)
         epoch_loss = self.loss_reg.epoch_loss
         for internal_label_name in self.internal_label_list + ['total']:
@@ -220,9 +169,12 @@ class SaveLoadMixin:
             label_name = internal_label_name.replace('internal_', '') if internal_label_name.startswith('internal') else 'total'
             best_epoch = str(each_epoch_loss.get_best_epoch()).zfill(3)
             best_val_loss = f"{each_epoch_loss.get_best_val_loss():.4f}"
-            save_name = self.csv_learning_curve + '_' + label_name + '_val-best-epoch-' + best_epoch + '_val-best-loss-' + best_val_loss + '.csv'
+            save_name = 'learning_curve_' + label_name + '_val-best-epoch-' + best_epoch + '_val-best-loss-' + best_val_loss + '.csv'
             save_path = Path(save_dir, save_name)
             df_each_epoch_loss.to_csv(save_path, index=False)
+
+    def save_likelihood(self, date_name):
+        pass
 
 
 class ModelWidget(BaseModel, SaveLoadMixin):
@@ -327,7 +279,7 @@ class FusionDeepSurv(ModelWidget):
         self.loss_reg.cal_batch_loss(self.multi_output, self.multi_label, self.period, self.network)
 
 
-def create_model(args, split_provider):
+def create_model(args, split_provider, weight_path=None):
     task = args.task
     mlp = args.mlp
     net = args.net
@@ -354,5 +306,15 @@ def create_model(args, split_provider):
 
     else:
         logger.error(f"Invalid task: {task}.")
+
+    # When test
+    # load weight should be done before GPU setting.
+    if not args.isTrain:
+        assert (weight_path is not None), 'Specify weight_path.'
+        model.load_weight(weight_path)
+
+    if args.gpu_ids != []:
+        assert torch.cuda.is_available(), 'No avalibale GPU on this machine.'
+        model.enable_gpu()
 
     return model

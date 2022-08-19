@@ -99,6 +99,7 @@ class LoadDataSet(Dataset):
         if self.args.net is None:
             return image
 
+        assert (self.args.image_dir is not None), 'Specify image_dir.'
         filepath = self.df_split.iat[idx, self.col_index_dict['filepath']]
         image_path = Path(self.args.image_dir, filepath)
 
@@ -111,7 +112,7 @@ class LoadDataSet(Dataset):
         image = self.transform(image)
         return image
 
-    def _load_priods_if_deepsurv(self, idx):
+    def _load_periods_if_deepsurv(self, idx):
         period = ''
         if self.args.task != 'deepsurv':
             return period
@@ -134,7 +135,7 @@ class LoadDataSet(Dataset):
         internal_label_dict = {internal_label_name: self.df_split.iat[idx, self.col_index_dict[internal_label_name]] for internal_label_name in self.internal_label_list}
         inputs_value = self._input_value_to_single_tensor_if_mlp(idx)
         image = self._load_image_if_cnn(idx)
-        period = self._load_priods_if_deepsurv(idx)
+        period = self._load_periods_if_deepsurv(idx)
         split = self.df_split.iat[idx, self.col_index_dict['split']]
         return {
                 'Filename': filename,
@@ -152,7 +153,7 @@ class LoadDataSet(Dataset):
 def _make_sampler(split_data):
     _target = []
     for _, data in enumerate(split_data):
-        _target.append(list(data['internal_labels'].values())[0])
+        _target.append(list(data['internal_labels'].values())[0])   # split_provider.df_source から取り出した方が速い？
 
     class_sample_count = np.array([len(np.where(_target == t)[0]) for t in np.unique(_target)])
     weight = 1. / class_sample_count
@@ -163,6 +164,12 @@ def _make_sampler(split_data):
 
 def create_dataloader(args, split_provider, split=None):
     split_data = LoadDataSet(args, split_provider, split)
+
+    # args never has both 'batch_size' and 'test_batch_size'.
+    if args.isTrain:
+        batch_size = args.batch_size
+    else:
+        batch_size = args.test_batch_size
 
     if args.sampler == 'yes':
         assert ((args.task == 'classification') or (args.task == 'deepsurv')), 'Cannot make sampler in regression.'
@@ -175,7 +182,7 @@ def create_dataloader(args, split_provider, split=None):
 
     split_loader = DataLoader(
                             dataset=split_data,
-                            batch_size=args.batch_size,
+                            batch_size=batch_size,
                             shuffle=shuffle,
                             num_workers=0,
                             sampler=sampler
