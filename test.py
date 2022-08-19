@@ -63,7 +63,7 @@ class Likelihood:
                                     })
             _df_new = pd.concat([_df_new, _df_raw_label], axis=1)
 
-            # internal_label is deepsurv
+            # internal_label if deepsurv
             if self.task == 'deepsurv':
                 _df_internal_label = pd.DataFrame({
                                             internal_label_name: self._convert_to_numpy(data['internal_labels'][internal_label_name])
