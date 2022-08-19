@@ -7,7 +7,7 @@ import pandas as pd
 
 import torch
 
-from models.options import Options
+from models.options import check_test_options
 from models.env import SplitProvider
 from models.dataloader import create_dataloader
 from models.framework import create_model
@@ -17,9 +17,8 @@ from logger.logger import Logger
 
 logger = Logger.get_logger('test')
 
-opt = Options()
-args = opt.check_test_options()
-
+opt = check_test_options()
+args = opt.args
 sp = SplitProvider(args.csv_name, args.task)
 
 dataloaders = {
@@ -39,33 +38,91 @@ weight_paths = list(Path('./results/sets', args.test_datetime, 'weights').glob('
 weight_paths.sort(key=lambda path: path.stat().st_mtime)
 
 
-def convert_to_numpy(raw_data):
-    converted_data = dict()
-    for internal_label_name, value in raw_data.items():
-        converted_data[internal_label_name] = value.to('cpu').detach().numpy().copy()
-    return converted_data
+class Likelihood:
+    def __init__(self, task, num_classes_in_internal_label, test_datetime):
+        self.task = task
+        self.num_classes_in_internal_label = num_classes_in_internal_label
+        self.test_datetime = test_datetime
+        self.df_likelihood = pd.DataFrame()
 
+    def _convert_to_numpy(self, raw_data):
+        converted_data = raw_data.to('cpu').detach().numpy().copy()
+        return converted_data
 
-def make_pred_names(internal_label_name, num_classes):
-    pred_names = []
-    for i in range(num_classes):
-        pred_name_i = 'pred_' + internal_label_name.replace('internal_', '') + '_' + str(i)
-        pred_names.append(pred_name_i)
-    return pred_names
+    def _make_pred_names(self, internal_label_name, num_classes):
+        pred_names = []
+        for i in range(num_classes):
+            pred_name_i = 'pred_' + internal_label_name.replace('internal_', '') + '_' + str(i)
+            pred_names.append(pred_name_i)
+        return pred_names
 
+    def make_likehood(self, data, output):
+        _df_new = pd.DataFrame({
+                            'Filename': data['Filename'],
+                            'Institution': data['Institution'],
+                            'split': data['split']
+                            })
+        if self.task == 'deepsurv':
+            _df_period = pd.DataFrame({
+                                'period': self._convert_to_numpy(data['period'])
+                                })
+            _df_new = pd.concat([_df_new, _df_period], axis=1)
 
-def _make_likehood(multi_output, num_classes_in_internal_label, isDeepSurv=None):
-    df_likelihood = pd.DataFrame()
-    for internal_label_name, outputs in multi_output.items():
-        pred_names = make_pred_names(internal_label_name, num_classes_in_internal_label[internal_label_name])
-        _df_each = pd.DataFrame(outputs, columns=pred_names)
-        df_likelihood = pd.concat([df_likelihood, _df_each], axis=1)
-    return df_likelihood
+        """
+        # eg. separated format
+        # label_A, label_B, internal_label_A, internal_label_B, pred_label_A_0,  pred_label_A_1, pred_label_B_0, pred_label_B_1
+        # label
+        _df_raw_label = pd.DataFrame(data['raw_labels'])
+        _df_new = pd.concat([_df_new, _df_raw_label], axis=1)
 
+        if self.task == 'deepsurv':
+            _internal_label_dict = dict()
+            for internal_label_name, label_value in data['internal_labels'].items():
+                _internal_label_dict[internal_label_name] = self._convert_to_numpy(label_value)
+            _df_internal_label = pd.DataFrame(_internal_label_dict)
+            _df_new = pd.concat([_df_new, _df_internal_label], axis=1)
 
-def make_likehood(data, num_classes_in_internal_label, isDeepSurv=None):
-    multi_output = convert_to_numpy(model.multi_output)
-    pass
+        # output
+        _df_output = pd.DataFrame()
+        for internal_label_name, output in output.items():
+            pred_names = self._make_pred_names(internal_label_name, self.num_classes_in_internal_label[internal_label_name])
+            _df_each = pd.DataFrame(self._convert_to_numpy(output), columns=pred_names)
+            _df_output = pd.concat([_df_output, _df_each], axis=1)
+        _df_new = pd.concat([_df_new, _df_output], axis=1)
+        """
+
+        # eg. merged format
+        # label_A,  internal_label_A,　pred_label_A_0,  pred_label_A_1, label_B, internal_label_B, pred_label_B_0, pred_label_B_1
+        # data['raw_labels']
+        # data['internal_labels']
+        # output
+        for internal_label_name, output in output.items():
+            # raw_label
+            raw_label_name = internal_label_name.replace('internal_', '')
+            _df_raw_label = pd.DataFrame({
+                                    raw_label_name: data['raw_labels'][raw_label_name]
+                                    })
+            _df_new = pd.concat([_df_new, _df_raw_label], axis=1)
+
+            # internal_label is deepsurv
+            if self.task == 'deepsurv':
+                _df_internal_label = pd.DataFrame({
+                                            internal_label_name: self._convert_to_numpy(data['internal_labels'][internal_label_name])
+                                            })
+                _df_new = pd.concat([_df_new, _df_internal_label], axis=1)
+
+            # output
+            pred_names = self._make_pred_names(internal_label_name, self.num_classes_in_internal_label[internal_label_name])
+            _df_output = pd.DataFrame(self._convert_to_numpy(output), columns=pred_names)
+            _df_new = pd.concat([_df_new, _df_output], axis=1)
+
+        self.df_likelihood = pd.concat([self.df_likelihood, _df_new], ignore_index=True)
+
+    def save_likelihood(self, weight_name=None):
+        save_dir = Path('./results/sets', self.test_datetime, 'likelihoods')
+        save_dir.mkdir(parents=True, exist_ok=True)
+        save_path = Path(save_dir, 'likelihood_' + weight_name + '.csv')
+        self.df_likelihood.to_csv(save_path, index=False)
 
 
 for weight_path in weight_paths:
@@ -74,7 +131,7 @@ for weight_path in weight_paths:
     model = create_model(args, sp, weight_path=weight_path)
     model.eval()
 
-    df_result = pd.DataFrame()
+    lh = Likelihood(args.task, sp.num_classes_in_internal_label, args.test_datetime)
     for split in ['train', 'val', 'test']:
         split_dataloader = dataloaders[split]
 
@@ -84,38 +141,9 @@ for weight_path in weight_paths:
             with torch.no_grad():
                 model.forward()
 
-            #multi_output = convert_to_numpy(model.multi_output)
-            #df_likelihood = make_likehood(multi_output, sp.num_classes_in_internal_label)
-            df_likelihood = make_likehood(data, sp.num_classes_in_internal_label)
+            lh.make_likehood(data, model.get_output())  # batchごとにlikelihoodを追加していく
 
-
-            if args.task == 'deepsurv':
-                internal_labels = convert_to_numpy(data['internal_labels'])
-
-
-'Filename'
-'Institution'
-'raw_labels'
-
-
-
-
-
-        # savelikelihood
-
-# cla, refの時 raw_labelだけいる
-# deepsurvの時 raw_label, internale_label いる
-
-# Filename
-# Institution
-# raw_labels
-# internal_label if deepsurv
-# period if deepsurv
-# split
-# pred_(raw_label_name)_0,
-# pred_(raw_label_name)_1,
-# pred_(raw_label_name)_3,
-
+    lh.save_likelihood(weight_name=weight_path.stem)
 
 # data = {
 #        'Filename': filename,

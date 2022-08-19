@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import sys
+import re
 from pathlib import Path
 import argparse
 import pandas as pd
@@ -14,8 +15,9 @@ logger = Logger.get_logger('options')
 
 
 class Options:
-    def initialize(self, isTrain=None):
+    def __init__(self, isTrain=None):
         assert isinstance(isTrain, bool), 'isTrain should be bool.'
+
         self.parser = argparse.ArgumentParser(description='Options for training or test')
 
         if isTrain:
@@ -81,7 +83,7 @@ class Options:
         return _gpu_ids
 
     def _get_latest_test_datetime(self):
-        date_names = Path('./results/sets/').glob('*')
+        date_names = [path for path in Path('./results/sets/').glob('*') if re.search('\d+', str(path))]
         latest = max(date_names, key=lambda date_name: date_name.stat().st_mtime).name
         return latest
 
@@ -205,17 +207,17 @@ class Options:
         setattr(self.args, 'augmentation', 'no')
         setattr(self.args, 'sampler', 'no')
 
-    # For training
-    def check_train_options(self):
-        self.initialize(isTrain=True)
-        self.parse()
-        self.print_options()
-        return self.args
 
-    # For test
-    def check_test_options(self):
-        self.initialize(isTrain=False)
-        self.parse()
-        self.setup_parameter_for_test()
-        self.print_options()
-        return self.args
+def check_train_options():
+    opt = Options(isTrain=True)
+    opt.parse()
+    opt.print_options()
+    return opt
+
+
+def check_test_options():
+    opt = Options(isTrain=False)
+    opt.parse()
+    opt.setup_parameter_for_test()
+    opt.print_options()
+    return opt

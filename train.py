@@ -7,7 +7,7 @@ from typing import Tuple, Dict
 
 import torch
 
-from models.options import Options
+from models.options import check_train_options
 from models.env import SplitProvider
 from models.dataloader import create_dataloader
 from models.framework import create_model
@@ -21,9 +21,8 @@ date_name = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
 save_dir = Path('results/sets', date_name)
 save_dir.mkdir(parents=True, exist_ok=True)
 
-opt = Options()
-args = opt.check_train_options()
-
+opt = check_train_options()
+args = opt.args
 sp = SplitProvider(args.csv_name, args.task)
 
 dataloaders = {

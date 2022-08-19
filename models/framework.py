@@ -85,6 +85,9 @@ class BaseModel(ABC):
     def forward(self):
         pass
 
+    def get_output(self):
+        return self.multi_output
+
     def backward(self):
         self.loss = self.loss_reg.batch_loss['total']
         self.loss.backward()
@@ -115,8 +118,6 @@ class SaveLoadMixin:
     sets_dir = 'results/sets'
     weight_dir = 'weights'
     learning_curve_dir = 'learning_curves'
-    likelihood_dir = 'likelihoods'
-    # csv_likelihood = 'likelihood'
 
     # variables to keep best_weight and best_epoch
     acting_best_weight = None
