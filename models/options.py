@@ -11,7 +11,7 @@ sys.path.append((Path().resolve() / '../').name)
 from logger.logger import Logger
 
 
-logger = Logger.get_logger('options')
+logger = Logger.get_logger('models.options')
 
 
 class Options:
@@ -83,7 +83,7 @@ class Options:
         return _gpu_ids
 
     def _get_latest_test_datetime(self):
-        date_names = [path for path in Path('./results/sets/').glob('*') if re.search('\d+', str(path))]
+        date_names = [path for path in Path('./results/sets/').glob('*') if re.search(r'\d+', str(path))]
         latest = max(date_names, key=lambda date_name: date_name.stat().st_mtime).name
         return latest
 
@@ -174,7 +174,7 @@ class Options:
         df_args = pd.read_csv(parameter_path)
 
         ignored = ['criterion', 'optimizer', 'lr', 'epochs', 'batch_size', 'save_weight']  # no need when test
-        # DataFrame -> Dict without ignored
+        # DataFrame -> Dict except ignored
         args_dict = dict()
         for each in df_args.to_dict(orient='records'):  # eg. each = {'option': 'model', 'parameter': 'ResNet18'}
             if each['option'] not in ignored:
