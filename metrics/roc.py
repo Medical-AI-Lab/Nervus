@@ -28,7 +28,7 @@ class ROC:
         self.tpr = _tpr
         self.auc = metrics.auc(self.fpr, self.tpr)
 
-    def set_multi_class_roc(self, y_true, y_score):
+    def cal_multi_class_roc(self, y_true, y_score):
         pass
 
 
@@ -48,6 +48,8 @@ class LabelROC:
             df_split = df_label.query('split == @split')
             y_true = df_split[raw_label_name]
             y_score = df_split[pred_positive_name]
+
+            # isMulti = (pred_name_list > 2)
 
             if split == 'val':
                 self.val.cal_binary_class_roc(y_true, y_score, positive_class)  # binary or multi-class ?

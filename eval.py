@@ -8,7 +8,7 @@ import re
 import pandas as pd
 
 from metrics.roc import make_roc
-# from metrics.yy import make_yy
+from metrics.yy import make_yy
 # from metrics.c_index import make_c_index
 
 from logger.logger import Logger
@@ -31,8 +31,7 @@ def define_metrics(task):
     if task == 'classification':
         return make_roc
     elif task == 'regression':
-        pass
-        # return make_yy
+        return make_yy
     elif task == 'deepsurv':
         pass
         # return make_c_index
