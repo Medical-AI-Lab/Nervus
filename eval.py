@@ -71,4 +71,4 @@ for likelihood_path in likelihood_paths:
     update_summary(df_summary)
 
 logger.info('')
-logger.info(f"Calculated metrics for {args.eval_datetime}.")
+logger.info(f"Done.")

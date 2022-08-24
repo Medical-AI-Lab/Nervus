@@ -167,7 +167,7 @@ def print_metrics(whole_metrics):
     for inst, inst_metrics in whole_metrics.items():
         logger.info(inst)
         for raw_label_name, label_metrics in inst_metrics.items():
-            logger.info(f"{raw_label_name}, val: {label_metrics.val.r2:.2f}, test: {label_metrics.test.r2:.2f}")
+            logger.info(f"{raw_label_name}, val_r2: {label_metrics.val.r2:.2f}, test_r2: {label_metrics.test.r2:.2f}")
 
 
 def make_yy(datetime, likelihood_path):

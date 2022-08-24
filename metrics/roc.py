@@ -43,6 +43,12 @@ class LabelROC:
             logger.error('Invalid split.')
 
     def _cal_label_roc_binary(self, raw_label_name, df_label):
+        """_summary_
+
+        Args:
+            raw_label_name (_type_): _description_
+            df_label (_type_): _description_
+        """
         pred_name_list = list(df_label.columns[df_label.columns.str.startswith('pred')])
         class_list = [column_name.rsplit('_', 1)[-1] for column_name in pred_name_list]   # [pred_label_discharge, pred_label_decease] -> ['discharge', 'decease']
         POSITIVE = 1
@@ -57,6 +63,12 @@ class LabelROC:
             self.set_split_roc(split, _fpr, _tpr)
 
     def _cal_label_roc_multi(self, raw_label_name, df_label):
+        """Calculate ROC for multi-class by macro average.
+
+        Args:
+            raw_label_name (str): labe name
+            df_label (DataFrame): likelihood for raw_label_name
+        """
         pred_name_list = list(df_label.columns[df_label.columns.str.startswith('pred')])
         class_list = [column_name.rsplit('_', 1)[-1] for column_name in pred_name_list]
         num_classes = len(class_list)
@@ -67,27 +79,26 @@ class LabelROC:
             y_true_bin = label_binarize(y_true, classes=class_list)
 
             # Compute ROC for each class by OneVsRest
-            fpr = dict()
-            tpr = dict()
+            _fpr = dict()
+            _tpr = dict()
             for i, class_name in enumerate(class_list):
                 pred_name = 'pred_' + raw_label_name + '_' + class_name
-                fpr[class_name], tpr[class_name], _ = metrics.roc_curve(y_true_bin[:, i], df_split[pred_name])
+                _fpr[class_name], _tpr[class_name], _ = metrics.roc_curve(y_true_bin[:, i], df_split[pred_name])
 
             # First aggregate all false positive rates
-            all_fpr = np.unique(np.concatenate([fpr[class_name] for class_name in class_list]))
+            all_fpr = np.unique(np.concatenate([_fpr[class_name] for class_name in class_list]))
 
             # Then interpolate all ROC at this points
             mean_tpr = np.zeros_like(all_fpr)
             for class_name in class_list:
-                mean_tpr += np.interp(all_fpr, fpr[class_name], tpr[class_name])
+                mean_tpr += np.interp(all_fpr, _fpr[class_name], _tpr[class_name])
 
             # Finally average it and compute AUC
             mean_tpr /= num_classes
 
-            _fpr = all_fpr
-            _tpr = mean_tpr
-            self.set_split_roc(split, _fpr, _tpr)
-            print('macro ROC')
+            _fpr['macro'] = all_fpr
+            _tpr['macro'] = mean_tpr
+            self.set_split_roc(split, _fpr['macro'], _tpr['macro'])
 
     def cal_label_roc(self, raw_label_name, df_label):
         pred_name_list = list(df_label.columns[df_label.columns.str.startswith('pred')])
@@ -185,7 +196,7 @@ def print_auc(whole_roc):
     for inst, inst_roc in whole_roc.items():
         logger.info(inst)
         for raw_label_name, label_roc in inst_roc.items():
-            logger.info(f"{raw_label_name}, val: {label_roc.val.auc:.2f}, test: {label_roc.test.auc:.2f}")
+            logger.info(f"{raw_label_name}, val_auc: {label_roc.val.auc:.2f}, test_auc: {label_roc.test.auc:.2f}")
 
 
 def make_roc(datetime, likelihood_path):
