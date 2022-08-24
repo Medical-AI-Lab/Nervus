@@ -3,6 +3,7 @@
 
 import sys
 from pathlib import Path
+import numpy as np
 import pandas as pd
 
 from sklearn import metrics
@@ -22,14 +23,10 @@ class ROC:
         self.tpr = None
         self.auc = None
 
-    def cal_binary_class_roc(self, y_true, y_score, positive_class):
-        _fpr, _tpr, _thresholds = metrics.roc_curve(y_true.astype('str'), y_score, pos_label=positive_class)
-        self.fpr = _fpr
-        self.tpr = _tpr
-        self.auc = metrics.auc(self.fpr, self.tpr)
-
-    def cal_multi_class_roc(self, y_true, y_score):
-        pass
+    def set_roc(self, fpr, tpr):
+        self.fpr = fpr
+        self.tpr = tpr
+        self.auc = metrics.auc(fpr, tpr)
 
 
 class LabelROC:
@@ -37,27 +34,68 @@ class LabelROC:
         self.val = ROC()
         self.test = ROC()
 
-    def cal_label_roc(self, raw_label_name, df_label):
-        POSITIVE = 1
+    def set_split_roc(self, split, fpr, tpr):
+        if split == 'val':
+            self.val.set_roc(fpr, tpr)
+        elif split == 'test':
+            self.test.set_roc(fpr, tpr)
+        else:
+            logger.error('Invalid split.')
+
+    def _cal_label_roc_binary(self, raw_label_name, df_label):
         pred_name_list = list(df_label.columns[df_label.columns.str.startswith('pred')])
+        class_list = [column_name.rsplit('_', 1)[-1] for column_name in pred_name_list]   # [pred_label_discharge, pred_label_decease] -> ['discharge', 'decease']
+        POSITIVE = 1
         pred_positive_name = pred_name_list[POSITIVE]
-        class_list = [column_name.rsplit('_', 1)[1] for column_name in pred_name_list]   # [pred_label_discharge, pred_label_decease] -> ['discharge', 'decease']
         positive_class = class_list[POSITIVE]
 
         for split in ['val', 'test']:
             df_split = df_label.query('split == @split')
             y_true = df_split[raw_label_name]
             y_score = df_split[pred_positive_name]
+            _fpr, _tpr, _ = metrics.roc_curve(y_true, y_score, pos_label=positive_class)
+            self.set_split_roc(split, _fpr, _tpr)
 
-            # isMulti = (pred_name_list > 2)
+    def _cal_label_roc_multi(self, raw_label_name, df_label):
+        pred_name_list = list(df_label.columns[df_label.columns.str.startswith('pred')])
+        class_list = [column_name.rsplit('_', 1)[-1] for column_name in pred_name_list]
+        num_classes = len(class_list)
 
-            if split == 'val':
-                self.val.cal_binary_class_roc(y_true, y_score, positive_class)  # binary or multi-class ?
-            elif split == 'test':
-                self.test.cal_binary_class_roc(y_true, y_score, positive_class)
-            else:
-                logger.error('Invalid split.')
-                exit()
+        for split in ['val', 'test']:
+            df_split = df_label.query('split == @split')
+            y_true = df_split[raw_label_name]
+            y_true_bin = label_binarize(y_true, classes=class_list)
+
+            # Compute ROC for each class by OneVsRest
+            fpr = dict()
+            tpr = dict()
+            for i, class_name in enumerate(class_list):
+                pred_name = 'pred_' + raw_label_name + '_' + class_name
+                fpr[class_name], tpr[class_name], _ = metrics.roc_curve(y_true_bin[:, i], df_split[pred_name])
+
+            # First aggregate all false positive rates
+            all_fpr = np.unique(np.concatenate([fpr[class_name] for class_name in class_list]))
+
+            # Then interpolate all ROC at this points
+            mean_tpr = np.zeros_like(all_fpr)
+            for class_name in class_list:
+                mean_tpr += np.interp(all_fpr, fpr[class_name], tpr[class_name])
+
+            # Finally average it and compute AUC
+            mean_tpr /= num_classes
+
+            _fpr = all_fpr
+            _tpr = mean_tpr
+            self.set_split_roc(split, _fpr, _tpr)
+            print('macro ROC')
+
+    def cal_label_roc(self, raw_label_name, df_label):
+        pred_name_list = list(df_label.columns[df_label.columns.str.startswith('pred')])
+        isMulti = (len(pred_name_list) > 2)
+        if isMulti:
+            self._cal_label_roc_multi(raw_label_name, df_label)
+        else:
+            self._cal_label_roc_binary(raw_label_name, df_label)
 
 
 def cal_inst_roc(df_inst):
