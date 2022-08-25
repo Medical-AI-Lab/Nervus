@@ -19,9 +19,9 @@ logger = Logger.get_logger('test')
 
 
 class Likelihood:
-    def __init__(self, task, num_classes_in_internal_label, test_datetime):
+    def __init__(self, task, class_name_in_raw_label, test_datetime):
         self.task = task
-        self.num_classes_in_internal_label = num_classes_in_internal_label
+        self.class_name_in_raw_label = class_name_in_raw_label
         self.test_datetime = test_datetime
         self.df_likelihood = pd.DataFrame()
 
@@ -29,11 +29,16 @@ class Likelihood:
         converted_data = raw_data.to('cpu').detach().numpy().copy()
         return converted_data
 
-    def _make_pred_names(self, internal_label_name, num_classes):
+    def _make_pred_names(self, raw_label_name):
+        class_names = self.class_name_in_raw_label[raw_label_name]
         pred_names = []
-        for i in range(num_classes):
-            pred_name_i = 'pred_' + internal_label_name.replace('internal_', '') + '_' + str(i)
-            pred_names.append(pred_name_i)
+        if self.task == 'classification':
+            for class_name in class_names.keys():
+                pred_name = 'pred_' + raw_label_name + '_' + class_name
+                pred_names.append(pred_name)
+        else:
+            # When regression or deepsurv
+            pred_names.append('pred_' + raw_label_name)
         return pred_names
 
     def make_likehood(self, data, output):
@@ -50,8 +55,10 @@ class Likelihood:
                             'split': data['split']
                             })
         if self.task == 'deepsurv':
+            _period_list = self._convert_to_numpy(data['period'])
+            period_list = [int(period) for period in _period_list]
             _df_period = pd.DataFrame({
-                                'period': self._convert_to_numpy(data['period'])
+                                'period': period_list
                                 })
             _df_new = pd.concat([_df_new, _df_period], axis=1)
 
@@ -65,13 +72,15 @@ class Likelihood:
 
             # internal_label if deepsurv
             if self.task == 'deepsurv':
+                _internal_label_list = self._convert_to_numpy(data['internal_labels'][internal_label_name])
+                internal_label_list = [int(internal_label) for internal_label in _internal_label_list]
                 _df_internal_label = pd.DataFrame({
-                                            internal_label_name: self._convert_to_numpy(data['internal_labels'][internal_label_name])
-                                            })
+                                            internal_label_name: internal_label_list
+                                        })
                 _df_new = pd.concat([_df_new, _df_internal_label], axis=1)
 
             # output
-            pred_names = self._make_pred_names(internal_label_name, self.num_classes_in_internal_label[internal_label_name])
+            pred_names = self._make_pred_names(raw_label_name)
             _df_output = pd.DataFrame(self._convert_to_numpy(output), columns=pred_names)
             _df_new = pd.concat([_df_new, _df_output], axis=1)
 
@@ -111,7 +120,7 @@ for weight_path in weight_paths:
     model = create_model(args, sp, weight_path=weight_path)
     model.eval()
 
-    lh = Likelihood(args.task, sp.num_classes_in_internal_label, args.test_datetime)
+    lh = Likelihood(args.task, sp.class_name_in_raw_label, args.test_datetime)
     for split in ['train', 'val', 'test']:
         split_dataloader = dataloaders[split]
 
