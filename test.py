@@ -55,8 +55,10 @@ class Likelihood:
                             'split': data['split']
                             })
         if self.task == 'deepsurv':
+            _period_list = self._convert_to_numpy(data['period'])
+            period_list = [int(period) for period in _period_list]
             _df_period = pd.DataFrame({
-                                'period': self._convert_to_numpy(data['period'])
+                                'period': period_list
                                 })
             _df_new = pd.concat([_df_new, _df_period], axis=1)
 
@@ -70,9 +72,11 @@ class Likelihood:
 
             # internal_label if deepsurv
             if self.task == 'deepsurv':
+                _internal_label_list = self._convert_to_numpy(data['internal_labels'][internal_label_name])
+                internal_label_list = [int(internal_label) for internal_label in _internal_label_list]
                 _df_internal_label = pd.DataFrame({
-                                            internal_label_name: self._convert_to_numpy(data['internal_labels'][internal_label_name])
-                                            })
+                                            internal_label_name: internal_label_list
+                                        })
                 _df_new = pd.concat([_df_new, _df_internal_label], axis=1)
 
             # output

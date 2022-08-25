@@ -174,12 +174,13 @@ def save_roc(whole_roc, datetime, likelihood_path):
         save_dir.mkdir(parents=True, exist_ok=True)
         save_path = Path(save_dir, inst + '_roc_' + likelihood_path.stem.replace('likelihood_', '') + '.png')  # 'likelihood_weight_epoch-010_best.csv'  -> inst_roc_weight_epoch-010_best.png
         fig.savefig(save_path)
+        plt.close()
 
 
 def make_summary(whole_roc, datetime, likelihood_path):
     df_summary = pd.DataFrame()
-    _new = dict()
     for inst, inst_roc in whole_roc.items():
+        _new = dict()
         _new['datetime'] = [datetime]
         _new['weight'] = [likelihood_path.name.replace('likelihood_', '')]
         _new['Institution'] = [inst]
@@ -192,16 +193,15 @@ def make_summary(whole_roc, datetime, likelihood_path):
     return df_summary
 
 
-def print_auc(whole_roc):
-    for inst, inst_roc in whole_roc.items():
-        logger.info(inst)
-        for raw_label_name, label_roc in inst_roc.items():
-            logger.info(f"{raw_label_name}, val_auc: {label_roc.val.auc:.2f}, test_auc: {label_roc.test.auc:.2f}")
+def print_auc(df_summary):
+    _columns = ['Institution'] + list(df_summary.columns[df_summary.columns.str.startswith('label')])
+    _df = df_summary[_columns]
+    logger.info(_df.to_string(index=False))
 
 
 def make_roc(datetime, likelihood_path):
     whole_roc = cal_roc(likelihood_path)
     save_roc(whole_roc, datetime, likelihood_path)
     df_summary = make_summary(whole_roc, datetime, likelihood_path)
-    print_auc(whole_roc)
+    print_auc(df_summary)
     return df_summary

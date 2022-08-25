@@ -27,8 +27,6 @@ class Metrics:
     def set_values(self, y_obs, y_pred):
         self.y_obs = y_obs.values
         self.y_pred = y_pred.values
-
-    def cal_r2(self, y_obs, y_pred):
         self.r2 = metrics.r2_score(y_obs, y_pred)
 
 
@@ -44,10 +42,8 @@ class LabelMetrics:
             y_pred = df_split['pred_' + raw_label_name]
             if split == 'val':
                 self.val.set_values(y_obs, y_pred)
-                self.val.cal_r2(y_obs, y_pred)
             elif split == 'test':
                 self.test.set_values(y_obs, y_pred)
-                self.test.cal_r2(y_obs, y_pred)
             else:
                 logger.error('Invalid split.')
                 exit()
@@ -149,8 +145,8 @@ def save_yy(whole_metrics, datetime, likelihood_path):
 
 def make_summary(whole_metrics, datetime, likelihood_path):
     df_summary = pd.DataFrame()
-    _new = dict()
     for inst, inst_metrics in whole_metrics.items():
+        _new = dict()
         _new['datetime'] = [datetime]
         _new['weight'] = [likelihood_path.name.replace('likelihood_', '')]
         _new['Institution'] = [inst]
@@ -163,16 +159,15 @@ def make_summary(whole_metrics, datetime, likelihood_path):
     return df_summary
 
 
-def print_metrics(whole_metrics):
-    for inst, inst_metrics in whole_metrics.items():
-        logger.info(inst)
-        for raw_label_name, label_metrics in inst_metrics.items():
-            logger.info(f"{raw_label_name}, val_r2: {label_metrics.val.r2:.2f}, test_r2: {label_metrics.test.r2:.2f}")
+def print_metrics(df_summary):
+    _columns = ['Institution'] + list(df_summary.columns[df_summary.columns.str.startswith('label')])
+    _df = df_summary[_columns]
+    logger.info(_df.to_string(index=False))
 
 
 def make_yy(datetime, likelihood_path):
     whole_metrics = cal_metrics(likelihood_path)
     save_yy(whole_metrics, datetime, likelihood_path)
     df_summary = make_summary(whole_metrics, datetime, likelihood_path)
-    print_metrics(whole_metrics)
+    print_metrics(df_summary)
     return df_summary

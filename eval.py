@@ -9,7 +9,7 @@ import pandas as pd
 
 from metrics.roc import make_roc
 from metrics.yy import make_yy
-# from metrics.c_index import make_c_index
+from metrics.c_index import make_c_index
 
 from logger.logger import Logger
 
@@ -34,7 +34,7 @@ def define_metrics(task):
         return make_yy
     elif task == 'deepsurv':
         pass
-        # return make_c_index
+        return make_c_index
     else:
         logger.error(f"Invalid task: {task}.")
 
@@ -71,4 +71,4 @@ for likelihood_path in likelihood_paths:
     update_summary(df_summary)
 
 logger.info('')
-logger.info(f"Done.")
+logger.info('Done.')
