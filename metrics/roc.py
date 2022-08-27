@@ -194,9 +194,14 @@ def make_summary(whole_roc, datetime, likelihood_path):
 
 
 def print_auc(df_summary):
-    _columns = ['Institution'] + list(df_summary.columns[df_summary.columns.str.startswith('label')])
-    _df = df_summary[_columns]
-    logger.info(_df.to_string(index=False))
+    label_list = list(df_summary.columns[df_summary.columns.str.startswith('label')])
+    num_splits = len(['val', 'test'])
+    _column_list = [label_list[i:i+num_splits] for i in range(0, len(label_list), num_splits)]
+    for _, row in df_summary.iterrows():
+        logger.info(row['Institution'])
+        for _column in _column_list:
+            label_name = _column[0].replace('_val_auc', '')
+            logger.info(f"{label_name:<25} val_auc: {row[_column[0]]:>5}, test_auc: {row[_column[1]]:>5}")
 
 
 def make_roc(datetime, likelihood_path):

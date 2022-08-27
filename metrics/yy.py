@@ -160,9 +160,14 @@ def make_summary(whole_metrics, datetime, likelihood_path):
 
 
 def print_metrics(df_summary):
-    _columns = ['Institution'] + list(df_summary.columns[df_summary.columns.str.startswith('label')])
-    _df = df_summary[_columns]
-    logger.info(_df.to_string(index=False))
+    label_list = list(df_summary.columns[df_summary.columns.str.startswith('label')])
+    num_splits = len(['val', 'test'])
+    _column_list = [label_list[i:i+num_splits] for i in range(0, len(label_list), num_splits)]
+    for _, row in df_summary.iterrows():
+        logger.info(row['Institution'])
+        for _column in _column_list:
+            label_name = _column[0].replace('_val_r2', '')
+            logger.info(f"{label_name:<25} val_r2: {row[_column[0]]:>7}, test_r2: {row[_column[1]]:>7}")
 
 
 def make_yy(datetime, likelihood_path):
