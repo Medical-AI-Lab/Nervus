@@ -18,60 +18,60 @@ from logger.logger import Logger
 logger = Logger.get_logger('metrics.yy')
 
 
-class Metrics:
+class R2:
     def __init__(self):
         self.y_obs = None
         self.y_pred = None
         self.r2 = None
 
-    def set_values(self, y_obs, y_pred):
+    def set_r2(self, y_obs, y_pred):
         self.y_obs = y_obs.values
         self.y_pred = y_pred.values
         self.r2 = metrics.r2_score(y_obs, y_pred)
 
 
-class LabelMetrics:
+class LabelR2:
     def __init__(self):
-        self.val = Metrics()
-        self.test = Metrics()
+        self.val = R2()
+        self.test = R2()
 
-    def cal_label_metrics(self, raw_label_name, df_label):
+    def cal_label_r2(self, raw_label_name, df_label):
         for split in ['val', 'test']:
             df_split = df_label.query('split == @split')
             y_obs = df_split[raw_label_name]
             y_pred = df_split['pred_' + raw_label_name]
             if split == 'val':
-                self.val.set_values(y_obs, y_pred)
+                self.val.set_r2(y_obs, y_pred)
             elif split == 'test':
-                self.test.set_values(y_obs, y_pred)
+                self.test.set_r2(y_obs, y_pred)
             else:
                 logger.error('Invalid split.')
                 exit()
 
 
-def cal_inst_metrics(df_inst):
+def cal_inst_r2(df_inst):
     raw_label_list = list(df_inst.columns[df_inst.columns.str.startswith('label')])
-    inst_metrics = dict()
+    inst_r2 = dict()
     for raw_label_name in raw_label_list:
         required_columns = list(df_inst.columns[df_inst.columns.str.contains(raw_label_name)]) + ['split']
         df_label = df_inst[required_columns]
-        label_metrics = LabelMetrics()
-        label_metrics.cal_label_metrics(raw_label_name, df_label)
-        inst_metrics[raw_label_name] = label_metrics
-    return inst_metrics
+        label_r2 = LabelR2()
+        label_r2.cal_label_r2(raw_label_name, df_label)
+        inst_r2[raw_label_name] = label_r2
+    return inst_r2
 
 
-def cal_metrics(likelihood_path):
+def cal_r2(likelihood_path):
     df_likelihood = pd.read_csv(likelihood_path)
-    whole_metrics = dict()
+    whole_r2 = dict()
     for inst in df_likelihood['Institution'].unique():
         df_inst = df_likelihood.query('Institution == @inst')
-        whole_metrics[inst] = cal_inst_metrics(df_inst)
-    return whole_metrics
+        whole_r2[inst] = cal_inst_r2(df_inst)
+    return whole_r2
 
 
-def plot_inst_yy(inst, inst_metrics):
-    raw_label_list = inst_metrics.keys()
+def plot_inst_yy(inst, inst_r2):
+    raw_label_list = inst_r2.keys()
     num_splits = len(['val', 'test'])
     num_rows = 1
     num_cols = len(raw_label_list) * num_splits
@@ -81,7 +81,7 @@ def plot_inst_yy(inst, inst_metrics):
     fig = plt.figure(figsize=(width, height))
 
     for i, raw_label_name in enumerate(raw_label_list):
-        label_metrics = inst_metrics[raw_label_name]
+        label_r2 = inst_r2[raw_label_name]
         val_offset = (i * num_splits) + 1
         test_offset = val_offset + 1
 
@@ -106,10 +106,10 @@ def plot_inst_yy(inst, inst_metrics):
                                 ymargin=0
                                 )
 
-        y_obs_val = label_metrics.val.y_obs
-        y_pred_val = label_metrics.val.y_pred
-        y_obs_test = label_metrics.test.y_obs
-        y_pred_test = label_metrics.test.y_pred
+        y_obs_val = label_r2.val.y_obs
+        y_pred_val = label_r2.val.y_pred
+        y_obs_test = label_r2.test.y_obs
+        y_pred_test = label_r2.test.y_pred
 
         y_values_val = np.concatenate([y_obs_val.flatten(), y_pred_val.flatten()])
         y_values_test = np.concatenate([y_obs_test.flatten(), y_pred_test.flatten()])
@@ -133,8 +133,8 @@ def plot_inst_yy(inst, inst_metrics):
     return fig
 
 
-def save_yy(whole_metrics, datetime, likelihood_path):
-    for inst, inst_roc in whole_metrics.items():
+def save_yy(whole_r2, datetime, likelihood_path):
+    for inst, inst_roc in whole_r2.items():
         fig = plot_inst_yy(inst, inst_roc)
         save_dir = Path('./results/sets', datetime, 'yy')
         save_dir.mkdir(parents=True, exist_ok=True)
@@ -143,23 +143,23 @@ def save_yy(whole_metrics, datetime, likelihood_path):
         plt.close()
 
 
-def make_summary(whole_metrics, datetime, likelihood_path):
+def make_summary(whole_r2, datetime, likelihood_path):
     df_summary = pd.DataFrame()
-    for inst, inst_metrics in whole_metrics.items():
+    for inst, inst_r2 in whole_r2.items():
         _new = dict()
         _new['datetime'] = [datetime]
         _new['weight'] = [likelihood_path.name.replace('likelihood_', '')]
         _new['Institution'] = [inst]
-        for raw_label_name, label_metrics in inst_metrics.items():
-            _new[raw_label_name + '_val_r2'] = [f"{label_metrics.val.r2:.2f}"]
-            _new[raw_label_name + '_test_r2'] = [f"{label_metrics.test.r2:.2f}"]
+        for raw_label_name, label_r2 in inst_r2.items():
+            _new[raw_label_name + '_val_r2'] = [f"{label_r2.val.r2:.2f}"]
+            _new[raw_label_name + '_test_r2'] = [f"{label_r2.test.r2:.2f}"]
         df_summary = pd.concat([df_summary, pd.DataFrame(_new)], ignore_index=True)
 
     df_summary = df_summary.sort_values('Institution')
     return df_summary
 
 
-def print_metrics(df_summary):
+def print_r2(df_summary):
     label_list = list(df_summary.columns[df_summary.columns.str.startswith('label')])
     num_splits = len(['val', 'test'])
     _column_list = [label_list[i:i+num_splits] for i in range(0, len(label_list), num_splits)]
@@ -171,8 +171,8 @@ def print_metrics(df_summary):
 
 
 def make_yy(datetime, likelihood_path):
-    whole_metrics = cal_metrics(likelihood_path)
-    save_yy(whole_metrics, datetime, likelihood_path)
-    df_summary = make_summary(whole_metrics, datetime, likelihood_path)
-    print_metrics(df_summary)
+    whole_r2 = cal_r2(likelihood_path)
+    save_yy(whole_r2, datetime, likelihood_path)
+    df_summary = make_summary(whole_r2, datetime, likelihood_path)
+    print_r2(df_summary)
     return df_summary

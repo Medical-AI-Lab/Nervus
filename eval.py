@@ -27,16 +27,16 @@ def _get_latest_test_datetime():
     return latest
 
 
-def define_metrics(task):
+def define_eval(task):
     if task == 'classification':
-        return make_roc
+        return make_roc, 'ROC, AUC'
     elif task == 'regression':
-        return make_yy
+        return make_yy, 'YY, R2'
     elif task == 'deepsurv':
-        pass
-        return make_c_index
+        return make_c_index, 'C_index'
     else:
         logger.error(f"Invalid task: {task}.")
+        exit()
 
 
 def update_summary(df_summary):
@@ -51,6 +51,7 @@ def update_summary(df_summary):
     df_updated.to_csv(summary_path, index=False)
 
 
+
 # Check date time
 if args.eval_datetime is None:
     args.eval_datetime = _get_latest_test_datetime()
@@ -61,14 +62,15 @@ df_args = pd.read_csv(parameter_path)
 task = df_args.loc[df_args['option'] == 'task', 'parameter'].item()
 likelihood_paths = list(Path('./results/sets/', args.eval_datetime, 'likelihoods').glob('likelihood_*.csv'))
 likelihood_paths.sort(key=lambda path: path.stat().st_mtime)
-make_metrics = define_metrics(task)
+make_eval, _metrics = define_eval(task)
 
-logger.info(f"Calucating metrics for {args.eval_datetime}.")
+logger.info(f"Calucating {_metrics} for {args.eval_datetime}.")
 for likelihood_path in likelihood_paths:
     logger.info('')
     logger.info(f"Load {likelihood_path.stem}.")
-    df_summary = make_metrics(args.eval_datetime, likelihood_path)
+    df_summary = make_eval(args.eval_datetime, likelihood_path)
+    logger.info('')
     update_summary(df_summary)
 
-logger.info('')
+logger.info('Updated summary.')
 logger.info('Done.')

@@ -28,7 +28,7 @@ class SplitProvider:
         # self.id_column = list(self.df_source.columns[self.df_source.columns.str.startswith('id')])[0]
 
         if self.task == 'deepsurv':
-            self.period_column = list(self.df_source.columns[self.df_source.columns.str.startswith('periods')])[0]
+            self.period_column = list(self.df_source.columns[self.df_source.columns.str.startswith('period')])[0]
         else:
             self.period_column = None
 
