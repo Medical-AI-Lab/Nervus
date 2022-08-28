@@ -29,9 +29,9 @@ def _get_latest_test_datetime():
 
 def define_eval(task):
     if task == 'classification':
-        return make_roc, 'ROC, AUC'
+        return make_roc, 'ROC'
     elif task == 'regression':
-        return make_yy, 'YY, R2'
+        return make_yy, 'YY'
     elif task == 'deepsurv':
         return make_c_index, 'C_index'
     else:
@@ -51,7 +51,6 @@ def update_summary(df_summary):
     df_updated.to_csv(summary_path, index=False)
 
 
-
 # Check date time
 if args.eval_datetime is None:
     args.eval_datetime = _get_latest_test_datetime()
@@ -64,7 +63,7 @@ likelihood_paths = list(Path('./results/sets/', args.eval_datetime, 'likelihoods
 likelihood_paths.sort(key=lambda path: path.stat().st_mtime)
 make_eval, _metrics = define_eval(task)
 
-logger.info(f"Calucating {_metrics} for {args.eval_datetime}.")
+logger.info(f"Calculating {_metrics} for {args.eval_datetime}.")
 for likelihood_path in likelihood_paths:
     logger.info('')
     logger.info(f"Load {likelihood_path.stem}.")

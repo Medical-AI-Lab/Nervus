@@ -52,7 +52,7 @@ class Options:
             self.parser.add_argument('--vit_image_size',  type=int,   default=None,  help='input image size for ViT(Default: None)')
 
             # Weight saving strategy
-            self.parser.add_argument('--save_weight',     type=str,   choices=['best', 'each'], default='best', help='Save weight: best, or each(ie. save each time loss decreases when multi-label output) (Default: None)')
+            self.parser.add_argument('--save_weight',     type=str,   choices=['best', 'each'], default='best', help='Save weight: best, or each(ie. save each time loss decreases when multi-label output) (Default: best)')
 
             # GPU
             self.parser.add_argument('--gpu_ids',         type=str,   default='-1',  help='gpu ids: e.g. 0  0,1,2, 0,2. use -1 for CPU (Default: -1)')
