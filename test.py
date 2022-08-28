@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 
 from pathlib import Path
-from abc import ABC, abstractmethod
 from typing import Tuple, Dict
 import pandas as pd
 
@@ -19,7 +18,10 @@ from logger.logger import Logger
 logger = Logger.get_logger('test')
 
 
-class BaseLikelihood(ABC):
+class BaseLikelihood:
+    """
+    Class for making likelihood
+    """
     def __init__(self, class_name_in_raw_label, test_datetime):
         self.class_name_in_raw_label = class_name_in_raw_label
         self.test_datetime = test_datetime
@@ -28,32 +30,6 @@ class BaseLikelihood(ABC):
     def _convert_to_numpy(self, raw_data):
         converted_data = raw_data.to('cpu').detach().numpy().copy()
         return converted_data
-
-    @abstractmethod
-    def _make_pred_names(self, raw_label_name):
-        pass
-
-    @abstractmethod
-    def make_likehood(self, data, output):
-        """
-        Make DataFrame of likelihood every batch
-
-        Args:
-            data (dict): batch data from dataloader
-            output (dict): output of model
-        """
-        pass
-
-    def save_likelihood(self, weight_name=None):
-        save_dir = Path('./results/sets', self.test_datetime, 'likelihoods')
-        save_dir.mkdir(parents=True, exist_ok=True)
-        save_path = Path(save_dir, 'likelihood_' + weight_name + '.csv')
-        self.df_likelihood.to_csv(save_path, index=False)
-
-
-class ClsLikelihood(BaseLikelihood):
-    def __init__(self, class_name_in_raw_label, test_datetime):
-        super().__init__(class_name_in_raw_label, test_datetime)
 
     def _make_pred_names(self, raw_label_name):
         pred_names = []
@@ -64,6 +40,13 @@ class ClsLikelihood(BaseLikelihood):
         return pred_names
 
     def make_likehood(self, data, output):
+        """
+        Make DataFrame of likelihood every batch
+
+        Args:
+            data (dict): batch data from dataloader
+            output (dict): output of model
+        """
         _df_new = pd.DataFrame({
                             'Filename': data['Filename'],
                             'Institution': data['Institution'],
@@ -84,49 +67,42 @@ class ClsLikelihood(BaseLikelihood):
             _df_new = pd.concat([_df_new, _df_output], axis=1)
 
         self.df_likelihood = pd.concat([self.df_likelihood, _df_new], ignore_index=True)
+
+    def save_likelihood(self, save_name=None):
+        save_dir = Path('./results/sets', self.test_datetime, 'likelihoods')
+        save_dir.mkdir(parents=True, exist_ok=True)
+        save_path = Path(save_dir, 'likelihood_' + save_name + '.csv')
+        self.df_likelihood.to_csv(save_path, index=False)
+
+
+class ClsLikelihood(BaseLikelihood):
+    """
+    Class for likelihood of classification
+    This class is exactly the same as BaseLikelihood
+
+    Args:
+        BaseLikelihood: Base class for likelihood
+    """
+    def __init__(self, class_name_in_raw_label, test_datetime):
+        super().__init__(class_name_in_raw_label, test_datetime)
 
 
 class RegLikelihood(BaseLikelihood):
     def __init__(self, class_name_in_raw_label, test_datetime):
         super().__init__(class_name_in_raw_label, test_datetime)
 
+    # Orverwrite
     def _make_pred_names(self, raw_label_name):
         pred_names = []
         pred_names.append('pred_' + raw_label_name)
         return pred_names
 
-    def make_likehood(self, data, output):
-        _df_new = pd.DataFrame({
-                            'Filename': data['Filename'],
-                            'Institution': data['Institution'],
-                            'split': data['split']
-                            })
 
-        for internal_label_name, output in output.items():
-            # raw_label
-            raw_label_name = internal_label_name.replace('internal_', '')
-            _df_raw_label = pd.DataFrame({
-                                    raw_label_name: data['raw_labels'][raw_label_name]
-                                    })
-            _df_new = pd.concat([_df_new, _df_raw_label], axis=1)
-
-            # output
-            pred_names = self._make_pred_names(raw_label_name)
-            _df_output = pd.DataFrame(self._convert_to_numpy(output), columns=pred_names)
-            _df_new = pd.concat([_df_new, _df_output], axis=1)
-
-        self.df_likelihood = pd.concat([self.df_likelihood, _df_new], ignore_index=True)
-
-
-class DeepSurvLikelihood(BaseLikelihood):
+class DeepSurvLikelihood(RegLikelihood):
     def __init__(self, class_name_in_raw_label, test_datetime):
         super().__init__(class_name_in_raw_label, test_datetime)
 
-    def _make_pred_names(self, raw_label_name):
-        pred_names = []
-        pred_names.append('pred_' + raw_label_name)
-        return pred_names
-
+    # Orverwrite
     def make_likehood(self, data, output):
         _period_list = self._convert_to_numpy(data['period'])
         _df_new = pd.DataFrame({
@@ -137,11 +113,10 @@ class DeepSurvLikelihood(BaseLikelihood):
                             })
 
         for internal_label_name, output in output.items():
-            # raw_label
+            # raw_label, internal_label
+            raw_label_name = internal_label_name.replace('internal_', '')
             _internal_label_list = self._convert_to_numpy(data['internal_labels'][internal_label_name])
             internal_label_list = [int(internal_label) for internal_label in _internal_label_list]
-
-            raw_label_name = internal_label_name.replace('internal_', '')
             _df_raw_label = pd.DataFrame({
                                     raw_label_name: data['raw_labels'][raw_label_name],
                                     internal_label_name: internal_label_list
@@ -156,7 +131,6 @@ class DeepSurvLikelihood(BaseLikelihood):
         self.df_likelihood = pd.concat([self.df_likelihood, _df_new], ignore_index=True)
 
 
-
 def set_likelihood(task, class_name_in_raw_label, test_datetime):
     if task == 'classification':
         return ClsLikelihood(class_name_in_raw_label, test_datetime)
@@ -168,6 +142,9 @@ def set_likelihood(task, class_name_in_raw_label, test_datetime):
         logger.error(f"Invalid task:{task}.")
 
 
+#
+# Main
+#
 opt = check_test_options()
 args = opt.args
 sp = SplitProvider(args.csv_name, args.task)
@@ -207,6 +184,6 @@ for weight_path in weight_paths:
 
             lh.make_likehood(data, model.get_output())
 
-    lh.save_likelihood(weight_name=weight_path.stem)
+    lh.save_likelihood(save_name=weight_path.stem)
 
 logger.info('Inference finished.')

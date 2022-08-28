@@ -66,7 +66,7 @@ make_eval, _metrics = define_eval(task)
 logger.info(f"Calculating {_metrics} for {args.eval_datetime}.")
 for likelihood_path in likelihood_paths:
     logger.info('')
-    logger.info(f"Load {likelihood_path.stem}.")
+    logger.info(f"Read {likelihood_path.name}.")
     df_summary = make_eval(args.eval_datetime, likelihood_path)
     logger.info('')
     update_summary(df_summary)
