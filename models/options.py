@@ -26,7 +26,7 @@ class Options:
             self.parser.add_argument('--image_dir',       type=str,   default=None,   help='directory name contaning images(Default: None)')
 
             # Task
-            self.parser.add_argument('--task',            type=str,   default=None,   help='Task: classification or regression (Default: None)')
+            self.parser.add_argument('--task',            type=str,   choices=['classification', 'regression', 'deepsurv'], default=None, help='Task: classification or regression (Default: None)')
 
             # Model
             self.parser.add_argument('--model',           type=str,   default=None,   help='model: MLP, CNN, MLP+CNN (Default: None)')
