@@ -136,7 +136,6 @@ dmypy.json
 __pycache__/
 results/
 materials/
-logs/
 tmp/
 
 .DS_Store

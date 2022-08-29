@@ -11,10 +11,11 @@ from models.options import check_train_options
 from models.env import SplitProvider
 from models.dataloader import create_dataloader
 from models.framework import create_model
+
 from logger.logger import Logger
 
-logger = Logger.get_logger('train')
 
+logger = Logger.get_logger('train')
 
 # Create directory for save
 date_name = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
