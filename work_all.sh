@@ -8,23 +8,20 @@ parameter_csv="./parameter.csv"
 
 train_log="./logs/train.log"
 test_log="./logs/test.log"
-roc_log="./logs/roc.log"
-yy_log="./logs/yy.log"
-c_index_log="./logs/c_index.log"
-
+eval_log="./logs/eval.log"
 
 #python="python3"
 python="python"
 
 train_code="train.py"
 test_code="test.py"
+eval_code="eval.py"
 
 # Delete previous logs.
 rm -f "$train_log"
 rm -f "$test_log"
-rm -f "$roc_log"
-rm -f "$yy_log"
-rm -f "$c_index_log"
+rm -f "$eval_log"
+
 
 while getopts ":g" optKey; do
   case "$optKey" in
@@ -76,20 +73,10 @@ for row in $(tail -n +2 "$parameter_csv"); do
 
   echo ""
 
-  if [ "$task" = "classification" ]; then
-    echo "$i/$total: Plot ROC..."
-    echo "$python $roc_code"
-    "$python" "$roc_code" 2>&1 | tee -a "$roc_log"
-  elif [ "$task" = "regression" ]; then
-    echo "$i/$total: Plot yy-graph..."
-    echo "python $yy_code"
-    "$python" "$yy_code" 2>&1 | tee -a "$yy_log"
-  else
-    # deepsurv
-    echo "$i/$total: Calculate c-index..."
-    echo "python $c_index_code"
-    "$python" "$c_index_code" 2>&1 | tee -a "$c_index_log"
-  fi
+  # Evaluation
+  echo "$i/$total: Evaluation starts..."
+  echo "$python $eval_code"
+  "$python" "$eval_code" 2>&1 | tee -a "$eval_log"
 
   i=$(($i + 1))
   echo -e "\n"
