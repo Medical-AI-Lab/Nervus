@@ -41,7 +41,7 @@ class Options:
             self.parser.add_argument('--batch_size',      type=int,   default=None,  metavar='N', help='batch size in training (Default: None)')
 
             # Preprocess for image
-            self.parser.add_argument('--augmentation',    type=str,   default=None,  help='Automatic Augmentation: randaug, trivialaugwide, augmix, no')
+            self.parser.add_argument('--augmentation',    type=str,   default=None,  help='xrayaug, trivialaugwide, randaug, no')
             self.parser.add_argument('--normalize_image', type=str,   default='yes', help='image nomalization: yes, no (Default: yes)')
 
             # Sampler
