@@ -11,20 +11,34 @@ from torch.utils.data.dataloader import DataLoader
 from torch.utils.data.sampler import WeightedRandomSampler
 from PIL import Image
 
+import sys
+sys.path.append((Path().resolve() / '../').name)
+from logger.logger import Logger
+
+logger = Logger.get_logger('models.dataloader')
+
+
+class XrayAugment(torch.nn.Module):
+    """
+    Augmentation for X-ray photo
+    """
+    xray_augs_list = [
+                    transforms.RandomAffine(degrees=(-3, 3), translate=(0.02, 0.02)),
+                    transforms.RandomAdjustSharpness(sharpness_factor=2),
+                    transforms.RandomAutocontrast()
+                    ]
+
 
 class LoadDataSet(Dataset):
-    """_summary_
-
-    Args:
-        Dataset (_type_): _description_
+    """
+    Dataset for split
     """
     def __init__(self, args, split_provider, split):
-        """_summary_
-
+        """
         Args:
-            args (_type_): _description_
-            split_provider (_type_): _description_
-            split (_type_): _description_
+            args (Options): options
+            split_provider (SplitProvider): Information of csv
+            split (str): split
         """
         super().__init__()
 
@@ -57,25 +71,38 @@ class LoadDataSet(Dataset):
                 _transforms.append(transforms.Normalize(mean=(0.5, ), std=(0.5, )))
             else:
                 _transforms.append(transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]))
-        else:
+        elif self.args.normalize_image == 'no':
             pass
+        else:
+            logger.error(f"Invalid normalize_image: {self.args.augmentation}.")
+            exit()
 
         _transforms = transforms.Compose(_transforms)
         return _transforms
 
     def _make_augmentations(self):
-        _aug_list = ['randaug', 'trivialaugwide', 'augmix', 'no']
-        assert (self.args.augmentation in _aug_list), f"Invalid augmentation: {self.args.augmentation}."
-
         _augmentation = []
-
-        if self.args.augmentation == 'randaug':
-            _augmentation.append(transforms.RandAugment())
-        elif self.args.augmentation == 'trivialaugwide':
-            _augmentation.append(transforms.TrivialAugmentWide())
-        elif self.args.augmentation == 'augmix':
-            _augmentation.append(transforms.AugMix())
+        if self.args.isTrain:
+            if self.split == 'train':
+                if self.args.augmentation == 'xrayaug':
+                    _augmentation = XrayAugment.xray_augs_list
+                elif self.args.augmentation == 'trivialaugwide':
+                    _augmentation.append(transforms.TrivialAugmentWide())
+                elif self.args.augmentation == 'randaug':
+                    _augmentation.append(transforms.RandAugment())
+                elif self.args.augmentation == 'no':
+                    pass
+                else:
+                    logger.error(f"Invalid augmentation: {self.args.augmentation}.")
+                    exit()
+            elif self.split == 'val':
+                # No need of augmentation fot val
+                pass
+            else:
+                logger.error(f"Invalid split: {self.split}.")
+                exit()
         else:
+            # No need of augmentation when test
             pass
 
         _augmentation = transforms.Compose(_augmentation)
