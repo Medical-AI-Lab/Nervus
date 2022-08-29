@@ -92,7 +92,7 @@ class BaseModel(ABC):
         self.loss = self.loss_reg.batch_loss['total']
         self.loss.backward()
 
-    def optimize_paramters(self):
+    def optimize_parameters(self):
         self.optimizer.step()
 
     @abstractmethod

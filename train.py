@@ -54,7 +54,7 @@ for epoch in range(args.epochs):
 
                 if phase == 'train':
                     model.backward()
-                    model.optimize_paramters()
+                    model.optimize_parameters()
 
             model.cal_running_loss(batch_size=len(data['Filename']))
 
