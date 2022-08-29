@@ -6,9 +6,9 @@ gpu_ids="-1"
 save_weight="best"
 parameter_csv="./parameter.csv"
 
-train_log="./logs/train.log"
-test_log="./logs/test.log"
-eval_log="./logs/eval.log"
+train_log="./logger/logs/train.log"
+test_log="./logger/logs/test.log"
+eval_log="./logger/logs/eval.log"
 
 #python="python3"
 python="python"
