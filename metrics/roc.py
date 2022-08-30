@@ -1,20 +1,17 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import sys
 from pathlib import Path
 import numpy as np
 import pandas as pd
-
 from sklearn import metrics
 from sklearn.preprocessing import label_binarize
 import matplotlib.pyplot as plt
+from typing import List
+import logger
 
-sys.path.append((Path().resolve() / '../').name)
-from logger.logger import Logger
 
-
-logger = Logger.get_logger('metrics.roc')
+log = logger.get_logger('metrics.roc')
 
 
 class ROC:
@@ -40,7 +37,7 @@ class LabelROC:
         elif split == 'test':
             self.test.set_roc(fpr, tpr)
         else:
-            logger.error('Invalid split.')
+            log.error('Invalid split.')
 
     def _cal_label_roc_binary(self, raw_label_name, df_label):
         """_summary_
@@ -198,10 +195,10 @@ def print_auc(df_summary):
     num_splits = len(['val', 'test'])
     _column_list = [label_list[i:i+num_splits] for i in range(0, len(label_list), num_splits)]
     for _, row in df_summary.iterrows():
-        logger.info(row['Institution'])
+        log.info(row['Institution'])
         for _column in _column_list:
             label_name = _column[0].replace('_val_auc', '')
-            logger.info(f"{label_name:<25} val_auc: {row[_column[0]]:>5}, test_auc: {row[_column[1]]:>5}")
+            log.info(f"{label_name:<25} val_auc: {row[_column[0]]:>5}, test_auc: {row[_column[1]]:>5}")
 
 
 def make_roc(datetime, likelihood_path):

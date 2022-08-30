@@ -1,29 +1,21 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import os
-import copy
 from pathlib import Path
-import pandas as pd
-
+import copy
 from abc import ABC, abstractmethod
-
+import pandas as pd
 import torch
 import torch.nn as nn
 from torchinfo import summary
-
 from .net import create_net
 from .criterion import set_criterion
 from .optimizer import set_optimizer
 from .loss import create_loss_reg
-
-import sys
-
-sys.path.append((Path().resolve() / '../').name)
-from logger.logger import Logger
+import logger
 
 
-logger = Logger.get_logger('models.framework')
+log = logger.get_logger('models.framework')
 
 
 class BaseModel(ABC):
@@ -50,6 +42,8 @@ class BaseModel(ABC):
             self.criterion = set_criterion(args.criterion, self.device)
             self.optimizer = set_optimizer(args.optimizer, self.network, args.lr)
             self.loss_reg = create_loss_reg(self.task, self.criterion, self.internal_label_list, self.device)
+        # else:
+        #    self.likelihood = set_likelihood(task, class_name_in_raw_label, test_datetime)
 
     def train(self):
         self.network.train()
@@ -95,6 +89,7 @@ class BaseModel(ABC):
     def optimize_parameters(self):
         self.optimizer.step()
 
+    # Loss
     @abstractmethod
     def cal_batch_loss(self):
         pass
@@ -112,6 +107,10 @@ class BaseModel(ABC):
 
     def print_epoch_loss(self, epoch):
         self.loss_reg.print_epoch_loss(self.args.epochs, epoch)
+
+    # Lieklihood
+    # def make_likehood(self, data, output):
+    #    self.likelihood.make_likehood(self, data, output)
 
 
 class SaveLoadMixin:
@@ -172,6 +171,9 @@ class SaveLoadMixin:
             save_name = 'learning_curve_' + label_name + '_val-best-epoch-' + best_epoch + '_val-best-loss-' + best_val_loss + '.csv'
             save_path = Path(save_dir, save_name)
             df_each_epoch_loss.to_csv(save_path, index=False)
+
+    # def save_likelihood(self, save_name=None):
+    #    pass
 
 
 class ModelWidget(BaseModel, SaveLoadMixin):
@@ -289,7 +291,7 @@ def create_model(args, split_provider, weight_path=None):
         elif (mlp is not None) and (net is not None):
             model = FusionModel(args, split_provider)
         else:
-            logger.error(f"Cannot identify model type for {task}.")
+            log.error(f"Cannot identify model type for {task}.")
 
     elif task == 'deepsurv':
         if (mlp is not None) and (net is None):
@@ -299,10 +301,10 @@ def create_model(args, split_provider, weight_path=None):
         elif (mlp is not None) and (net is not None):
             model = FusionDeepSurv(args, split_provider)
         else:
-            logger.error(f"Cannot identify model type for {task}.")
+            log.error(f"Cannot identify model type for {task}.")
 
     else:
-        logger.error(f"Invalid task: {task}.")
+        log.error(f"Invalid task: {task}.")
 
     # When test
     # load weight should be done before GPU setting.
@@ -438,4 +440,4 @@ def set_likelihood(task, class_name_in_raw_label, test_datetime):
     elif task == 'deepsurv':
         return DeepSurvLikelihood(class_name_in_raw_label, test_datetime)
     else:
-        logger.error(f"Invalid task:{task}.")
+        log.error(f"Invalid task:{task}.")

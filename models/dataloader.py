@@ -3,19 +3,16 @@
 
 from pathlib import Path
 import numpy as np
-
 import torch
 import torchvision.transforms as transforms
 from torch.utils.data.dataset import Dataset
 from torch.utils.data.dataloader import DataLoader
 from torch.utils.data.sampler import WeightedRandomSampler
 from PIL import Image
+import logger
 
-import sys
-sys.path.append((Path().resolve() / '../').name)
-from logger.logger import Logger
 
-logger = Logger.get_logger('models.dataloader')
+log = logger.get_logger('models.dataloader')
 
 
 class XrayAugment(torch.nn.Module):
@@ -74,7 +71,7 @@ class LoadDataSet(Dataset):
         elif self.args.normalize_image == 'no':
             pass
         else:
-            logger.error(f"Invalid normalize_image: {self.args.augmentation}.")
+            log.error(f"Invalid normalize_image: {self.args.augmentation}.")
             exit()
 
         _transforms = transforms.Compose(_transforms)
@@ -93,13 +90,13 @@ class LoadDataSet(Dataset):
                 elif self.args.augmentation == 'no':
                     pass
                 else:
-                    logger.error(f"Invalid augmentation: {self.args.augmentation}.")
+                    log.error(f"Invalid augmentation: {self.args.augmentation}.")
                     exit()
             elif self.split == 'val':
                 # No need of augmentation fot val
                 pass
             else:
-                logger.error(f"Invalid split: {self.split}.")
+                log.error(f"Invalid split: {self.split}.")
                 exit()
         else:
             # No need of augmentation when test

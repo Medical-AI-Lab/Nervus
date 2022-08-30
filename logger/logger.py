@@ -39,3 +39,8 @@ class Logger:
         _nervus_root_logger.addHandler(ch_info)
 
         cls._unexecuted_configure = False
+
+
+def get_logger(filename):
+    logger = Logger.get_logger(filename)
+    return logger

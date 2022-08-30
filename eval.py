@@ -1,20 +1,15 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-
 import argparse
 from pathlib import Path
 import re
 import pandas as pd
+import metrics as mt
+import logger
 
-from metrics.roc import make_roc
-from metrics.yy import make_yy
-from metrics.c_index import make_c_index
 
-from logger.logger import Logger
-
-logger = Logger.get_logger('eval')
-
+log = logger.get_logger('eval')
 
 parser = argparse.ArgumentParser(description='Options for eval')
 parser.add_argument('--eval_datetime', type=str, default=None, help='date time for evaluation(Default: None)')
@@ -29,13 +24,13 @@ def _get_latest_test_datetime():
 
 def set_eval(task):
     if task == 'classification':
-        return make_roc, 'ROC'
+        return mt.make_roc, 'ROC'
     elif task == 'regression':
-        return make_yy, 'YY'
+        return mt.make_yy, 'YY'
     elif task == 'deepsurv':
-        return make_c_index, 'C_Index'
+        return mt.make_c_index, 'C_Index'
     else:
-        logger.error(f"Invalid task: {task}.")
+        log.error(f"Invalid task: {task}.")
         exit()
 
 
@@ -54,7 +49,6 @@ def update_summary(df_summary):
 #
 # Main
 #
-
 # Check date time
 if args.eval_datetime is None:
     args.eval_datetime = _get_latest_test_datetime()
@@ -69,13 +63,12 @@ likelihood_paths = list(Path('./results/sets/', args.eval_datetime, 'likelihoods
 likelihood_paths.sort(key=lambda path: path.stat().st_mtime)
 make_eval, _metrics = set_eval(task)
 
-logger.info(f"Calculating {_metrics} for {args.eval_datetime}.")
+log.info(f"\nCalculating {_metrics} for {args.eval_datetime}.\n")
 for likelihood_path in likelihood_paths:
-    logger.info('')
-    logger.info(f"Read {likelihood_path.name}.")
+    log.info(f"Read {likelihood_path.name}.")
     df_summary = make_eval(args.eval_datetime, likelihood_path)
-    logger.info('')
+    log.info('')
     update_summary(df_summary)
 
-logger.info('Updated summary.')
-logger.info('Done.')
+log.info('Updated summary.')
+log.info('Done.\n')

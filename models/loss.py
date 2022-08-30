@@ -2,18 +2,13 @@
 # -*- coding: utf-8 -*-
 
 import dataclasses
-from typing import List
-from pathlib import Path
 from abc import ABC, abstractmethod
-
 import torch
+from typing import List
+import logger
 
-import sys
 
-sys.path.append((Path().resolve() / '../').name)
-from logger.logger import Logger
-
-logger = Logger.get_logger('models.loss')
+log = logger.get_logger('models.loss')
 
 
 @dataclasses.dataclass
@@ -155,7 +150,7 @@ class LossMixin:
         if (epoch > 0) and (_total_epoch_loss.is_val_loss_updated()):
             updated_commemt = '   Updated val_loss!'
         comment = epoch_comm + ', ' + train_comm + ', ' + val_comm + updated_commemt
-        logger.info(comment)
+        log.info(comment)
 
 
 class LossWidget(LossRegistory, LossMixin):
@@ -236,5 +231,5 @@ def create_loss_reg(task, criterion, internal_label_list, device):
     elif task == 'deepsurv':
         loss_reg = DeepSurvLoss(criterion, internal_label_list, device)
     else:
-        logger.error(f"Cannot identify task: {task}.")
+        log.error(f"Cannot identify task: {task}.")
     return loss_reg
