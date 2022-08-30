@@ -6,7 +6,6 @@ import torch
 import torch.nn as nn
 from torchvision.ops import MLP
 import torchvision.models as models
-from typing import List
 import logger
 
 
@@ -14,6 +13,9 @@ log = logger.get_logger('models.net')
 
 
 class BaseNet:
+    """
+    Class to construct network
+    """
     cnn = {
             'ResNet18': models.resnet18,
             'ResNet': models.resnet50,
@@ -116,14 +118,8 @@ class BaseNet:
 
     DUMMY = nn.Identity()
 
-    @classmethod
-    def MLPNet(cls, mlp_num_inputs, inplace=None):
-        assert isinstance(mlp_num_inputs, int), f"Invalid number of inputs for MLP: {mlp_num_inputs}."
-        mlp = MLP(in_channels=mlp_num_inputs, hidden_channels=cls.mlp_config['hidden_channels'], inplace=inplace, dropout=cls.mlp_config['dropout'])
-        return mlp
-
     """
-    #  The below funstions are onew to get and set nested attibute.
+    #  The below funstions are one to get and set nested attibute.
 
     def _getattr(cls, target, attr):
         value = target
@@ -136,7 +132,33 @@ class BaseNet:
     """
 
     @classmethod
-    def align_in_channels_1ch(cls, net_name, net):
+    def MLPNet(cls, mlp_num_inputs: int, inplace: bool = None) -> MLP:
+        """
+        Construct MLP
+
+        Args:
+            mlp_num_inputs (int): the nunmber of input of MLP
+            inplace (bool, optional): arameter for the activation layer, which can optionally do the operation in-place. Defaults to None.
+
+        Returns:
+            MLP: MLP
+        """
+        assert isinstance(mlp_num_inputs, int), f"Invalid number of inputs for MLP: {mlp_num_inputs}."
+        mlp = MLP(in_channels=mlp_num_inputs, hidden_channels=cls.mlp_config['hidden_channels'], inplace=inplace, dropout=cls.mlp_config['dropout'])
+        return mlp
+
+    @classmethod
+    def align_in_channels_1ch(cls, net_name: str, net: models) -> models:
+        """
+        Modify network to handle gray scale image
+
+        Args:
+            net_name (str): network name
+            net (models): network itself
+
+        Returns:
+            models: network avalibale for gray scale
+        """
         if net_name.startswith('ResNet'):
             net.conv1.in_channels = 1
             net.conv1.weight = nn.Parameter(net.conv1.weight.sum(dim=1).unsqueeze(1))
@@ -162,7 +184,18 @@ class BaseNet:
         return net
 
     @classmethod
-    def set_net(cls, net_name, in_channel=None, vit_image_size=None):
+    def set_net(cls, net_name: str, in_channel: int = None, vit_image_size: int = None) -> models:
+        """
+        Modify network depending on in_channel and vit_image_size
+
+        Args:
+            net_name (str): network name
+            in_channel (int, optional): image channel(any of 1ch or 3ch). Defaults to None.
+            vit_image_size (int, optional): image size which ViT handles if ViT is used. Defaults to None.
+
+        Returns:
+            models: modified network
+        """
         assert net_name in cls.net, f"No specified net: {net_name}."
         assert (in_channel == 1) or (in_channel == 3), f"Invalid in_channels: {in_channel}."
         if net_name in cls.cnn:
@@ -175,7 +208,17 @@ class BaseNet:
         return net
 
     @classmethod
-    def set_vit(cls, net_name, vit_image_size=None):
+    def set_vit(cls, net_name: str, vit_image_size: int = None) -> models:
+        """
+        Modify ViT depending on vit_image_size
+
+        Args:
+            net_name (str): ViT name
+            vit_image_size (int, optional): image size which ViT handles if ViT is used. Defaults to None.
+
+        Returns:
+            models: modified ViT
+        """
         assert isinstance(vit_image_size, int), f"Invalid image size for ViT: {vit_image_size}."
         base_vit = cls.vit[net_name]
         pretrained_vit = base_vit(weights=cls.vit_weight[net_name])
@@ -193,7 +236,19 @@ class BaseNet:
         return aligned_vit
 
     @classmethod
-    def constuct_extractor(cls, net_name, mlp_num_inputs=None, in_channel=None, vit_image_size=None):
+    def constuct_extractor(cls, net_name: str, mlp_num_inputs: int = None, in_channel: int = None, vit_image_size: int = None) -> nn.Module:
+        """
+        Construct extractor of network depending on net_name
+
+        Args:
+            net_name (str): network name
+            mlp_num_inputs (int, optional): the nunmber of input of MLP. Defaults to None.
+            in_channel (int, optional):image channel(any of 1ch or 3ch). Defaults to None.
+            vit_image_size (int, optional):  image size which ViT handles if ViT is used. Defaults to None.
+
+        Returns:
+            nn.Module: extractor of network
+        """
         if net_name == 'MLP':
             extractor = cls.MLPNet(mlp_num_inputs)
         else:
