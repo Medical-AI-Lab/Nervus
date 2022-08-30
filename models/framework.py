@@ -9,9 +9,9 @@ import torch
 import torch.nn as nn
 from torchinfo import summary
 from .net import create_net
+from .loss import create_loss_reg
 from .criterion import set_criterion
 from .optimizer import set_optimizer
-from .loss import create_loss_reg
 import logger
 
 

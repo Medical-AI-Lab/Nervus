@@ -10,6 +10,11 @@ from torch.utils.data.dataloader import DataLoader
 from torch.utils.data.sampler import WeightedRandomSampler
 from PIL import Image
 import logger
+# For typing
+import argparse
+from typing import Union, List, Dict, Any
+from .env import SplitProvider
+from torch import Tensor
 
 
 log = logger.get_logger('models.dataloader')
@@ -30,11 +35,11 @@ class LoadDataSet(Dataset):
     """
     Dataset for split
     """
-    def __init__(self, args, split_provider, split):
+    def __init__(self, args: argparse.Namespace, split_provider: SplitProvider, split: str) -> None:
         """
         Args:
-            args (Options): options
-            split_provider (SplitProvider): Information of csv
+            args (argparse.Namespace): options
+            split_provider (SplitProvider): Object of Splitprovider
             split (str): split
         """
         super().__init__()
@@ -56,7 +61,13 @@ class LoadDataSet(Dataset):
             self.transform = self._make_transforms()
             self.augmentation = self._make_augmentations()
 
-    def _make_transforms(self):
+    def _make_transforms(self) -> List[Any]:
+        """
+        Make list of transformes
+
+        Returns:
+            List of transformers
+        """
         assert ((self.args.in_channel == 1) or (self.args.in_channel == 3)), f"Invalid input channel: {self.args.in_channel}."
 
         _transforms = []
@@ -77,7 +88,13 @@ class LoadDataSet(Dataset):
         _transforms = transforms.Compose(_transforms)
         return _transforms
 
-    def _make_augmentations(self):
+    def _make_augmentations(self) -> Union[XrayAugment, Any]:
+        """
+        Decide which augmentation
+
+        Returns:
+            Union[XrayAugment, Any]: augmentation
+        """
         _augmentation = []
         if self.args.isTrain:
             if self.split == 'train':
@@ -105,7 +122,16 @@ class LoadDataSet(Dataset):
         _augmentation = transforms.Compose(_augmentation)
         return _augmentation
 
-    def _input_value_to_single_tensor_if_mlp(self, idx):
+    def _input_value_to_single_tensor_if_mlp(self, idx: int) -> Tensor:
+        """
+        Convert input values to tensor if MLP is used.
+
+        Args:
+            idx (int): index
+
+        Returns:
+            Tensor[float]: tensor of input values, otherwise empty string
+        """
         inputs_value = ''
 
         if self.args.mlp is None:
@@ -117,7 +143,16 @@ class LoadDataSet(Dataset):
         inputs_value = torch.from_numpy(inputs_value.astype(np.float32)).clone()
         return inputs_value
 
-    def _load_image_if_cnn(self, idx):
+    def _load_image_if_cnn(self, idx: int) -> Tensor:
+        """
+        Load image and convert it to tensor if any of CNN or ViT is used.
+
+        Args:
+            idx (int): index
+
+        Returns:
+            Tensor[float]: tensor converted from image, otherwise empty string
+        """
         image = ''
 
         if self.args.net is None:
@@ -136,7 +171,16 @@ class LoadDataSet(Dataset):
         image = self.transform(image)
         return image
 
-    def _load_periods_if_deepsurv(self, idx):
+    def _load_periods_if_deepsurv(self, idx: int) -> int:
+        """
+        Return period if deepsurv.
+
+        Args:
+            idx (int): index
+
+        Returns:
+            int: period, otherwise empty string
+        """
         period = ''
         if self.args.task != 'deepsurv':
             return period
@@ -148,10 +192,23 @@ class LoadDataSet(Dataset):
         period = torch.from_numpy(period.astype(np.float32)).clone()
         return period
 
-    def __len__(self):
+    def __len__(self) -> int:
+        """
+        Returns:
+            int: length of DataFrame
+        """
         return len(self.df_split)
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx: int) -> Dict[str, Any]:
+        """
+        Return data row specified by index
+
+        Args:
+            idx (int): index
+
+        Returns:
+            Dict[str, Any]: dictionary od data
+        """
         filename = Path(self.df_split.iat[idx, self.col_index_dict['filepath']]).name
         examid = self.df_split.iat[idx, self.col_index_dict['ExamID']]
         institution = self.df_split.iat[idx, self.col_index_dict['Institution']]
@@ -174,7 +231,16 @@ class LoadDataSet(Dataset):
                 }
 
 
-def _make_sampler(split_data):
+def _make_sampler(split_data: LoadDataSet) -> WeightedRandomSampler:
+    """
+    Make sampler
+
+    Args:
+        split_data (LoadDataSet): dataset for anyt of train
+
+    Returns:
+        WeightedRandomSampler: _description_
+    """
     _target = []
     for _, data in enumerate(split_data):
         _target.append(list(data['internal_labels'].values())[0])   # split_provider.df_source から取り出した方が速い？
@@ -186,7 +252,18 @@ def _make_sampler(split_data):
     return sampler
 
 
-def create_dataloader(args, split_provider, split=None):
+def create_dataloader(args: argparse.Namespace, split_provider: SplitProvider, split: str = None) -> DataLoader:
+    """
+    Creeate data loader ofr split
+
+    Args:
+        args (argparse.Namespace): options
+        split_provider (SplitProvider): Object of SplitProvider
+        split (str, optional): split. Defaults to None.
+
+    Returns:
+        DataLoader: data loader
+    """
     split_data = LoadDataSet(args, split_provider, split)
 
     # args never has both 'batch_size' and 'test_batch_size'.

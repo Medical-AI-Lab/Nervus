@@ -1,14 +1,21 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+from pathlib import Path
 import pandas as pd
+from typing import Dict, Tuple
 
 
 class SplitProvider:
     """
-    Make label for each class and cast tabular data
+    Class to make label for each class and cast tabular data
     """
-    def __init__(self, split_path, task):
+    def __init__(self, split_path: Path, task: str) -> None:
+        """
+        Args:
+            split_path (Path): path to csv
+            task (str): task
+        """
         super().__init__()
 
         self.split_path = split_path
@@ -32,7 +39,7 @@ class SplitProvider:
             self.period_column = None
 
     # Labeling
-    def _make_labelling(self, df_source_excluded, task):
+    def _make_labelling(self, df_source_excluded: pd.DataFrame, task: str) -> Tuple[pd.DataFrame, Dict[str, Dict[str, int]]]:
         """
         Assign a number to the class name within each label
 
@@ -41,8 +48,8 @@ class SplitProvider:
             task (str): task
 
         Returns:
-            DataFrame, Dict:    DataFrame with columns assigned a number to the class name within each label,
-                                Dictionary with numbers assigned to class names within each label
+            pd.DataFrame: DataFrame with columns assigned a number to the class name within each label,
+            Dict[str, int]: Dictionary with numbers assigned to class names within each label
         """
         # Make dict for labeling
         # _class_name_in_raw_label =
@@ -53,17 +60,17 @@ class SplitProvider:
         _raw_label_list = list(_df_tmp.columns[_df_tmp.columns.str.startswith('label')])
         _class_name_in_raw_label = {}
         for raw_label_name in _raw_label_list:
-            class_list = _df_tmp[raw_label_name].value_counts().index.tolist() # {'A', 'B', ... } DECENDING ORDER
+            class_list = _df_tmp[raw_label_name].value_counts().index.tolist()  # {'A', 'B', ... } DECENDING ORDER
             _class_name_in_raw_label[raw_label_name] = {}
             if (task == 'classification') or (task == 'deepsurv'):
                 for i, ith_class in enumerate(class_list):
                     _class_name_in_raw_label[raw_label_name][ith_class] = i
             else:
-                _class_name_in_raw_label[raw_label_name] = {}                  # No need of labeling
+                _class_name_in_raw_label[raw_label_name] = {}  # No need of labeling
 
         # Labeling
         for raw_label_name, class_name_in_raw_label in _class_name_in_raw_label.items():
-            _internal_label = raw_label_name.replace('label', 'internal_label')   # label_XXX -> internal_label_XXX
+            _internal_label = raw_label_name.replace('label', 'internal_label')  # label_XXX -> internal_label_XXX
             if (task == 'classification') or (task == 'deepsurv'):
                 for class_name, ground_truth in class_name_in_raw_label.items():
                     _df_tmp.loc[_df_tmp[raw_label_name] == class_name, _internal_label] = ground_truth
@@ -74,7 +81,17 @@ class SplitProvider:
         _df_source_labeled = _df_tmp.copy()
         return _df_source_labeled, _class_name_in_raw_label
 
-    def _define_num_classes_in_internal_label(self, df_source, task):
+    def _define_num_classes_in_internal_label(self, df_source: pd.DataFrame, task: str) -> Dict[str, int]:
+        """
+        Find thr number of classes for each internal label
+
+        Args:
+            df_source (pd.DataFrame): DataFrame of csv
+            task (str): task
+
+        Returns:
+            Dict[str, int]: Number of classes for each internal label
+        """
         # _num_classes_in_internal_label =
         # {internal_label_output_1: 2, internal_label_output_2: 3, ...}   classification
         # {internal_label_output_1: 1, internal_label_output_2: 1, ...}   regression,  should be 1
@@ -93,7 +110,17 @@ class SplitProvider:
         return _num_classes_in_internal_label
 
     # Cast
-    def _cast_csv(self, df_source_labeled, task):
+    def _cast_csv(self, df_source_labeled: pd.DataFrame, task: str) -> pd.DataFrame:
+        """
+        Cast columns as required by the task
+
+        Args:
+            df_source_labeled (pd.DataFrame): DataFrame of labeled csv
+            task (str): task
+
+        Returns:
+            pd.DataFrame: cast DataFrame od cvs with labeling
+        """
         # label_* : int
         # input_* : float
         _df_tmp = df_source_labeled.copy()
@@ -114,6 +141,16 @@ class SplitProvider:
         return _df_casted
 
 
-def make_split_provider(split_path, task):
+def make_split_provider(split_path: Path, task: str) -> SplitProvider:
+    """
+    Format by making label
+
+    Args:
+        split_path (Path): path to csv
+        task (str): task
+
+    Returns:
+        SplitProvider: Object to DataFrame of labeled csv
+    """
     sp = SplitProvider(split_path, task)
     return sp

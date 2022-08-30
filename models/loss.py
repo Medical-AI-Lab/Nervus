@@ -208,8 +208,8 @@ class DeepSurvLoss(LossWidget):
         self.device = device
 
     def cal_batch_loss(self, multi_output, multi_label, period, network):
-        # internal_label_name = list(multi_label.keys())[0]  # should be unique
-        # multi_labelの中にinternal_label_nameは1つだけでなので、上のClassification, Regressionの形を合わせる
+        # multi_labelの中にinternal_label_nameは1つだけだが、
+        # 上のClassification, Regressionの形を合わせておく
         for internal_label_name in multi_label.keys():
             _pred = multi_output[internal_label_name]
             _label = multi_label[internal_label_name].reshape(-1, 1)
