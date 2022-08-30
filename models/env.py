@@ -1,13 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-
 import pandas as pd
 
 
 class SplitProvider:
-    """_summary_
-        Make label for each class and cast tabular data
+    """
+    Make label for each class and cast tabular data
     """
     def __init__(self, split_path, task):
         super().__init__()
@@ -34,6 +33,17 @@ class SplitProvider:
 
     # Labeling
     def _make_labelling(self, df_source_excluded, task):
+        """
+        Assign a number to the class name within each label
+
+        Args:
+            df_source_excluded (DataFrame): DataFrame of csv without 'exlucde'
+            task (str): task
+
+        Returns:
+            DataFrame, Dict:    DataFrame with columns assigned a number to the class name within each label,
+                                Dictionary with numbers assigned to class names within each label
+        """
         # Make dict for labeling
         # _class_name_in_raw_label =
         # {'label_1':{'A':0, 'B':1}, 'label_2':{'C':0, 'D':1, 'E':2}, ...}   classification
@@ -102,3 +112,8 @@ class SplitProvider:
         _df_tmp = _df_tmp.astype(_cast_internal_label_dict)
         _df_casted = _df_tmp.copy()
         return _df_casted
+
+
+def make_split_provider(split_path, task):
+    sp = SplitProvider(split_path, task)
+    return sp

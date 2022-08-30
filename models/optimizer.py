@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import torch.optim as optim
+from typing import List
 
 
 class Optimizer:

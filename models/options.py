@@ -1,17 +1,15 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import sys
-import re
 from pathlib import Path
+import re
 import argparse
 import pandas as pd
+from typing import List
+import logger
 
-sys.path.append((Path().resolve() / '../').name)
-from logger.logger import Logger
 
-
-logger = Logger.get_logger('models.options')
+log = logger.get_logger('models.options')
 
 
 class Options:
@@ -142,7 +140,7 @@ class Options:
             else:
                 pass
         message += '------------------------ End -------------------------------'
-        logger.info(message)
+        log.info(message)
 
     def save_parameter(self, date_name):
         saved_args = self._get_args()

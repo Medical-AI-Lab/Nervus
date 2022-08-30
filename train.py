@@ -3,35 +3,31 @@
 
 import datetime
 from pathlib import Path
-from typing import Tuple, Dict
-
 import torch
-
-from models.options import check_train_options
-from models.env import SplitProvider
-from models.dataloader import create_dataloader
-from models.framework import create_model
-
-from logger.logger import Logger
+import models as md
+import logger
 
 
-logger = Logger.get_logger('train')
+log = logger.get_logger('train')
 
 # Create directory for save
 date_name = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
 save_dir = Path('results/sets', date_name)
 save_dir.mkdir(parents=True, exist_ok=True)
 
-opt = check_train_options()
+
+log.info(f"\nTraining started at {date_name}.\n")
+
+opt = md.check_train_options()
 args = opt.args
-sp = SplitProvider(args.csv_name, args.task)
+sp = md.make_split_provider(args.csv_name, args.task)
 
 dataloaders = {
-    'train': create_dataloader(args, sp, split='train'),
-    'val': create_dataloader(args, sp, split='val')
+    'train': md.create_dataloader(args, sp, split='train'),
+    'val': md.create_dataloader(args, sp, split='val')
     }
 
-model = create_model(args, sp)
+model = md.create_model(args, sp)
 
 for epoch in range(args.epochs):
     for phase in ['train', 'val']:
@@ -40,7 +36,7 @@ for epoch in range(args.epochs):
         elif phase == 'val':
             model.eval()
         else:
-            logger.error(f"Invalid phase: {phase}.")
+            log.error(f"Invalid phase: {phase}.")
 
         split_dataloader = dataloaders[phase]
         dataset_size = len(split_dataloader.dataset)
@@ -72,4 +68,4 @@ model.save_weight(date_name, as_best=True)
 model.save_learning_curve(date_name)
 opt.save_parameter(date_name)
 
-logger.info('Training finished.')
+log.info('\nTraining finished.\n')
