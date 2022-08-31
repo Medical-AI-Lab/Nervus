@@ -4,13 +4,12 @@
 from .options import check_train_options, check_test_options
 from .env import make_split_provider
 from .dataloader import create_dataloader
-from .framework import create_model, set_likelihood
+from .framework import create_model
 
 __all__ = [
             'check_train_options',
             'check_test_options',
             'make_split_provider',
             'create_dataloader',
-            'create_model',
-            'set_likelihood'
+            'create_model'
             ]
