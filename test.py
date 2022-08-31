@@ -39,7 +39,6 @@ for weight_path in weight_paths:
     model = md.create_model(args, sp, weight_path=weight_path)
     model.eval()
 
-    lh = md.set_likelihood(args.task, sp.class_name_in_raw_label, args.test_datetime)
     for split in ['train', 'val', 'test']:
         split_dataloader = dataloaders[split]
 
@@ -49,8 +48,8 @@ for weight_path in weight_paths:
             with torch.no_grad():
                 model.forward()
 
-            lh.make_likehood(data, model.get_output())
+            model.make_likelihood(data)
 
-    lh.save_likelihood(save_name=weight_path.stem)
+    model.save_likelihood(save_name=weight_path.stem)
 
 log.info('\nTest finished.\n')
