@@ -351,6 +351,7 @@ class BaseLikelihood:
         _df_new = pd.DataFrame({
                             'Filename': data['Filename'],
                             'Institution': data['Institution'],
+                            'ExamID': data['ExamID'],
                             'split': data['split']
                             })
 
@@ -409,6 +410,7 @@ class DeepSurvLikelihood(RegLikelihood):
         _df_new = pd.DataFrame({
                             'Filename': data['Filename'],
                             'Institution': data['Institution'],
+                            'ExamID': data['ExamID'],
                             'split': data['split'],
                             'period': [int(period) for period in _period_list]
                             })
