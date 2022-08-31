@@ -83,6 +83,7 @@ class BaseNet:
                 'ViTH14': _classifier['ViT']
                 }
 
+    # attribute of input layer
     _in_layrer = {
             'ResNet': ['conv1'],                     # ._module.conv1
             'DenseNet': ['features', 'conv0'],       # ._module.features.conv0
