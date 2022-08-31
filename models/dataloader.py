@@ -10,11 +10,10 @@ from torch.utils.data.dataloader import DataLoader
 from torch.utils.data.sampler import WeightedRandomSampler
 from PIL import Image
 import logger
-# For typing
+from typing import Union, List, Dict
 import argparse
-from typing import Union, List, Dict, Any
-from .env import SplitProvider
 from torch import Tensor
+from .env import SplitProvider
 
 
 log = logger.get_logger('models.dataloader')
@@ -61,12 +60,12 @@ class LoadDataSet(Dataset):
             self.transform = self._make_transforms()
             self.augmentation = self._make_augmentations()
 
-    def _make_transforms(self) -> List[Any]:
+    def _make_transforms(self) -> List:
         """
         Make list of transformes
 
         Returns:
-            List of transformers
+            list of transforms: image normalization
         """
         assert ((self.args.in_channel == 1) or (self.args.in_channel == 3)), f"Invalid input channel: {self.args.in_channel}."
 
@@ -88,12 +87,12 @@ class LoadDataSet(Dataset):
         _transforms = transforms.Compose(_transforms)
         return _transforms
 
-    def _make_augmentations(self) -> Union[XrayAugment, Any]:
+    def _make_augmentations(self) -> List:
         """
         Decide which augmentation
 
         Returns:
-            Union[XrayAugment, Any]: augmentation
+            list of transformes: augmentation
         """
         _augmentation = []
         if self.args.isTrain:
@@ -199,7 +198,7 @@ class LoadDataSet(Dataset):
         """
         return len(self.df_split)
 
-    def __getitem__(self, idx: int) -> Dict[str, Any]:
+    def __getitem__(self, idx: int) -> Dict[str, Union[str, int, Dict[str, int], float]]:
         """
         Return data row specified by index
 
@@ -207,7 +206,7 @@ class LoadDataSet(Dataset):
             idx (int): index
 
         Returns:
-            Dict[str, Any]: dictionary od data
+            Dict[str, Union[str, int, Dict[str, int], float]]: dictionary od data
         """
         filename = Path(self.df_split.iat[idx, self.col_index_dict['filepath']]).name
         examid = self.df_split.iat[idx, self.col_index_dict['ExamID']]
@@ -239,7 +238,7 @@ def _make_sampler(split_data: LoadDataSet) -> WeightedRandomSampler:
         split_data (LoadDataSet): dataset for anyt of train
 
     Returns:
-        WeightedRandomSampler: _description_
+        WeightedRandomSampler: sampler
     """
     _target = []
     for _, data in enumerate(split_data):

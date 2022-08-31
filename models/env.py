@@ -119,7 +119,7 @@ class SplitProvider:
             task (str): task
 
         Returns:
-            pd.DataFrame: cast DataFrame od cvs with labeling
+            pd.DataFrame: cast DataFrame of cvs with labeling
         """
         # label_* : int
         # input_* : float

@@ -6,8 +6,7 @@ import re
 import argparse
 import pandas as pd
 import logger
-# For typing
-from typing import Tuple, List, Dict, Any
+from typing import Dict, List, Tuple, Union, Any
 
 
 log = logger.get_logger('models.options')
@@ -71,7 +70,7 @@ class Options:
         self.args = self.parser.parse_args()
         self.args.isTrain = isTrain
 
-    def _parse_model(self, model_name: str) -> Tuple[str, str]:
+    def _parse_model(self, model_name: str) -> Tuple[Union[str, None], Union[str, None]]:
         """
         Parse model name
 

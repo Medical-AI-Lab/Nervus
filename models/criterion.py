@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 from typing import List
 
+
 class RMSELoss(nn.Module):
     """
     Class to calculate RMSE
@@ -19,7 +20,8 @@ class RMSELoss(nn.Module):
         self.eps = eps
 
     def forward(self, yhat: float, y: float) -> float:
-        """_summary_
+        """
+        Calculate RMSE
 
         Args:
             yhat (float): prediction value

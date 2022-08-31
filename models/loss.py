@@ -4,9 +4,8 @@
 import dataclasses
 from abc import ABC, abstractmethod
 import torch
-from typing import List
 import logger
-
+from typing import List
 
 log = logger.get_logger('models.loss')
 
@@ -14,10 +13,7 @@ log = logger.get_logger('models.loss')
 @dataclasses.dataclass
 class EpochLoss:
     """
-    epoch loss for each internal label is stored in this class.
-
-    Returns:
-        _type_: _description_
+    Epoch loss for each internal label is stored in this class.
     """
     train: List[float] = dataclasses.field(default_factory=list)
     val: List[float] = dataclasses.field(default_factory=list)
@@ -25,7 +21,7 @@ class EpochLoss:
     best_epoch: int = None
     update_flag: bool = False
 
-    def append_epoch_loss(self, phase, new_epoch_loss):
+    def append_epoch_loss(self, phase: str, new_epoch_loss):
         getattr(self, phase).append(new_epoch_loss)
 
     def get_latest_loss(self, phase):
@@ -138,6 +134,9 @@ class LossRegistory(ABC):
 
 
 class LossMixin:
+    """
+    Class to print epoch loss
+    """
     def print_epoch_loss(self, num_epochs, epoch):
         _total_epoch_loss = self.epoch_loss['total']
         train_loss = _total_epoch_loss.get_latest_loss('train')
