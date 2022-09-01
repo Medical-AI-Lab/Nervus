@@ -413,6 +413,15 @@ class MultiMixin:
     Class to define auxiliary function to handle multi-label.
     """
     def multi_forward(self, out_features: int) -> Dict[str, float]:
+        """
+        Forword out_features to classifier for each label.
+
+        Args:
+            out_features (int): _description_
+
+        Returns:
+            Dict[str, float]: _description_
+        """
         output = dict()
         for internal_label_name, classifier in self.multi_classifier.items():
             output[internal_label_name] = classifier(out_features)
@@ -427,21 +436,18 @@ class MultiWidget(nn.Module, BaseNet, MultiMixin):
 
 
 class MultiNet(MultiWidget):
-    def __init__(self, net_name: str, num_classes_in_internal_label: Dict[str, int], mlp_num_inputs: int = None, in_channel: int = None, vit_image_size: Optional[int] = None) -> Dict[str, Tensor]:
+    """
+    Model of MLP, CNN or ViT.
+    """
+    def __init__(self, net_name: str, num_classes_in_internal_label: Dict[str, int], mlp_num_inputs: int = None, in_channel: int = None, vit_image_size: Optional[int] = None):
         """
-        Model of MLP, CNN or ViT.
-
         Args:
             net_name (str): MLP, CNN or ViT name
             num_classes_in_internal_label (Dict[str, int]): number of classes for each label
             mlp_num_inputs (int, optional): number of input of MLP. Defaults to None.
             in_channel (int, optional): number of image channel, ie gray scale(=1) or color image(=3). Defaults to None.
             vit_image_size (int, optional): imaghe size to be input to ViT. Defaults to None.
-
-        Returns:
-            Dict[str, Tensor]: output
         """
-
         super().__init__()
 
         self.net_name = net_name
@@ -469,10 +475,11 @@ class MultiNet(MultiWidget):
 
 
 class MultiNetFusion(MultiWidget):
+    """
+        Fusion model of MLP and CNN or ViT.
+    """
     def __init__(self, net_name: str, num_classes_in_internal_label: Dict[str, int], mlp_num_inputs: int = None, in_channel: int = None, vit_image_size: Optional[int] = None) -> Dict[str, Tensor]:
         """
-        Fusion model of MLP and CNN or ViT.
-
         Args:
             net_name (str): CNN or ViT name. It is clear that MLP is used in fusion model.
             num_classes_in_internal_label (Dict[str, int]): number of classes for each label

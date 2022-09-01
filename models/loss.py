@@ -5,7 +5,10 @@ import dataclasses
 from abc import ABC, abstractmethod
 import torch
 import logger
-from typing import List
+from typing import List, Dict
+from torch import Tensor
+import torch.nn as nn
+
 
 log = logger.get_logger('models.loss')
 
@@ -21,35 +24,91 @@ class EpochLoss:
     best_epoch: int = None
     update_flag: bool = False
 
-    def append_epoch_loss(self, phase: str, new_epoch_loss):
+    def append_epoch_loss(self, phase: str, new_epoch_loss: float) -> None:
+        """
+        Append loss to list depending on phase.
+
+        Args:
+            phase (str): train or val
+            new_epoch_loss (float): loss value
+        """
         getattr(self, phase).append(new_epoch_loss)
 
-    def get_latest_loss(self, phase):
+    def get_latest_loss(self, phase: str) -> float:
+        """
+        Retern the latest loss of phase.
+        Args:
+            phase (str): train or val
+        Returns:
+            float: the latest loss
+        """
         latest_loss = getattr(self, phase)[-1]
         return latest_loss
 
-    def get_best_val_loss(self):
+    def get_best_val_loss(self) -> float:
+        """
+        Return the best val loss.
+
+        Returns:
+            float: the base val loss
+        """
         return self.best_val_loss
 
-    def set_best_val_loss(self, best_val_loss):
+    def set_best_val_loss(self, best_val_loss: float) -> None:
+        """
+        Set a val loss to keep it as the best loss.
+
+        Args:
+            best_val_loss (float): the best val loss
+        """
         self.best_val_loss = best_val_loss
 
-    def get_best_epoch(self):
+    def get_best_epoch(self) -> float:
+        """
+        Return the epoch at which val loss is the best.
+
+        Returns:
+            float: epoch
+        """
         return self.best_epoch
 
-    def set_best_epoch(self, best_epoch):
+    def set_best_epoch(self, best_epoch: int) -> None:
+        """
+        Set best_epoch to keep it as the best epoch.
+
+        Args:
+            best_epoch (int): the bset epoch
+        """
         self.best_epoch = best_epoch
 
-    def up_update_flag(self):
+    def up_update_flag(self) -> None:
+        """
+        Set flag True to indicate that the best loss is updated.
+        """
         self.update_flag = True
 
-    def down_update_flag(self):
+    def down_update_flag(self) -> None:
+        """
+        Set flag False to indicate that the best loss is not updated.
+        """
         self.update_flag = False
 
-    def is_val_loss_updated(self):
+    def is_val_loss_updated(self) -> bool:
+        """
+        Check if if val loss is updated.
+
+        Returns:
+            bool: True if val loss is updated.
+        """
         return self.update_flag
 
-    def check_best_val_loss_epoch(self, epoch):
+    def check_best_val_loss_epoch(self, epoch: int) -> None:
+        """
+        Check if val loss is the bset at epoch.
+
+        Args:
+            epoch (int): epoch at which loss is checked if it is the best.
+        """
         if epoch == 0:
             _best_val_loss = self.get_latest_loss('val')
             self.set_best_val_loss(_best_val_loss)
@@ -68,43 +127,70 @@ class EpochLoss:
 
 class LossRegistory(ABC):
     """
-    raw_loss -> iter_loss -> epoch_loss
+    Class for calculating loss and store it.
 
-    Args:
-        ABC (_type_): _description_
-        EpochLoss (_type_): _description_
+    First, losses are calculated for each iteration and accumulated in EpochLoss class.
     """
-    def __init__(self, internal_label_list):
+    def __init__(self, internal_label_list: List[str]) -> None:
+        """
+        Args:
+            internal_label_list (List[str]): list of internal labels
+        """
         self.internal_label_list = internal_label_list
 
         self.batch_loss = self._init_batch_loss()       # For every batch
         self.running_loss = self._init_running_loss()   # accumlates bacth loss
         self.epoch_loss = self._init_epoch_loss()       # For every epoch
 
-    def _init_batch_loss(self):
+    def _init_batch_loss(self) -> Dict[str, None]:
+        """
+        Initialize dictinary to store loss of each internal label for every batch.
+
+        Returns:
+            Dict[str, None]: dictinary to store loss of each internal label
+        """
         _batch_loss = dict()
         for internal_label_name in self.internal_label_list + ['total']:
             _batch_loss[internal_label_name] = None
         return _batch_loss
 
-    def _init_running_loss(self):
+    def _init_running_loss(self) -> None:
+        """
+        Initialize dictinary to store loss of each internal label for every iteration.
+        """
         _running_loss = dict()
         for internal_label_name in self.internal_label_list + ['total']:
             _running_loss[internal_label_name] = 0.0
         return _running_loss
 
-    def _init_epoch_loss(self):
+    def _init_epoch_loss(self) -> None:
+        """
+        Initialize dictinary to store loss of each internal label for evary epoch.
+        """
         _epoch_loss = dict()
         for internal_label_name in self.internal_label_list + ['total']:
             _epoch_loss[internal_label_name] = EpochLoss()
         return _epoch_loss
 
     @abstractmethod
-    def cal_batch_loss(cls, multi_output, multi_label, period=None, network=None):
+    def cal_batch_loss(
+                        cls,
+                        multi_output: Dict[str, float],
+                        multi_label: Dict[str, int],
+                        period: Tensor = None,
+                        network: nn.Module = None
+                    ) -> None:
         pass
 
-    # batch_loss is accumulated in runnning_loss
-    def cal_running_loss(self, batch_size=None):
+
+    def cal_running_loss(self, batch_size: int = None) -> None:
+        """
+        Calculate loss evary iteration.
+        batch_loss is accumulated in runnning_loss
+
+        Args:
+            batch_size (int): batch size. Defaults to None.
+        """
         assert (batch_size is not None), 'Invalid batch_size: batch_size=None.'
         for internal_label_name in self.internal_label_list:
             _running_loss = self.running_loss[internal_label_name] + (self.batch_loss[internal_label_name].item() * batch_size)

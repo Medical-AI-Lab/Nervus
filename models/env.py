@@ -3,7 +3,7 @@
 
 from pathlib import Path
 import pandas as pd
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Type
 
 
 class SplitProvider:
@@ -39,7 +39,7 @@ class SplitProvider:
             self.period_column = None
 
     # Labeling
-    def _make_labelling(self, df_source_excluded: pd.DataFrame, task: str) -> Tuple[pd.DataFrame, Dict[str, Dict[str, int]]]:
+    def _make_labelling(self, df_source_excluded: Type[pd.DataFrame], task: str) -> Tuple[pd.DataFrame, Dict[str, Dict[str, int]]]:
         """
         Assign a number to the class name within each label
 
@@ -81,7 +81,7 @@ class SplitProvider:
         _df_source_labeled = _df_tmp.copy()
         return _df_source_labeled, _class_name_in_raw_label
 
-    def _define_num_classes_in_internal_label(self, df_source: pd.DataFrame, task: str) -> Dict[str, int]:
+    def _define_num_classes_in_internal_label(self, df_source: Type[pd.DataFrame], task: str) -> Dict[str, int]:
         """
         Find thr number of classes for each internal label
 
@@ -110,7 +110,7 @@ class SplitProvider:
         return _num_classes_in_internal_label
 
     # Cast
-    def _cast_csv(self, df_source_labeled: pd.DataFrame, task: str) -> pd.DataFrame:
+    def _cast_csv(self, df_source_labeled: Type[pd.DataFrame], task: str) -> pd.DataFrame:
         """
         Cast columns as required by the task
 
