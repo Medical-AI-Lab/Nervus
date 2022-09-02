@@ -2,8 +2,6 @@
 
 set -eu
 
-gpu_ids="-1"
-save_weight="best"
 parameter_csv="./parameter.csv"
 
 train_log="./logger/logs/train.log"
@@ -41,7 +39,9 @@ done
 #8  batch_size,
 #9  sampler,
 #10 augmtntation,
-#11 in_channel
+#11 in_channel,
+#12 save_weight,
+#13 gpu_ids
 total=$(tail -n +2 "$parameter_csv" | wc -l)
 i=1
 for row in $(tail -n +2 "$parameter_csv"); do
@@ -56,8 +56,10 @@ for row in $(tail -n +2 "$parameter_csv"); do
   sampler=$(echo "$row" | cut -d "," -f9)
   augmentation=$(echo "$row" | cut -d "," -f10)
   in_channel=$(echo "$row" | cut -d "," -f11)
-  echo "$i/$total: Training starts..."
+  save_weight=$(echo "$row" | cut -d "," -f12)
+  gpu_ids=$(echo "$row" | cut -d "," -f13)
 
+  echo "$i/$total: Training starts..."
   echo ""
 
   # Traning

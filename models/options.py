@@ -53,7 +53,7 @@ class Options:
             self.parser.add_argument('--save_weight',     type=str,   choices=['best', 'each'], default='best', help='Save weight: best, or each(ie. save each time loss decreases when multi-label output) (Default: best)')
 
             # GPU
-            self.parser.add_argument('--gpu_ids',         type=str,   default='-1',  help='gpu ids: e.g. 0  0,1,2, 0,2. use -1 for CPU (Default: -1)')
+            self.parser.add_argument('--gpu_ids',         type=str,   default='-1',  help='gpu ids: e.g. 0, 0-1-2, 0-2. use -1 for CPU (Default: -1)')
 
         else:
             # Test
@@ -72,12 +72,13 @@ class Options:
         return mlp, net
 
     def _parse_gpu_ids(self, gpu_ids):
-        str_ids = gpu_ids.split(',')
+        str_ids = gpu_ids.split('-')
         _gpu_ids = []
         for str_id in str_ids:
             id = int(str_id)
             if id >= 0:
                 _gpu_ids.append(id)
+        log.info(_gpu_ids)
         return _gpu_ids
 
     def _get_latest_test_datetime(self):
