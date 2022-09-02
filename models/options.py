@@ -72,13 +72,12 @@ class Options:
         return mlp, net
 
     def _parse_gpu_ids(self, gpu_ids):
-        str_ids = gpu_ids.split('-')
+        str_ids = gpu_ids.split('-') if gpu_ids != '-1' else ['-1']
         _gpu_ids = []
         for str_id in str_ids:
             id = int(str_id)
             if id >= 0:
                 _gpu_ids.append(id)
-        log.info(_gpu_ids)
         return _gpu_ids
 
     def _get_latest_test_datetime(self):
@@ -153,7 +152,7 @@ class Options:
         for option, parameter in saved_args.items():
             if option == 'gpu_ids':
                 if parameter == []:
-                    saved_args['gpu_ids'] = 'CPU'
+                    saved_args['gpu_ids'] = '-1'
                 else:
                     _gpu_ids = [str(i) for i in saved_args['gpu_ids']]
                     _gpu_ids = '-'.join(_gpu_ids)   # ['0', '1', '2'] -> 0-1-2
@@ -190,11 +189,8 @@ class Options:
                     setattr(self.args, option, None)
 
             elif option == 'gpu_ids':
-                if parameter == 'CPU':
-                    setattr(self.args, option, [])
-                else:
-                    _gpu_ids = [int(i) for i in parameter.split('-')]  # 0-1-2 -> [0, 1, 2]
-                    setattr(self.args, option, _gpu_ids)
+                _gpu_ids = self._parse_gpu_ids(parameter)
+                setattr(self.args, option, _gpu_ids)
 
             else:
                 if parameter == 'None':
