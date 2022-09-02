@@ -53,7 +53,7 @@ class Options:
             self.parser.add_argument('--save_weight',     type=str,   choices=['best', 'each'], default='best', help='Save weight: best, or each(ie. save each time loss decreases when multi-label output) (Default: best)')
 
             # GPU
-            self.parser.add_argument('--gpu_ids',         type=str,   default='-1',  help='gpu ids: e.g. 0  0,1,2, 0,2. use -1 for CPU (Default: -1)')
+            self.parser.add_argument('--gpu_ids',         type=str,   default='-1',  help='gpu ids: e.g. 0, 0-1-2, 0-2. use -1 for CPU (Default: -1)')
 
         else:
             # Test
@@ -72,7 +72,7 @@ class Options:
         return mlp, net
 
     def _parse_gpu_ids(self, gpu_ids):
-        str_ids = gpu_ids.split(',')
+        str_ids = gpu_ids.split('-') if gpu_ids != '-1' else ['-1']
         _gpu_ids = []
         for str_id in str_ids:
             id = int(str_id)
@@ -152,7 +152,7 @@ class Options:
         for option, parameter in saved_args.items():
             if option == 'gpu_ids':
                 if parameter == []:
-                    saved_args['gpu_ids'] = 'CPU'
+                    saved_args['gpu_ids'] = '-1'
                 else:
                     _gpu_ids = [str(i) for i in saved_args['gpu_ids']]
                     _gpu_ids = '-'.join(_gpu_ids)   # ['0', '1', '2'] -> 0-1-2
@@ -189,11 +189,8 @@ class Options:
                     setattr(self.args, option, None)
 
             elif option == 'gpu_ids':
-                if parameter == 'CPU':
-                    setattr(self.args, option, [])
-                else:
-                    _gpu_ids = [int(i) for i in parameter.split('-')]  # 0-1-2 -> [0, 1, 2]
-                    setattr(self.args, option, _gpu_ids)
+                _gpu_ids = self._parse_gpu_ids(parameter)
+                setattr(self.args, option, _gpu_ids)
 
             else:
                 if parameter == 'None':
