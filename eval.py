@@ -64,7 +64,7 @@ def update_summary(df_summary):
     df_updated.to_csv(summary_path, index=False)
 
 
-def execute_eval(args, log):
+def make_eval(args, log):
     eval_datetime = args.eval_datetime
     likelihood_paths = _collect_likelihood(eval_datetime)
     task = _check_task(eval_datetime)
@@ -85,4 +85,4 @@ def execute_eval(args, log):
 if __name__ == '__main__':
     log = logger.get_logger('eval')
     args = check_eval_options()
-    execute_eval(args, log)
+    make_eval(args, log)
