@@ -97,7 +97,7 @@ class Options:
         Returns:
             List[int]: list of GPU ids
         """
-        str_ids = gpu_ids.split(',')
+        str_ids = gpu_ids.split('-') if gpu_ids != '-1' else ['-1']
         _gpu_ids = []
         for str_id in str_ids:
             id = int(str_id)
