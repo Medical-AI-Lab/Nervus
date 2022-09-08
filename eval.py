@@ -78,7 +78,7 @@ def eval(args, log):
         log.info('')
 
     log.info('Updated summary.')
-    log.info('Done.\n')
+    log.info('Evaluation done.\n')
 
 
 if __name__ == '__main__':

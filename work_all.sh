@@ -83,3 +83,5 @@ for row in $(tail -n +2 "$parameter_csv"); do
   i=$(($i + 1))
   echo -e "\n"
 done
+
+echo "work_all done."
