@@ -7,7 +7,7 @@ import models as md
 import logger
 
 
-def test(opt, log):
+def main(opt, log):
     log.info('\nTest started.\n')
     args = opt.args
     sp = md.make_split_provider(args.csv_name, args.task)
@@ -53,4 +53,4 @@ def test(opt, log):
 if __name__ == '__main__':
     log = logger.get_logger('test')
     opt = md.check_test_options()
-    test(opt, log)
+    main(opt, log)
