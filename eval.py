@@ -28,7 +28,7 @@ def check_eval_options():
 
 def _collect_likelihood(args):
     likelihood_paths = list(Path('./results/sets/', args.eval_datetime, 'likelihoods').glob('likelihood_*.csv'))
-    assert likelihood_paths != [], f"No likelihood in {args.eval_datetime}."
+    assert likelihood_paths != [], f"No likelihood for {args.eval_datetime}."
     likelihood_paths.sort(key=lambda path: path.stat().st_mtime)
     return likelihood_paths
 
