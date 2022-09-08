@@ -5,7 +5,7 @@ import argparse
 from pathlib import Path
 import re
 import pandas as pd
-import metrics as mt
+import metrics
 import logger
 
 
@@ -42,11 +42,11 @@ def _check_task(eval_datetime):
 
 def _set_eval(task):
     if task == 'classification':
-        return mt.make_roc, 'ROC'
+        return metrics.make_roc, 'ROC'
     elif task == 'regression':
-        return mt.make_yy, 'YY'
+        return metrics.make_yy, 'YY'
     elif task == 'deepsurv':
-        return mt.make_c_index, 'C_Index'
+        return metrics.make_c_index, 'C_Index'
     else:
         log.error(f"Invalid task: {task}.")
         exit()

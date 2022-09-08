@@ -3,21 +3,18 @@
 
 from pathlib import Path
 import torch
-import models as md
+import lib
 import logger
 
 
-def main(opt, log):
-    log.info('\nTest started.\n')
-    args = opt.args
-    sp = md.make_split_provider(args.csv_name, args.task)
+def _collect_weight(test_datetime):
+    weight_paths = list(Path('./results/sets', test_datetime, 'weights').glob('*'))
+    assert weight_paths != [], f"No weight for {test_datetime}."
+    weight_paths.sort(key=lambda path: path.stat().st_mtime)
+    return weight_paths
 
-    dataloaders = {
-        'train': md.create_dataloader(args, sp, split='train'),
-        'val': md.create_dataloader(args, sp, split='val'),
-        'test': md.create_dataloader(args, sp, split='test')
-        }
 
+def print_dataset_info(dataloaders):
     train_total = len(dataloaders['train'].dataset)
     val_total = len(dataloaders['val'].dataset)
     test_total = len(dataloaders['test'].dataset)
@@ -26,13 +23,25 @@ def main(opt, log):
     log.info(f" test_data = {test_total}")
     log.info('')
 
-    weight_paths = list(Path('./results/sets', args.test_datetime, 'weights').glob('*'))
-    weight_paths.sort(key=lambda path: path.stat().st_mtime)
 
+def main(opt, log):
+    log.info('\nTest started.\n')
+    args = opt.args
+    sp = lib.make_split_provider(args.csv_name, args.task)
+
+    dataloaders = {
+        'train': lib.create_dataloader(args, sp, split='train'),
+        'val': lib.create_dataloader(args, sp, split='val'),
+        'test': lib.create_dataloader(args, sp, split='test')
+        }
+
+    print_dataset_info(dataloaders)
+
+    weight_paths = _collect_weight(args.test_datetime)
     for weight_path in weight_paths:
         log.info(f"Inference with {weight_path.name}.")
 
-        model = md.create_model(args, sp, weight_path=weight_path)
+        model = lib.create_model(args, sp, weight_path=weight_path)
         model.eval()
 
         for split in ['train', 'val', 'test']:
@@ -52,5 +61,5 @@ def main(opt, log):
 
 if __name__ == '__main__':
     log = logger.get_logger('test')
-    opt = md.check_test_options()
+    opt = lib.check_test_options()
     main(opt, log)

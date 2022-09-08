@@ -3,21 +3,21 @@
 
 import datetime
 import torch
-import models as md
+import lib
 import logger
 
 
 def main(opt, date_name, log):
     log.info(f"\nTraining started at {date_name}.\n")
     args = opt.args
-    sp = md.make_split_provider(args.csv_name, args.task)
+    sp = lib.make_split_provider(args.csv_name, args.task)
 
     dataloaders = {
-        'train': md.create_dataloader(args, sp, split='train'),
-        'val': md.create_dataloader(args, sp, split='val')
+        'train': lib.create_dataloader(args, sp, split='train'),
+        'val': lib.create_dataloader(args, sp, split='val')
         }
 
-    model = md.create_model(args, sp)
+    model = lib.create_model(args, sp)
 
     for epoch in range(args.epochs):
         for phase in ['train', 'val']:
@@ -65,5 +65,5 @@ if __name__ == '__main__':
     log = logger.get_logger('train')
     # Directory name for save
     date_name = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
-    opt = md.check_train_options()
+    opt = lib.check_train_options()
     main(opt, date_name, log)
