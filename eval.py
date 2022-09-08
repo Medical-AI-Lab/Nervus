@@ -74,7 +74,7 @@ def eval(args, log):
 
     for likelihood_path in likelihood_paths:
         log.info(likelihood_path.name)
-        df_summary = make_eval(args.eval_datetime, likelihood_path)
+        df_summary = make_eval(eval_datetime, likelihood_path)
         update_summary(df_summary)
         log.info('')
 
