@@ -9,20 +9,38 @@ import metrics as mt
 import logger
 
 
-log = logger.get_logger('eval')
-
-parser = argparse.ArgumentParser(description='Options for eval')
-parser.add_argument('--eval_datetime', type=str, default=None, help='date time for evaluation(Default: None)')
-args = parser.parse_args()
-
-
 def _get_latest_test_datetime():
     date_names = [path for path in Path('./results/sets/').glob('*') if re.search(r'\d+', str(path))]
     latest = max(date_names, key=lambda date_name: date_name.stat().st_mtime).name
     return latest
 
 
-def set_eval(task):
+def check_eval_options():
+    parser = argparse.ArgumentParser(description='Options for eval')
+    parser.add_argument('--eval_datetime', type=str, default=None, help='date time for evaluation(Default: None)')
+    args = parser.parse_args()
+
+    # Check date time
+    if args.eval_datetime is None:
+        args.eval_datetime = _get_latest_test_datetime()
+    return args
+
+
+def _collect_likelihood(args):
+    likelihood_paths = list(Path('./results/sets/', args.eval_datetime, 'likelihoods').glob('likelihood_*.csv'))
+    assert likelihood_paths != [], f"No likelihood in {args.eval_datetime}."
+    likelihood_paths.sort(key=lambda path: path.stat().st_mtime)
+    return likelihood_paths
+
+
+def _check_task(args):
+    parameter_path = Path('./results/sets', args.eval_datetime, 'parameter.csv')
+    df_args = pd.read_csv(parameter_path)
+    task = df_args.loc[df_args['option'] == 'task', 'parameter'].item()
+    return task
+
+
+def _set_eval(task):
     if task == 'classification':
         return mt.make_roc, 'ROC'
     elif task == 'regression':
@@ -46,29 +64,24 @@ def update_summary(df_summary):
     df_updated.to_csv(summary_path, index=False)
 
 
-#
-# Main
-#
-# Check date time
-if args.eval_datetime is None:
-    args.eval_datetime = _get_latest_test_datetime()
+def eval(args, log):
+    likelihood_paths = _collect_likelihood(args)
+    task = _check_task(args)
+    make_eval, _metrics = _set_eval(task)
 
-# Check task
-parameter_path = Path('./results/sets', args.eval_datetime, 'parameter.csv')
-df_args = pd.read_csv(parameter_path)
-task = df_args.loc[df_args['option'] == 'task', 'parameter'].item()
+    log.info(f"\nCalculating {_metrics} for {args.eval_datetime}.\n")
 
-# Collect likelihood
-likelihood_paths = list(Path('./results/sets/', args.eval_datetime, 'likelihoods').glob('likelihood_*.csv'))
-likelihood_paths.sort(key=lambda path: path.stat().st_mtime)
-make_eval, _metrics = set_eval(task)
+    for likelihood_path in likelihood_paths:
+        log.info(likelihood_path.name)
+        df_summary = make_eval(args.eval_datetime, likelihood_path)
+        log.info('')
+        update_summary(df_summary)
 
-log.info(f"\nCalculating {_metrics} for {args.eval_datetime}.\n")
-for likelihood_path in likelihood_paths:
-    log.info(f"Read {likelihood_path.name}.")
-    df_summary = make_eval(args.eval_datetime, likelihood_path)
-    log.info('')
-    update_summary(df_summary)
+    log.info('Updated summary.')
+    log.info('Done.\n')
 
-log.info('Updated summary.')
-log.info('Done.\n')
+
+if __name__ == '__main__':
+    log = logger.get_logger('eval')
+    args = check_eval_options()
+    eval(args, log)
