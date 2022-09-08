@@ -9,7 +9,7 @@ import metrics as mt
 import logger
 
 
-def _get_latest_test_datetime():
+def _get_latest_eval_datetime():
     date_names = [path for path in Path('./results/sets/').glob('*') if re.search(r'\d+', str(path))]
     latest = max(date_names, key=lambda date_name: date_name.stat().st_mtime).name
     return latest
@@ -22,7 +22,7 @@ def check_eval_options():
 
     # Check date time
     if args.eval_datetime is None:
-        args.eval_datetime = _get_latest_test_datetime()
+        args.eval_datetime = _get_latest_eval_datetime()
     return args
 
 
