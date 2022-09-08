@@ -26,15 +26,15 @@ def check_eval_options():
     return args
 
 
-def _collect_likelihood(args):
-    likelihood_paths = list(Path('./results/sets/', args.eval_datetime, 'likelihoods').glob('likelihood_*.csv'))
-    assert likelihood_paths != [], f"No likelihood for {args.eval_datetime}."
+def _collect_likelihood(eval_datetime):
+    likelihood_paths = list(Path('./results/sets/', eval_datetime, 'likelihoods').glob('likelihood_*.csv'))
+    assert likelihood_paths != [], f"No likelihood for {eval_datetime}."
     likelihood_paths.sort(key=lambda path: path.stat().st_mtime)
     return likelihood_paths
 
 
-def _check_task(args):
-    parameter_path = Path('./results/sets', args.eval_datetime, 'parameter.csv')
+def _check_task(eval_datetime):
+    parameter_path = Path('./results/sets', eval_datetime, 'parameter.csv')
     df_args = pd.read_csv(parameter_path)
     task = df_args.loc[df_args['option'] == 'task', 'parameter'].item()
     return task
@@ -65,11 +65,12 @@ def update_summary(df_summary):
 
 
 def eval(args, log):
-    likelihood_paths = _collect_likelihood(args)
-    task = _check_task(args)
+    eval_datetime = args.eval_datetime
+    likelihood_paths = _collect_likelihood(eval_datetime)
+    task = _check_task(eval_datetime)
     make_eval, _metrics = _set_eval(task)
 
-    log.info(f"\nCalculating {_metrics} for {args.eval_datetime}.\n")
+    log.info(f"\nCalculating {_metrics} for {eval_datetime}.\n")
 
     for likelihood_path in likelihood_paths:
         log.info(likelihood_path.name)

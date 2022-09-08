@@ -81,7 +81,7 @@ for row in $(tail -n +2 "$parameter_csv"); do
   "$python" "$eval_code" 2>&1 | tee -a "$eval_log"
 
   i=$(($i + 1))
-  echo -e "\n"
+  echo -e ""
 done
 
 echo "work_all done."
