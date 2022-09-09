@@ -5,10 +5,10 @@ import dataclasses
 from abc import ABC, abstractmethod
 import torch
 from typing import List
-import logger
+from .logger import get_logger
 
 
-log = logger.get_logger('models.loss')
+log = get_logger('models.loss')
 
 
 @dataclasses.dataclass

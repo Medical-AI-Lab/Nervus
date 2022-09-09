@@ -6,7 +6,7 @@ from pathlib import Path
 import re
 import pandas as pd
 import metrics
-import logger
+import lib
 
 
 def _get_latest_eval_datetime():
@@ -83,6 +83,6 @@ def main(args, log):
 
 
 if __name__ == '__main__':
-    log = logger.get_logger('eval')
+    log = lib.get_logger('eval')
     args = check_eval_options()
     main(args, log)
