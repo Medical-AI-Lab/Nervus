@@ -3,19 +3,19 @@
 
 from pathlib import Path
 import torch
-import models as md
+import lib
 import logger
 
 
 def test(opt, log):
     log.info('\nTest started.\n')
     args = opt.args
-    sp = md.make_split_provider(args.csv_name, args.task)
+    sp = lib.make_split_provider(args.csv_name, args.task)
 
     dataloaders = {
-        'train': md.create_dataloader(args, sp, split='train'),
-        'val': md.create_dataloader(args, sp, split='val'),
-        'test': md.create_dataloader(args, sp, split='test')
+        'train': lib.create_dataloader(args, sp, split='train'),
+        'val': lib.create_dataloader(args, sp, split='val'),
+        'test': lib.create_dataloader(args, sp, split='test')
         }
 
     train_total = len(dataloaders['train'].dataset)
@@ -32,7 +32,7 @@ def test(opt, log):
     for weight_path in weight_paths:
         log.info(f"Inference with {weight_path.name}.")
 
-        model = md.create_model(args, sp, weight_path=weight_path)
+        model = lib.create_model(args, sp, weight_path=weight_path)
         model.eval()
 
         for split in ['train', 'val', 'test']:
@@ -52,5 +52,5 @@ def test(opt, log):
 
 if __name__ == '__main__':
     log = logger.get_logger('test')
-    opt = md.check_test_options()
+    opt = lib.check_test_options()
     test(opt, log)
