@@ -7,7 +7,24 @@ import lib
 import logger
 
 
-def test(opt, log):
+def _collect_weight(test_datetime):
+    weight_paths = list(Path('./results/sets', test_datetime, 'weights').glob('*'))
+    assert weight_paths != [], f"No weight for {test_datetime}."
+    weight_paths.sort(key=lambda path: path.stat().st_mtime)
+    return weight_paths
+
+
+def print_dataset_info(dataloaders):
+    train_total = len(dataloaders['train'].dataset)
+    val_total = len(dataloaders['val'].dataset)
+    test_total = len(dataloaders['test'].dataset)
+    log.info(f"train_data = {train_total}")
+    log.info(f"  val_data = {val_total}")
+    log.info(f" test_data = {test_total}")
+    log.info('')
+
+
+def main(opt, log):
     log.info('\nTest started.\n')
     args = opt.args
     sp = lib.make_split_provider(args.csv_name, args.task)
@@ -18,17 +35,9 @@ def test(opt, log):
         'test': lib.create_dataloader(args, sp, split='test')
         }
 
-    train_total = len(dataloaders['train'].dataset)
-    val_total = len(dataloaders['val'].dataset)
-    test_total = len(dataloaders['test'].dataset)
-    log.info(f"train_data = {train_total}")
-    log.info(f"  val_data = {val_total}")
-    log.info(f" test_data = {test_total}")
-    log.info('')
+    print_dataset_info(dataloaders)
 
-    weight_paths = list(Path('./results/sets', args.test_datetime, 'weights').glob('*'))
-    weight_paths.sort(key=lambda path: path.stat().st_mtime)
-
+    weight_paths = _collect_weight(args.test_datetime)
     for weight_path in weight_paths:
         log.info(f"Inference with {weight_path.name}.")
 
@@ -53,4 +62,4 @@ def test(opt, log):
 if __name__ == '__main__':
     log = logger.get_logger('test')
     opt = lib.check_test_options()
-    test(opt, log)
+    main(opt, log)

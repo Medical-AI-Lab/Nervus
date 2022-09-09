@@ -7,7 +7,7 @@ import lib
 import logger
 
 
-def train(opt, date_name, log):
+def main(opt, date_name, log):
     log.info(f"\nTraining started at {date_name}.\n")
     args = opt.args
     sp = lib.make_split_provider(args.csv_name, args.task)
@@ -66,4 +66,4 @@ if __name__ == '__main__':
     # Directory name for save
     date_name = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
     opt = lib.check_train_options()
-    train(opt, date_name, log)
+    main(opt, date_name, log)
