@@ -182,7 +182,6 @@ class LossRegistory(ABC):
                     ) -> None:
         pass
 
-
     def cal_running_loss(self, batch_size: int = None) -> None:
         """
         Calculate loss evary iteration.
