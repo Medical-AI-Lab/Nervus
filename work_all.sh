@@ -4,9 +4,9 @@ set -eu
 
 parameter_csv="./parameter.csv"
 
-train_log="./logger/logs/train.log"
-test_log="./logger/logs/test.log"
-eval_log="./logger/logs/eval.log"
+train_log="./logs/train.log"
+test_log="./logs/test.log"
+eval_log="./logs/eval.log"
 
 #python="python3"
 python="python"
@@ -14,12 +14,6 @@ python="python"
 train_code="train.py"
 test_code="test.py"
 eval_code="eval.py"
-
-# Delete previous logs.
-rm -f "$train_log"
-rm -f "$test_log"
-rm -f "$eval_log"
-
 
 while getopts ":g" optKey; do
   case "$optKey" in

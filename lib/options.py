@@ -5,11 +5,10 @@ from pathlib import Path
 import re
 import argparse
 import pandas as pd
-from typing import List
-import logger
+from .logger import get_logger
 
 
-log = logger.get_logger('models.options')
+log = get_logger('models.options')
 
 
 class Options:

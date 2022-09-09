@@ -7,11 +7,10 @@ import pandas as pd
 from sklearn import metrics
 import matplotlib.pyplot as plt
 from matplotlib import colors as mcolors
-from typing import List
-import logger
+from lib import get_logger
 
 
-log = logger.get_logger('metrics.yy')
+log = get_logger('metrics.yy')
 
 
 class R2:

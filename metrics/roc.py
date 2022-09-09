@@ -7,11 +7,10 @@ import pandas as pd
 from sklearn import metrics
 from sklearn.preprocessing import label_binarize
 import matplotlib.pyplot as plt
-from typing import List
-import logger
+from lib import get_logger
 
 
-log = logger.get_logger('metrics.roc')
+log = get_logger('metrics.roc')
 
 
 class ROC:

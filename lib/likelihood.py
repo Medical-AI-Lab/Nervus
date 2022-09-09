@@ -3,10 +3,10 @@
 
 from pathlib import Path
 import pandas as pd
-import logger
+from .logger import get_logger
 
 
-log = logger.get_logger('models.likelihood')
+log = get_logger('models.likelihood')
 
 
 class BaseLikelihood:

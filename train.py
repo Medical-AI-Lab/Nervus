@@ -4,7 +4,6 @@
 import datetime
 import torch
 import lib
-import logger
 
 
 def main(opt, date_name, log):
@@ -62,7 +61,7 @@ def main(opt, date_name, log):
 
 
 if __name__ == '__main__':
-    log = logger.get_logger('train')
+    log = lib.get_logger('train')
     # Directory name for save
     date_name = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
     opt = lib.check_train_options()

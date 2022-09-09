@@ -6,11 +6,10 @@ import torch
 import torch.nn as nn
 from torchvision.ops import MLP
 import torchvision.models as models
-from typing import List
-import logger
+from .logger import get_logger
 
 
-log = logger.get_logger('models.net')
+log = get_logger('models.net')
 
 
 class BaseNet:

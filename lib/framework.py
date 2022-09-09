@@ -7,16 +7,15 @@ from abc import ABC, abstractmethod
 import pandas as pd
 import torch
 import torch.nn as nn
-from torchinfo import summary
 from .net import create_net
 from .criterion import set_criterion
 from .optimizer import set_optimizer
 from .loss import create_loss_reg
 from .likelihood import set_likelihood
-import logger
+from .logger import get_logger
 
 
-log = logger.get_logger('models.framework')
+log = get_logger('models.framework')
 
 
 class BaseModel(ABC):
