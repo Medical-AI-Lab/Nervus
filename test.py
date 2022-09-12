@@ -4,7 +4,6 @@
 from pathlib import Path
 import torch
 import lib
-import logger
 
 
 def _collect_weight(test_datetime):
@@ -60,6 +59,6 @@ def main(opt, log):
 
 
 if __name__ == '__main__':
-    log = logger.get_logger('test')
+    log = lib.get_logger('test')
     opt = lib.check_test_options()
     main(opt, log)

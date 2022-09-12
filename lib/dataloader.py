@@ -9,14 +9,14 @@ from torch.utils.data.dataset import Dataset
 from torch.utils.data.dataloader import DataLoader
 from torch.utils.data.sampler import WeightedRandomSampler
 from PIL import Image
-import logger
+from .logger import get_logger
 from typing import Union, List, Dict
 import argparse
 from torch import Tensor
 from .env import SplitProvider
 
 
-log = logger.get_logger('models.dataloader')
+log = get_logger('models.dataloader')
 
 
 class XrayAugment(torch.nn.Module):

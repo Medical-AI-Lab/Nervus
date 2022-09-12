@@ -10,4 +10,3 @@ __all__ = [
             'make_yy',
             'make_c_index'
             ]
-

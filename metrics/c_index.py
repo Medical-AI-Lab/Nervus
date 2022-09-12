@@ -3,11 +3,10 @@
 
 import pandas as pd
 from lifelines.utils import concordance_index
-from typing import List
-import logger
+from lib import get_logger
 
 
-log = logger.get_logger('metrics.c_index')
+log = get_logger('metrics.c_index')
 
 
 class C_Index:

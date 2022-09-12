@@ -4,13 +4,13 @@
 import dataclasses
 from abc import ABC, abstractmethod
 import torch
-import logger
+from .logger import get_logger
 from typing import List, Dict
 from torch import Tensor
 import torch.nn as nn
 
 
-log = logger.get_logger('models.loss')
+log = get_logger('models.loss')
 
 
 @dataclasses.dataclass
