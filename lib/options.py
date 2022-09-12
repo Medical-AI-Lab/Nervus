@@ -5,12 +5,8 @@ from pathlib import Path
 import re
 import argparse
 import pandas as pd
-<<<<<<< HEAD
 from .logger import get_logger
 from typing import Dict, List, Tuple, Union, Any
-=======
-from .logger import get_logger
->>>>>>> main
 
 
 log = get_logger('models.options')
