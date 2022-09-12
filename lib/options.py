@@ -6,13 +6,21 @@ import re
 import argparse
 import pandas as pd
 from .logger import get_logger
+from typing import Dict, List, Tuple, Union, Any
 
 
 log = get_logger('models.options')
 
 
 class Options:
-    def __init__(self, isTrain=None):
+    """
+    Class to parse options
+    """
+    def __init__(self, isTrain: bool = None) -> None:
+        """
+        Args:
+            isTrain (bool, optional): Variable indicating whether training. True when traning. Defaults to None.
+        """
         assert isinstance(isTrain, bool), 'isTrain should be bool.'
 
         self.parser = argparse.ArgumentParser(description='Options for training or test')
@@ -62,7 +70,16 @@ class Options:
         self.args = self.parser.parse_args()
         self.args.isTrain = isTrain
 
-    def _parse_model(self, model_name):
+    def _parse_model(self, model_name: str) -> Tuple[Union[str, None], Union[str, None]]:
+        """
+        Parse model name
+
+        Args:
+            model_name (str): model name (eg. MLP, ResNey18, or MLP+ResNet18)
+
+        Returns:
+            Tuple[str, str]: MLP, CNN or Vision Transformer name
+        """
         assert (model_name is not None), 'Specify model.'
         _model = model_name.split('+')  # 'MLP', 'ResNet18', 'MLP+ResNet18' -> ['MLP'], ['ResNet18'], ['MLP', 'ResNet18']
         mlp = 'MLP' if 'MLP' in _model else None
@@ -70,7 +87,16 @@ class Options:
         net = _net[0] if _net != [] else None
         return mlp, net
 
-    def _parse_gpu_ids(self, gpu_ids):
+    def _parse_gpu_ids(self, gpu_ids: str) -> List[int]:
+        """
+        Parse comma-separated GPU ids strings to list of integers to list of GPU ids
+
+        Args:
+            gpu_ids (str): comma-separated GPU Ids
+
+        Returns:
+            List[int]: list of GPU ids
+        """
         str_ids = gpu_ids.split('-') if gpu_ids != '-1' else ['-1']
         _gpu_ids = []
         for str_id in str_ids:
@@ -79,12 +105,21 @@ class Options:
                 _gpu_ids.append(id)
         return _gpu_ids
 
-    def _get_latest_test_datetime(self):
+    def _get_latest_test_datetime(self) -> str:
+        """
+        Return the most recent directory name
+
+        Returns:
+            str: directory name indicating date name
+        """
         date_names = [path for path in Path('./results/sets/').glob('*') if re.search(r'\d+', str(path))]
         latest = max(date_names, key=lambda date_name: date_name.stat().st_mtime).name
         return latest
 
-    def parse(self):
+    def parse(self) -> None:
+        """
+        Parse options
+        """
         if self.args.isTrain:
             # model
             mlp, net = self._parse_model(self.args.model)
@@ -106,10 +141,19 @@ class Options:
             if self.args.test_datetime is None:
                 self.args.test_datetime = self._get_latest_test_datetime()
 
-    def _get_args(self):
+    def _get_args(self) -> Dict[str, Any]:
+        """
+        Return dictionary of option name and its parameter
+
+        Returns:
+            Dict[str, Any]: dictionary of option name and its parameter
+        """
         return vars(self.args)
 
-    def print_options(self):
+    def print_options(self) -> None:
+        """
+        Format and print options
+        """
         phase = 'Training' if self.args.isTrain else 'Test'
 
         message = ''
@@ -141,7 +185,13 @@ class Options:
         message += '------------------------ End -------------------------------'
         log.info(message)
 
-    def save_parameter(self, date_name):
+    def save_parameter(self, date_name: str) -> None:
+        """
+        Save parameters
+
+        Args:
+            date_name (str): diractory name for saving
+        """
         saved_args = self._get_args()
 
         ignored = ['isTrain']
@@ -166,7 +216,10 @@ class Options:
         save_path = Path(save_dir, 'parameter.csv')
         df_parameter.to_csv(save_path, index=False)
 
-    def setup_parameter_for_test(self):
+    def setup_parameter_for_test(self) -> None:
+        """
+        Set up paramters for test
+        """
         parameter_path = Path('./results/sets', self.args.test_datetime, 'parameter.csv')
         df_args = pd.read_csv(parameter_path)
 
@@ -202,14 +255,26 @@ class Options:
         setattr(self.args, 'sampler', 'no')
 
 
-def check_train_options():
+def check_train_options() -> Options:
+    """
+    Parse and print options
+
+    Returns:
+        Options: Object of Options
+    """
     opt = Options(isTrain=True)
     opt.parse()
     opt.print_options()
     return opt
 
 
-def check_test_options():
+def check_test_options() -> Options:
+    """
+    Parse, set up for test and print options
+
+    Returns:
+        Options: Object of Options
+    """
     opt = Options(isTrain=False)
     opt.parse()
     opt.setup_parameter_for_test()
