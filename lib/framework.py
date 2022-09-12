@@ -13,13 +13,27 @@ from .optimizer import set_optimizer
 from .loss import create_loss_reg
 from .likelihood import set_likelihood
 from .logger import get_logger
+import argparse
+from .env import SplitProvider
+from typing import Dict, Union, Optional
+from torch import Tensor
 
 
 log = get_logger('models.framework')
 
 
 class BaseModel(ABC):
-    def __init__(self, args, split_provider):
+    """
+    Class to construct model. This class is the base class to construct model.
+    """
+    def __init__(self, args: argparse.Namespace, split_provider: SplitProvider) -> None:
+        """
+        Class to define Model
+
+        Args:
+            args (argparse.Namespace): options
+            split_provider (SplitProvider): Object of Splitprovider
+        """
         self.args = args
         self.sp = split_provider
 
@@ -45,13 +59,22 @@ class BaseModel(ABC):
         else:
             self.likelihood = set_likelihood(self.task, self.sp.class_name_in_raw_label, self.args.test_datetime)
 
-    def train(self):
+    def train(self) -> None:
+        """
+        Make self.network training mode.
+        """
         self.network.train()
 
-    def eval(self):
+    def eval(self) -> None:
+        """
+        Make self.network training mode.
+        """
         self.network.eval()
 
-    def enable_gpu(self):
+    def enable_gpu(self) -> None:
+        """
+        Make model compute on the GPU.
+        """
         self.network.to(self.device)
         self.network = nn.DataParallel(self.network, device_ids=self.gpu_ids)
 
@@ -70,7 +93,16 @@ class BaseModel(ABC):
         #        'split': split
         #        }
 
-    def multi_label_to_device(self, multi_label):
+    def multi_label_to_device(self, multi_label: Dict[str, Union[int, float]]) -> Dict[str, Union[int, float]]:
+        """
+        Pass the value of each label to the device
+
+        Args:
+            multi_label (Dict[str, Union[int, float]]): dictionary of each label and its value
+
+        Returns:
+            Dict[str, Union[int, float]]: dictionary of each label and its value which is on devide
+        """
         for internal_label_name, each_data in multi_label.items():
             multi_label[internal_label_name] = each_data.to(self.device)
         return multi_label
@@ -79,14 +111,26 @@ class BaseModel(ABC):
     def forward(self):
         pass
 
-    def get_output(self):
+    def get_output(self) -> Dict[str, Tensor]:
+        """
+        Return output of model.
+
+        Returns:
+            Dict[str, Tensor]: output of model
+        """
         return self.multi_output
 
-    def backward(self):
+    def backward(self) -> None:
+        """
+        Backward
+        """
         self.loss = self.loss_reg.batch_loss['total']
         self.loss.backward()
 
-    def optimize_parameters(self):
+    def optimize_parameters(self) -> None:
+        """
+        Update parameters
+        """
         self.optimizer.step()
 
     # Loss
@@ -94,29 +138,69 @@ class BaseModel(ABC):
     def cal_batch_loss(self):
         pass
 
-    def cal_running_loss(self, batch_size=None):
+    def cal_running_loss(self, batch_size: int = None) -> None:
+        """
+        Calculate loss for each iteration.
+
+        Args:
+            batch_size (int): batch size. Defaults to None.
+        """
         self.loss_reg.cal_running_loss(batch_size)
 
-    def cal_epoch_loss(self, epoch, phase, dataset_size=None):
+    def cal_epoch_loss(self, epoch: int, phase: str, dataset_size: int = None) -> None:
+        """_summary_
+
+        Args:
+            epoch (int): epoch number
+            phase (str): phase, ie. 'train' or 'val'
+            dataset_size (int): dataset size. Defaults to None.
+        """
         self.loss_reg.cal_epoch_loss(epoch, phase, dataset_size)
 
-    def is_total_val_loss_updated(self):
+    def is_total_val_loss_updated(self) -> bool:
+        """
+        Check if val loss updated or not.
+
+        Returns:
+            bool: True if val loss updated, otherwise False.
+        """
         _total_epoch_loss = self.loss_reg.epoch_loss['total']
         is_updated = _total_epoch_loss.is_val_loss_updated()
         return is_updated
 
-    def print_epoch_loss(self, epoch):
+    def print_epoch_loss(self, epoch: int) -> None:
+        """
+        Print loss for each epoch.
+
+        Args:
+            epoch (int): epoch number
+        """
         self.loss_reg.print_epoch_loss(self.args.epochs, epoch)
 
     # Lieklihood
-    def make_likelihood(self, data):
+    def make_likelihood(self, data: Dict[str, Union[str, int, Dict[str, int], float]]) -> None:
+        """
+        Make DataFrame of likelihood.
+
+        Args:
+            data (Dict[str, Union[str, int, Dict[str, int], float]]): dictionary of each label and its value which is on devide
+        """
         self.likelihood.make_likehood(data, self.get_output())
 
-    def save_likelihood(self, save_name=None):
+    def save_likelihood(self, save_name: str = None) -> None:
+        """
+        Save likelihood.
+
+        Args:
+            save_name (str): save name for likelihood. Defaults to None.
+        """
         self.likelihood.save_likelihood(save_name=save_name)
 
 
 class SaveLoadMixin:
+    """
+    Class including methods for save or load.
+    """
     sets_dir = 'results/sets'
     weight_dir = 'weights'
     learning_curve_dir = 'learning_curves'
@@ -125,7 +209,10 @@ class SaveLoadMixin:
     acting_best_weight = None
     acting_best_epoch = None
 
-    def store_weight(self):
+    def store_weight(self) -> None:
+        """
+        Store weight.
+        """
         self.acting_best_epoch = self.loss_reg.epoch_loss['total'].get_best_epoch()
         _network = copy.deepcopy(self.network)
         if hasattr(_network, 'module'):
@@ -134,7 +221,14 @@ class SaveLoadMixin:
         else:
             self.acting_best_weight = copy.deepcopy(_network.state_dict())
 
-    def save_weight(self, date_name, as_best=None):
+    def save_weight(self, date_name: str, as_best: bool = None) -> None:
+        """
+        Save weight.
+
+        Args:
+            date_name (str): save name for weight
+            as_best (bool): True if weight is saved as best, otherise False. Defaults to None.
+        """
         assert isinstance(as_best, bool), 'Argument as_best should be bool.'
 
         save_dir = Path(self.sets_dir, date_name, self.weight_dir)
@@ -154,11 +248,23 @@ class SaveLoadMixin:
             save_name = 'weight_epoch-' + str(self.acting_best_epoch).zfill(3) + '.pt'
             torch.save(self.acting_best_weight, save_path)
 
-    def load_weight(self, weight_path):
+    def load_weight(self, weight_path: Path) -> None:
+        """
+        Load wight from weight_path.
+
+        Args:
+            weight_path (Path): path to weight
+        """
         weight = torch.load(weight_path)
         self.network.load_state_dict(weight)
 
-    def save_learning_curve(self, date_name):
+    def save_learning_curve(self, date_name: str) -> None:
+        """
+        Save leraning curve.
+
+        Args:
+            date_name (str): save name for learning curve
+        """
         save_dir = Path(self.sets_dir, date_name, self.learning_curve_dir)
         save_dir.mkdir(parents=True, exist_ok=True)
         epoch_loss = self.loss_reg.epoch_loss
@@ -184,101 +290,232 @@ class ModelWidget(BaseModel, SaveLoadMixin):
 
 
 class MLPModel(ModelWidget):
-    def __init__(self, args, split_provider):
+    """
+    Class for MLP model
+    """
+    def __init__(self, args: argparse.Namespace, split_provider: SplitProvider) -> None:
+        """
+        Args:
+            args (argparse.Namespace): options
+            split_provider (SplitProvider): Object of Splitprovider
+        """
         super().__init__(args, split_provider)
 
-    def set_data(self, data):
+    def set_data(self, data: Dict[str, Union[str, int, Dict[str, int], float]]) -> None:
+        """
+        Unpack data for forwarding of MLP.
+
+        Args:
+            data (Dict[str, Union[str, int, Dict[str, int], float]]): dictionary of data
+        """
         self.inputs = data['inputs'].to(self.device)
         self.multi_label = self.multi_label_to_device(data['internal_labels'])
 
-    def forward(self):
+    def forward(self) -> None:
+        """
+        Forward.
+        """
         self.multi_output = self.network(self.inputs)
 
-    def cal_batch_loss(self):
+    def cal_batch_loss(self) -> None:
+        """
+        Calculate loss for bach bach.
+        """
         self.loss_reg.cal_batch_loss(self.multi_output, self.multi_label)
 
 
 class CVModel(ModelWidget):
-    def __init__(self, args, split_provider):
+    """
+    Class for CNN or ViT model
+    """
+    def __init__(self, args: argparse.Namespace, split_provider: SplitProvider) -> None:
+        """
+        Args:
+            args (argparse.Namespace): options
+            split_provider (SplitProvider): Object of Splitprovider
+        """
         super().__init__(args, split_provider)
 
-    def set_data(self, data):
+    def set_data(self, data: Dict[str, Union[str, int, Dict[str, int], float]]) -> None:
+        """
+        Unpack data for forwarding of CNN or ViT Model.
+
+        Args:
+            data (Dict[str, Union[str, int, Dict[str, int], float]]): dictionary of data
+        """
         self.image = data['image'].to(self.device)
         self.multi_label = self.multi_label_to_device(data['internal_labels'])
 
-    def forward(self):
+    def forward(self) -> None:
+        """
+        Forward.
+        """
         self.multi_output = self.network(self.image)
 
     def cal_batch_loss(self):
+        """
+        Calculate loss for each bach.
+        """
         self.loss_reg.cal_batch_loss(self.multi_output, self.multi_label)
 
 
 class FusionModel(ModelWidget):
-    def __init__(self, args, split_provider):
+    """
+    Class for MLP+CNN or MLP+ViT model
+    """
+    def __init__(self, args: argparse.Namespace, split_provider: SplitProvider) -> None:
+        """
+        Args:
+            args (argparse.Namespace): options
+            split_provider (SplitProvider): Object of Splitprovider
+        """
         super().__init__(args, split_provider)
 
-    def set_data(self, data):
+    def set_data(self, data: Dict[str, Union[str, int, Dict[str, int], float]]) -> None:
+        """
+        Unpack data for forwarding of MLP+CNN or MLP+ViT.
+
+        Args:
+            data (Dict[str, Union[str, int, Dict[str, int], float]]): dictionary of data
+        """
         self.inputs = data['inputs'].to(self.device)
         self.image = data['image'].to(self.device)
         self.multi_label = self.multi_label_to_device(data['internal_labels'])
 
-    def forward(self):
+    def forward(self) -> None:
+        """
+        Forward.
+        """
         self.multi_output = self.network(self.inputs, self.image)
 
-    def cal_batch_loss(self):
+    def cal_batch_loss(self) -> None:
+        """
+        Calculate loss for bach bach.
+        """
         self.loss_reg.cal_batch_loss(self.multi_output, self.multi_label)
 
 
 class MLPDeepSurv(ModelWidget):
-    def __init__(self, args, split_provider):
+    """
+    Class for DeepSurv model with MLP
+    """
+    def __init__(self, args: argparse.Namespace, split_provider: SplitProvider) -> None:
+        """
+        Args:
+            args (argparse.Namespace): options
+            split_provider (SplitProvider): Object of Splitprovider
+        """
         super().__init__(args, split_provider)
 
-    def set_data(self, data):
+    def set_data(self, data: Dict[str, Union[str, int, Dict[str, int], float]]) -> None:
+        """
+        Unpack data for forwarding of DeepSurv model with MLP
+
+        Args:
+            data (Dict[str, Union[str, int, Dict[str, int], float]]): dictionary of data
+        """
         self.inputs = data['inputs'].to(self.device)
         self.multi_label = self.multi_label_to_device(data['internal_labels'])
         self.period = data['period'].float().to(self.device)
 
-    def forward(self):
+    def forward(self) -> None:
+        """
+        Forward.
+        """
         self.multi_output = self.network(self.inputs)
 
-    def cal_batch_loss(self):
+    def cal_batch_loss(self) -> None:
+        """
+        Calculate loss for each bach.
+        """
         self.loss_reg.cal_batch_loss(self.multi_output, self.multi_label, self.period, self.network)
 
 
 class CVDeepSurv(ModelWidget):
-    def __init__(self, args, split_provider):
+    """
+    Class for DeepSurv model with CNN or ViT
+    """
+    def __init__(self, args: argparse.Namespace, split_provider: SplitProvider) -> None:
+        """
+        Args:
+            args (argparse.Namespace): _description_
+            split_provider (SplitProvider): _description_
+        """
         super().__init__(args, split_provider)
 
-    def set_data(self, data):
+    def set_data(self, data: Dict[str, Union[str, int, Dict[str, int], float]]) -> None:
+        """
+        Unpack data for forwarding of DeepSurv model with with CNN or ViT
+
+        Args:
+            data (Dict[str, Union[str, int, Dict[str, int], float]]): dictionary of data
+        """
         self.image = data['image'].to(self.device)
         self.multi_label = self.multi_label_to_device(data['internal_labels'])
         self.period = data['period'].float().to(self.device)
 
-    def forward(self):
+    def forward(self) -> None:
+        """
+        Forward.
+        """
         self.multi_output = self.network(self.image)
 
-    def cal_batch_loss(self):
+    def cal_batch_loss(self) -> None:
+        """
+        Calculate loss for each bach.
+        """
         self.loss_reg.cal_batch_loss(self.multi_output, self.multi_label, self.period, self.network)
 
 
 class FusionDeepSurv(ModelWidget):
-    def __init__(self, args, split_provider):
+    """
+    Class for DeepSurv model with MLP+CNN or MLP+ViT model
+    """
+    def __init__(self, args: argparse.Namespace, split_provider: SplitProvider) -> None:
+        """
+        Args:
+            args (argparse.Namespace): options
+            split_provider (SplitProvider): Object of Splitprovider
+        """
         super().__init__(args, split_provider)
 
-    def set_data(self, data):
+    def set_data(self, data: Dict[str, Union[str, int, Dict[str, int], float]]) -> None:
+        """
+        Unpack data for forwarding of DeepSurv with MLP+CNN or MLP+ViT.
+
+        Args:
+            data (Dict[str, Union[str, int, Dict[str, int], float]]): dictionary of data
+        """
         self.inputs = data['inputs'].to(self.device)
         self.image = data['image'].to(self.device)
         self.multi_label = self.multi_label_to_device(data['internal_labels'])
         self.period = data['period'].float().to(self.device)
 
-    def forward(self):
+    def forward(self) -> None:
+        """
+        Forward.
+        """
         self.multi_output = self.network(self.inputs, self.image)
 
-    def cal_batch_loss(self):
+    def cal_batch_loss(self) -> None:
+        """
+        Calculate loss for bach bach.
+        """
         self.loss_reg.cal_batch_loss(self.multi_output, self.multi_label, self.period, self.network)
 
 
-def create_model(args, split_provider, weight_path=None):
+def create_model(args: argparse.Namespace, split_provider: SplitProvider, weight_path: Optional[str] = None) -> nn.Module:
+    """
+    Construct model
+
+    Args:
+        args (argparse.Namespace): _description_
+        split_provider (SplitProvider): _description_
+        weight_path (Optional[str], optional): path to weight. This is for use when test. Defaults to None.
+
+    Returns:
+        nn.Module: model
+    """
     task = args.task
     mlp = args.mlp
     net = args.net

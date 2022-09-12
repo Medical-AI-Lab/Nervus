@@ -206,7 +206,7 @@ class LoadDataSet(Dataset):
             idx (int): index
 
         Returns:
-            Dict[str, Union[str, int, Dict[str, int], float]]: dictionary od data
+            Dict[str, Union[str, int, Dict[str, int], float]]: dictionary of data
         """
         filename = Path(self.df_split.iat[idx, self.col_index_dict['filepath']]).name
         examid = self.df_split.iat[idx, self.col_index_dict['ExamID']]

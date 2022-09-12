@@ -137,7 +137,7 @@ class BaseNet:
     @classmethod
     def MLPNet(cls, mlp_num_inputs: int, inplace: bool = None) -> MLP:
         """
-        Construct MLP
+        Construct MLP.
 
         Args:
             mlp_num_inputs (int): the nunmber of input of MLP
@@ -151,16 +151,16 @@ class BaseNet:
         return mlp
 
     @classmethod
-    def align_in_channels_1ch(cls, net_name: str, net: models) -> models:
+    def align_in_channels_1ch(cls, net_name: str, net: nn.Module) -> nn.Module:
         """
-        Modify network to handle gray scale image
+        Modify network to handle gray scale image.
 
         Args:
             net_name (str): network name
-            net (models): network itself
+            net (nn.Module): network itself
 
         Returns:
-            models: network avalibale for gray scale
+            nn.Module: network avalibale for gray scale
         """
         if net_name.startswith('ResNet'):
             net.conv1.in_channels = 1
@@ -187,9 +187,9 @@ class BaseNet:
         return net
 
     @classmethod
-    def set_net(cls, net_name: str, in_channel: int = None, vit_image_size: int = None) -> models:
+    def set_net(cls, net_name: str, in_channel: int = None, vit_image_size: int = None) -> nn.Module:
         """
-        Modify network depending on in_channel and vit_image_size
+        Modify network depending on in_channel and vit_image_size.
 
         Args:
             net_name (str): network name
@@ -197,7 +197,7 @@ class BaseNet:
             vit_image_size (int, optional): image size which ViT handles if ViT is used. Defaults to None.
 
         Returns:
-            models: modified network
+            nn.Module: modified network
         """
         assert net_name in cls.net, f"No specified net: {net_name}."
         assert (in_channel == 1) or (in_channel == 3), f"Invalid in_channels: {in_channel}."
@@ -211,16 +211,16 @@ class BaseNet:
         return net
 
     @classmethod
-    def set_vit(cls, net_name: str, vit_image_size: int = None) -> models:
+    def set_vit(cls, net_name: str, vit_image_size: int = None) -> nn.Module:
         """
-        Modify ViT depending on vit_image_size
+        Modify ViT depending on vit_image_size.
 
         Args:
             net_name (str): ViT name
             vit_image_size (int, optional): image size which ViT handles if ViT is used. Defaults to None.
 
         Returns:
-            models: modified ViT
+            nn.Module: modified ViT
         """
         assert isinstance(vit_image_size, int), f"Invalid image size for ViT: {vit_image_size}."
         base_vit = cls.vit[net_name]
@@ -244,7 +244,7 @@ class BaseNet:
         Construct extractor of network depending on net_name
 
         Args:
-            net_name (str): network name
+            net_name (str): network name.
             mlp_num_inputs (int, optional): nunmber of input of MLP. Defaults to None.
             in_channel (int, optional): image channel(any of 1ch or 3ch). Defaults to None.
             vit_image_size (int, optional): image size which ViT handles if ViT is used. Defaults to None.
@@ -262,7 +262,7 @@ class BaseNet:
     @classmethod
     def get_classifier(cls, net_name: str) -> nn.Module:
         """
-        Get classifier of network depending on net_name
+        Get classifier of network depending on net_name.
 
         Args:
             net_name (str): network name
@@ -277,7 +277,7 @@ class BaseNet:
     @classmethod
     def construct_multi_classifier(cls, net_name: str, num_classes_in_internal_label: Dict[str, int]) -> nn.ModuleDict:
         """
-        Construct classifier for multi-label
+        Construct classifier for multi-label.
 
         Args:
             net_name (str): network name
@@ -430,7 +430,7 @@ class MultiMixin:
 
 class MultiWidget(nn.Module, BaseNet, MultiMixin):
     """
-    Class for a widget to inherit multiple classes simultaneously
+    Class for a widget to inherit multiple classes simultaneously.
     """
     pass
 
@@ -461,7 +461,7 @@ class MultiNet(MultiWidget):
 
     def forward(self, x: Tensor) -> Dict[str, Tensor]:
         """
-        Forwarding
+        Forward.
 
         Args:
             x (Tensor): tabular data or image
@@ -476,7 +476,7 @@ class MultiNet(MultiWidget):
 
 class MultiNetFusion(MultiWidget):
     """
-        Fusion model of MLP and CNN or ViT.
+    Fusion model of MLP and CNN or ViT.
     """
     def __init__(self, net_name: str, num_classes_in_internal_label: Dict[str, int], mlp_num_inputs: int = None, in_channel: int = None, vit_image_size: Optional[int] = None) -> Dict[str, Tensor]:
         """
@@ -516,7 +516,7 @@ class MultiNetFusion(MultiWidget):
 
     def forward(self, x_mlp: Tensor, x_net: Tensor) -> Dict[str, Tensor]:
         """
-        Forwarding
+        Forward.
 
         Args:
             x_mlp (Tensor): tabular data
@@ -537,7 +537,8 @@ class MultiNetFusion(MultiWidget):
 
 def create_net(mlp: Optional[str], net: Optional[str], num_classes_in_internal_label: Dict[str, int], mlp_num_inputs: int, in_channel: int, vit_image_size: Optional[int]) -> nn.Module:
     """
-    Create model
+    Create network
+
     Args:
         mlp (Optional[str]): 'mlp' or None
         net (Optional[str]):  CNN or ViT name

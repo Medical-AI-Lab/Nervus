@@ -4,6 +4,9 @@
 from pathlib import Path
 import pandas as pd
 from .logger import get_logger
+from typing import List, Dict, Union
+from torch import Tensor
+import numpy
 
 
 log = get_logger('models.likelihood')
@@ -13,16 +16,39 @@ class BaseLikelihood:
     """
     Class for making likelihood
     """
-    def __init__(self, class_name_in_raw_label, test_datetime):
+    def __init__(self, class_name_in_raw_label: Dict[str, Dict[str, int]], test_datetime: str) -> None:
+        """
+        Args:
+            class_name_in_raw_label (Dict[str, Dict[str, int]]): class names in each label
+            test_datetime (str): date time for test
+        """
         self.class_name_in_raw_label = class_name_in_raw_label
         self.test_datetime = test_datetime
         self.df_likelihood = pd.DataFrame()
 
-    def _convert_to_numpy(self, raw_data):
+    def _convert_to_numpy(self, raw_data: Tensor) -> numpy:
+        """"
+        Convert Tensor of output of model to numpy
+
+        Args:
+            raw_data (Tensor): output of model
+
+        Returns:
+            numpy: numpy of output of model to numpy
+        """
         converted_data = raw_data.to('cpu').detach().numpy().copy()
         return converted_data
 
-    def _make_pred_names(self, raw_label_name):
+    def _make_pred_names(self, raw_label_name: str) -> List[str]:
+        """
+        Create column names of predictions with raw label name and class name as suffix.
+
+        Args:
+            raw_label_name (str): raw label name
+
+        Returns:
+            List[str]: List column names with class name suffix.
+        """
         pred_names = []
         class_names = self.class_name_in_raw_label[raw_label_name]
         for class_name in class_names.keys():
@@ -30,7 +56,7 @@ class BaseLikelihood:
             pred_names.append(pred_name)
         return pred_names
 
-    def make_likehood(self, data, output):
+    def make_likehood(self, data: Dict[str, Union[str, int, Dict[str, int], float]], output: Dict[str, Tensor]) -> None:
         """
         Make DataFrame of likelihood every batch
 
@@ -60,7 +86,13 @@ class BaseLikelihood:
 
         self.df_likelihood = pd.concat([self.df_likelihood, _df_new], ignore_index=True)
 
-    def save_likelihood(self, save_name=None):
+    def save_likelihood(self, save_name: str = None) -> None:
+        """
+        Save likelihoood.
+
+        Args:
+            save_name (str): save name for likelihood
+        """
         save_dir = Path('./results/sets', self.test_datetime, 'likelihoods')
         save_dir.mkdir(parents=True, exist_ok=True)
         save_path = Path(save_dir, 'likelihood_' + save_name + '.csv')
@@ -70,32 +102,58 @@ class BaseLikelihood:
 class ClsLikelihood(BaseLikelihood):
     """
     Class for likelihood of classification
-    This class is exactly the same as BaseLikelihood
-
-    Args:
-        BaseLikelihood: Base class for likelihood
     """
-    def __init__(self, class_name_in_raw_label, test_datetime):
+    def __init__(self, class_name_in_raw_label: Dict[str, Dict[str, int]], test_datetime: str) -> None:
+        """
+        Args:
+            class_name_in_raw_label (Dict[str, Dict[str, int]]): class names in each label
+            test_datetime (str): date time for test
+        """
         super().__init__(class_name_in_raw_label, test_datetime)
 
 
 class RegLikelihood(BaseLikelihood):
-    def __init__(self, class_name_in_raw_label, test_datetime):
+    """
+    Class for likelihood of regression
+    """
+    def __init__(self, class_name_in_raw_label: Dict[str, Dict[str, int]], test_datetime: str) -> None:
+        """
+        Args:
+            class_name_in_raw_label (Dict[str, Dict[str, int]]): class names in each label
+            test_datetime (str): date time for test
+        """
         super().__init__(class_name_in_raw_label, test_datetime)
 
     # Orverwrite
-    def _make_pred_names(self, raw_label_name):
+    def _make_pred_names(self, raw_label_name: str) -> List[str]:
+        """
+        Create column names of predictions with raw label name as suffix.
+
+        Args:
+            raw_label_name (str): raw label name
+
+        Returns:
+            List[str]: List column names with class name suffix.
+        """
         pred_names = []
         pred_names.append('pred_' + raw_label_name)
         return pred_names
 
 
 class DeepSurvLikelihood(RegLikelihood):
-    def __init__(self, class_name_in_raw_label, test_datetime):
+    """
+    Class for likelihood of DeepSurv
+    """
+    def __init__(self, class_name_in_raw_label: Dict[str, Dict[str, int]], test_datetime: str) -> None:
+        """
+        Args:
+            class_name_in_raw_label (Dict[str, Dict[str, int]]): class names in each label
+            test_datetime (str): date time for test
+        """
         super().__init__(class_name_in_raw_label, test_datetime)
 
     # Orverwrite
-    def make_likehood(self, data, output):
+    def make_likehood(self, data: Dict[str, Dict[str, int]], output: Dict[str, Tensor]) -> None:
         _period_list = self._convert_to_numpy(data['period'])
         _df_new = pd.DataFrame({
                             'Filename': data['Filename'],
@@ -124,7 +182,18 @@ class DeepSurvLikelihood(RegLikelihood):
         self.df_likelihood = pd.concat([self.df_likelihood, _df_new], ignore_index=True)
 
 
-def set_likelihood(task, class_name_in_raw_label, test_datetime):
+def set_likelihood(task: str, class_name_in_raw_label: Dict[str, Dict[str, int]], test_datetime: str) -> BaseLikelihood:
+    """
+    Set likelihood object depending task.
+
+    Args:
+        task (str): task
+        class_name_in_raw_label (Dict[str, Dict[str, int]]): class names in each label
+        test_datetime (str): date time for test
+
+    Returns:
+        BaseLikelihood: class of likelihood
+    """
     if task == 'classification':
         return ClsLikelihood(class_name_in_raw_label, test_datetime)
     elif task == 'regression':

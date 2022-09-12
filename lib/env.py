@@ -16,8 +16,6 @@ class SplitProvider:
             split_path (Path): path to csv
             task (str): task
         """
-        super().__init__()
-
         self.split_path = split_path
         self.task = task
 
