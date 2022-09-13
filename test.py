@@ -3,7 +3,14 @@
 
 from pathlib import Path
 import torch
-import lib
+from lib import (
+        check_test_options,
+        make_split_provider,
+        create_dataloader,
+        create_model,
+        set_logger
+        )
+from lib.logger import Logger as logger
 
 
 def _collect_weight(test_datetime):
@@ -17,30 +24,30 @@ def print_dataset_info(dataloaders):
     train_total = len(dataloaders['train'].dataset)
     val_total = len(dataloaders['val'].dataset)
     test_total = len(dataloaders['test'].dataset)
-    log.info(f"train_data = {train_total}")
-    log.info(f"  val_data = {val_total}")
-    log.info(f" test_data = {test_total}")
-    log.info('')
+    logger.logger.info(f"train_data = {train_total}")
+    logger.logger.info(f"  val_data = {val_total}")
+    logger.logger.info(f" test_data = {test_total}")
+    logger.logger.info('')
 
 
-def main(opt, log):
-    log.info('\nTest started.\n')
+def main(opt):
+    logger.logger.info('\nTest started.\n')
     args = opt.args
-    sp = lib.make_split_provider(args.csv_name, args.task)
+    sp = make_split_provider(args.csv_name, args.task)
 
     dataloaders = {
-        'train': lib.create_dataloader(args, sp, split='train'),
-        'val': lib.create_dataloader(args, sp, split='val'),
-        'test': lib.create_dataloader(args, sp, split='test')
+        'train': create_dataloader(args, sp, split='train'),
+        'val': create_dataloader(args, sp, split='val'),
+        'test': create_dataloader(args, sp, split='test')
         }
 
     print_dataset_info(dataloaders)
 
     weight_paths = _collect_weight(args.test_datetime)
     for weight_path in weight_paths:
-        log.info(f"Inference with {weight_path.name}.")
+        logger.logger.info(f"Inference with {weight_path.name}.")
 
-        model = lib.create_model(args, sp, weight_path=weight_path)
+        model = create_model(args, sp, weight_path=weight_path)
         model.eval()
 
         for split in ['train', 'val', 'test']:
@@ -55,10 +62,10 @@ def main(opt, log):
                 model.make_likelihood(data)
 
         model.save_likelihood(save_name=weight_path.stem)
-    log.info('\nTest finished.\n')
+    logger.logger.info('\nTest finished.\n')
 
 
 if __name__ == '__main__':
-    log = lib.get_logger('test')
-    opt = lib.check_test_options()
-    main(opt, log)
+    set_logger()
+    opt = check_test_options()
+    main(opt)

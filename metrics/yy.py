@@ -7,10 +7,7 @@ import pandas as pd
 from sklearn import metrics
 import matplotlib.pyplot as plt
 from matplotlib import colors as mcolors
-from lib import get_logger
-
-
-log = get_logger('metrics.yy')
+from lib.logger import Logger as logger
 
 
 class R2:
@@ -40,7 +37,7 @@ class LabelR2:
             elif split == 'test':
                 self.test.set_r2(y_obs, y_pred)
             else:
-                log.error('Invalid split.')
+                logger.logger.error('Invalid split.')
                 exit()
 
 
@@ -159,10 +156,10 @@ def print_r2(df_summary):
     num_splits = len(['val', 'test'])
     _column_list = [label_list[i:i+num_splits] for i in range(0, len(label_list), num_splits)]
     for _, row in df_summary.iterrows():
-        log.info(row['Institution'])
+        logger.logger.info(row['Institution'])
         for _column in _column_list:
             label_name = _column[0].replace('_val_r2', '')
-            log.info(f"{label_name:<25} val_r2: {row[_column[0]]:>7}, test_r2: {row[_column[1]]:>7}")
+            logger.logger.info(f"{label_name:<25} val_r2: {row[_column[0]]:>7}, test_r2: {row[_column[1]]:>7}")
 
 
 def make_yy(datetime, likelihood_path):

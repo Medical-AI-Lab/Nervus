@@ -5,11 +5,8 @@ from pathlib import Path
 import re
 import argparse
 import pandas as pd
-from .logger import get_logger
+from .logger import Logger as logger
 from typing import Dict, List, Tuple, Union, Any
-
-
-log = get_logger('models.options')
 
 
 class Options:
@@ -183,7 +180,7 @@ class Options:
             else:
                 pass
         message += '------------------------ End -------------------------------'
-        log.info(message)
+        logger.logger.info(message)
 
     def save_parameter(self, date_name: str) -> None:
         """

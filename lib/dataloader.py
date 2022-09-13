@@ -9,14 +9,11 @@ from torch.utils.data.dataset import Dataset
 from torch.utils.data.dataloader import DataLoader
 from torch.utils.data.sampler import WeightedRandomSampler
 from PIL import Image
-from .logger import get_logger
+from .logger import Logger as logger
 from typing import Union, List, Dict
 import argparse
 from torch import Tensor
 from .env import SplitProvider
-
-
-log = get_logger('models.dataloader')
 
 
 class XrayAugment(torch.nn.Module):
@@ -81,7 +78,7 @@ class LoadDataSet(Dataset):
         elif self.args.normalize_image == 'no':
             pass
         else:
-            log.error(f"Invalid normalize_image: {self.args.augmentation}.")
+            logger.logger.error(f"Invalid normalize_image: {self.args.augmentation}.")
             exit()
 
         _transforms = transforms.Compose(_transforms)
@@ -106,13 +103,13 @@ class LoadDataSet(Dataset):
                 elif self.args.augmentation == 'no':
                     pass
                 else:
-                    log.error(f"Invalid augmentation: {self.args.augmentation}.")
+                    logger.logger.error(f"Invalid augmentation: {self.args.augmentation}.")
                     exit()
             elif self.split == 'val':
                 # No need of augmentation fot val
                 pass
             else:
-                log.error(f"Invalid split: {self.split}.")
+                logger.logger.error(f"Invalid split: {self.split}.")
                 exit()
         else:
             # No need of augmentation when test

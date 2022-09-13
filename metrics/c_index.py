@@ -3,10 +3,7 @@
 
 import pandas as pd
 from lifelines.utils import concordance_index
-from lib import get_logger
-
-
-log = get_logger('metrics.c_index')
+from lib.logger import Logger as logger
 
 
 class C_Index:
@@ -33,7 +30,7 @@ class Label_C_Index:
             elif split == 'test':
                 self.test.set_c_index(periods, preds, internal_labels)
             else:
-                log.error('Invalid split.')
+                logger.logger.error('Invalid split.')
                 exit()
 
 
@@ -79,10 +76,10 @@ def print_c_index(df_summary):
     num_splits = len(['val', 'test'])
     _column_list = [label_list[i:i+num_splits] for i in range(0, len(label_list), num_splits)]
     for _, row in df_summary.iterrows():
-        log.info(row['Institution'])
+        logger.logger.info(row['Institution'])
         for _column in _column_list:
             label_name = _column[0].replace('_val_c_index', '')
-            log.info(f"{label_name:<25} val_c_index: {row[_column[0]]:>7}, test_c_index: {row[_column[1]]:>7}")
+            logger.logger.info(f"{label_name:<25} val_c_index: {row[_column[0]]:>7}, test_c_index: {row[_column[1]]:>7}")
 
 
 def make_c_index(datetime, likelihood_path):

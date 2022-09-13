@@ -4,10 +4,6 @@ set -eu
 
 parameter_csv="./parameter.csv"
 
-train_log="./logs/train.log"
-test_log="./logs/test.log"
-eval_log="./logs/eval.log"
-
 #python="python3"
 python="python"
 
@@ -58,21 +54,21 @@ for row in $(tail -n +2 "$parameter_csv"); do
 
   # Traning
   echo "$python $train_code --task $task --csv_name $csv_name --image_dir $image_dir --model $model --criterion $criterion --optimizer $optimizer --epochs $epochs --batch_size $batch_size --sampler $sampler --augmentation $augmentation --in_channel $in_channel --save_weight $save_weight --gpu_ids $gpu_ids"
-  "$python" "$train_code" --task "$task" --csv_name "$csv_name" --image_dir "$image_dir" --model "$model" --criterion "$criterion" --optimizer "$optimizer" --epochs "$epochs" --batch_size "$batch_size" --sampler "$sampler" --augmentation "$augmentation" --in_channel "$in_channel" --save_weight "$save_weight" --gpu_ids "$gpu_ids" 2>&1 | tee -a "$train_log"
+  "$python" "$train_code" --task "$task" --csv_name "$csv_name" --image_dir "$image_dir" --model "$model" --criterion "$criterion" --optimizer "$optimizer" --epochs "$epochs" --batch_size "$batch_size" --sampler "$sampler" --augmentation "$augmentation" --in_channel "$in_channel" --save_weight "$save_weight" --gpu_ids "$gpu_ids"
 
   echo ""
 
   # Test
   echo "$i/$total: Test starts..."
   echo "$python $test_code"
-  "$python" "$test_code" 2>&1 | tee -a "$test_log"
+  "$python" "$test_code"
 
   echo ""
 
   # Evaluation
   echo "$i/$total: Evaluation starts..."
   echo "$python $eval_code"
-  "$python" "$eval_code" 2>&1 | tee -a "$eval_log"
+  "$python" "$eval_code"
 
   i=$(($i + 1))
   echo -e ""

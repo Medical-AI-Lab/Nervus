@@ -6,12 +6,9 @@ import torch
 import torch.nn as nn
 from torchvision.ops import MLP
 import torchvision.models as models
-from .logger import get_logger
+from .logger import Logger as logger
 from typing import Dict, Optional
 from torch import Tensor
-
-
-log = get_logger('models.net')
 
 
 class BaseNet:
@@ -183,7 +180,7 @@ class BaseNet:
             net.conv_proj.weight = nn.Parameter(net.conv_proj.weight.sum(dim=1).unsqueeze(1))
 
         else:
-            log.error(f"No specified net: {net_name}.")
+            logger.logger.error(f"No specified net: {net_name}.")
         return net
 
     @classmethod
@@ -329,7 +326,7 @@ class BaseNet:
                                                     ]))
 
         else:
-            log.error(f"No specified net: {net_name}.")
+            logger.logger.error(f"No specified net: {net_name}.")
 
         multi_classifier = nn.ModuleDict(classifiers)
         return multi_classifier
@@ -372,7 +369,7 @@ class BaseNet:
             in_features = base_classifier.head.in_features
 
         else:
-            log.error(f"No specified net: {net_name}.")
+            logger.logger.error(f"No specified net: {net_name}.")
         return in_features
 
     @classmethod
@@ -557,6 +554,6 @@ def create_net(mlp: Optional[str], net: Optional[str], num_classes_in_internal_l
     elif (mlp is not None) and (net is not None):
         multi_net = MultiNetFusion(net, num_classes_in_internal_label, mlp_num_inputs=mlp_num_inputs, in_channel=in_channel, vit_image_size=vit_image_size)
     else:
-        log.error('Cannot identify net type.')
+        logger.logger.error('Cannot identify net type.')
 
     return multi_net
