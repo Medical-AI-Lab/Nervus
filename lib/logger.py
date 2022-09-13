@@ -52,6 +52,8 @@ class BaseLogger:
 class Logger:
     """
     Class to handle logger as global
+
+    As default, set logger which does nothing.
     """
     logger = logging.getLogger('Null')
     logger.addHandler(logging.NullHandler())
