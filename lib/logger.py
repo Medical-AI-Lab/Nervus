@@ -53,7 +53,8 @@ class Logger:
     """
     Class to handle logger as global
     """
-    logger = None
+    logger = logging.getLogger('Null')
+    logger.addHandler(logging.NullHandler())
 
 
 def set_logger():

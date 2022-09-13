@@ -74,4 +74,3 @@ if __name__ == '__main__':
     date_name = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
     opt = check_train_options()
     main(opt, date_name)
-
