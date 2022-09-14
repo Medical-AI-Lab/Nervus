@@ -86,4 +86,4 @@ if __name__ == '__main__':
     args = check_eval_options()
     main(args)
     logger.logger.info('\nUpdated summary.')
-    logger.logger.info('Evaluation done.')
+    logger.logger.info('Evaluation done.\n')
