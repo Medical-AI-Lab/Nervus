@@ -11,7 +11,7 @@ from typing import Dict, List, Tuple, Union, Any
 
 class Options:
     """
-    Class to parse options
+    Class to parse options.
     """
     def __init__(self, isTrain: bool = None) -> None:
         """
@@ -69,7 +69,7 @@ class Options:
 
     def _parse_model(self, model_name: str) -> Tuple[Union[str, None], Union[str, None]]:
         """
-        Parse model name
+        Parse model name.
 
         Args:
             model_name (str): model name (eg. MLP, ResNey18, or MLP+ResNet18)
@@ -86,7 +86,7 @@ class Options:
 
     def _parse_gpu_ids(self, gpu_ids: str) -> List[int]:
         """
-        Parse comma-separated GPU ids strings to list of integers to list of GPU ids
+        Parse comma-separated GPU ids strings to list of integers to list of GPU ids.
 
         Args:
             gpu_ids (str): comma-separated GPU Ids
@@ -104,7 +104,7 @@ class Options:
 
     def _get_latest_test_datetime(self) -> str:
         """
-        Return the most recent directory name
+        Return the most recent directory name.
 
         Returns:
             str: directory name indicating date name
@@ -115,7 +115,7 @@ class Options:
 
     def parse(self) -> None:
         """
-        Parse options
+        Parse options.
         """
         if self.args.isTrain:
             # model
@@ -140,7 +140,7 @@ class Options:
 
     def _get_args(self) -> Dict[str, Any]:
         """
-        Return dictionary of option name and its parameter
+        Return dictionary of option name and its parameter.
 
         Returns:
             Dict[str, Any]: dictionary of option name and its parameter
@@ -184,7 +184,7 @@ class Options:
 
     def save_parameter(self, date_name: str) -> None:
         """
-        Save parameters
+        Save parameters.
 
         Args:
             date_name (str): diractory name for saving
@@ -215,7 +215,7 @@ class Options:
 
     def setup_parameter_for_test(self) -> None:
         """
-        Set up paramters for test
+        Set up paramters for test.
         """
         parameter_path = Path('./results/sets', self.args.test_datetime, 'parameter.csv')
         df_args = pd.read_csv(parameter_path)
@@ -254,7 +254,7 @@ class Options:
 
 def check_train_options() -> Options:
     """
-    Parse and print options
+    Parse and print options.
 
     Returns:
         Options: Object of Options
@@ -267,7 +267,7 @@ def check_train_options() -> Options:
 
 def check_test_options() -> Options:
     """
-    Parse, set up for test and print options
+    Parse, set up for test and print options.
 
     Returns:
         Options: Object of Options

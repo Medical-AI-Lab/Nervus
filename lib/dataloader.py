@@ -18,7 +18,7 @@ from .env import SplitProvider
 
 class XrayAugment(torch.nn.Module):
     """
-    Augmentation for X-ray photo
+    Augmentation for X-ray photo.
     """
     xray_augs_list = [
                     transforms.RandomAffine(degrees=(-3, 3), translate=(0.02, 0.02)),
@@ -29,7 +29,7 @@ class XrayAugment(torch.nn.Module):
 
 class LoadDataSet(Dataset):
     """
-    Dataset for split
+    Dataset for split.
     """
     def __init__(self, args: argparse.Namespace, split_provider: SplitProvider, split: str) -> None:
         """
@@ -59,7 +59,7 @@ class LoadDataSet(Dataset):
 
     def _make_transforms(self) -> List:
         """
-        Make list of transformes
+        Make list of transformes.
 
         Returns:
             list of transforms: image normalization
@@ -86,7 +86,7 @@ class LoadDataSet(Dataset):
 
     def _make_augmentations(self) -> List:
         """
-        Decide which augmentation
+        Decide which augmentation.
 
         Returns:
             list of transformes: augmentation
@@ -190,6 +190,8 @@ class LoadDataSet(Dataset):
 
     def __len__(self) -> int:
         """
+        Return length of DataFrame.
+
         Returns:
             int: length of DataFrame
         """
@@ -197,7 +199,7 @@ class LoadDataSet(Dataset):
 
     def __getitem__(self, idx: int) -> Dict[str, Union[str, int, Dict[str, int], float]]:
         """
-        Return data row specified by index
+        Return data row specified by index.
 
         Args:
             idx (int): index
@@ -229,7 +231,7 @@ class LoadDataSet(Dataset):
 
 def _make_sampler(split_data: LoadDataSet) -> WeightedRandomSampler:
     """
-    Make sampler
+    Make sampler.
 
     Args:
         split_data (LoadDataSet): dataset for anyt of train
@@ -250,7 +252,7 @@ def _make_sampler(split_data: LoadDataSet) -> WeightedRandomSampler:
 
 def create_dataloader(args: argparse.Namespace, split_provider: SplitProvider, split: str = None) -> DataLoader:
     """
-    Creeate data loader ofr split
+    Creeate data loader ofr split.
 
     Args:
         args (argparse.Namespace): options

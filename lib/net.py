@@ -238,7 +238,7 @@ class BaseNet:
     @classmethod
     def constuct_extractor(cls, net_name: str, mlp_num_inputs: int = None, in_channel: int = None, vit_image_size: int = None) -> nn.Module:
         """
-        Construct extractor of network depending on net_name
+        Construct extractor of network depending on net_name.
 
         Args:
             net_name (str): network name.
@@ -534,7 +534,7 @@ class MultiNetFusion(MultiWidget):
 
 def create_net(mlp: Optional[str], net: Optional[str], num_classes_in_internal_label: Dict[str, int], mlp_num_inputs: int, in_channel: int, vit_image_size: Optional[int]) -> nn.Module:
     """
-    Create network
+    Create network.
 
     Args:
         mlp (Optional[str]): 'mlp' or None

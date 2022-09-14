@@ -7,7 +7,7 @@ import torch.nn as nn
 
 class Optimizer:
     """
-    Optimizer
+    Optimizer.
     """
     optimizers = {
         'SGD': optim.SGD,
@@ -20,7 +20,7 @@ class Optimizer:
 
 def set_optimizer(optimizer_name: str, network: nn.Module, lr: float) -> optim:
     """
-    Set optimizer
+    Set optimizer.
 
     Args:
         optimizer_name (str): criteon name

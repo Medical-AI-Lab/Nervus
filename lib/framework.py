@@ -145,7 +145,8 @@ class BaseModel(ABC):
         self.loss_reg.cal_running_loss(batch_size)
 
     def cal_epoch_loss(self, epoch: int, phase: str, dataset_size: int = None) -> None:
-        """_summary_
+        """
+        Calculate loss for each epoch.
 
         Args:
             epoch (int): epoch number
@@ -358,7 +359,7 @@ class CVModel(ModelWidget):
 
 class FusionModel(ModelWidget):
     """
-    Class for MLP+CNN or MLP+ViT model
+    Class for MLP+CNN or MLP+ViT model.
     """
     def __init__(self, args: argparse.Namespace, split_provider: SplitProvider) -> None:
         """
@@ -466,7 +467,7 @@ class CVDeepSurv(ModelWidget):
 
 class FusionDeepSurv(ModelWidget):
     """
-    Class for DeepSurv model with MLP+CNN or MLP+ViT model
+    Class for DeepSurv model with MLP+CNN or MLP+ViT model.
     """
     def __init__(self, args: argparse.Namespace, split_provider: SplitProvider) -> None:
         """
