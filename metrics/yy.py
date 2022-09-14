@@ -140,7 +140,7 @@ def make_summary(whole_r2, datetime, likelihood_path):
     for inst, inst_r2 in whole_r2.items():
         _new = dict()
         _new['datetime'] = [datetime]
-        _new['weight'] = [likelihood_path.name.replace('likelihood_', '')]
+        _new['weight'] = [likelihood_path.stem.replace('likelihood_', '') + '.pt']
         _new['Institution'] = [inst]
         for raw_label_name, label_r2 in inst_r2.items():
             _new[raw_label_name + '_val_r2'] = [f"{label_r2.val.r2:.2f}"]
