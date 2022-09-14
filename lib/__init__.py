@@ -5,7 +5,7 @@ from .options import check_train_options, check_test_options
 from .env import make_split_provider
 from .dataloader import create_dataloader
 from .framework import create_model
-from .logger import get_logger
+from .logger import set_logger
 
 __all__ = [
             'check_train_options',
@@ -13,5 +13,5 @@ __all__ = [
             'make_split_provider',
             'create_dataloader',
             'create_model',
-            'get_logger'
+            'set_logger'
             ]

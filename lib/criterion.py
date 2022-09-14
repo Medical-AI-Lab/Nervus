@@ -8,7 +8,7 @@ from typing import List
 
 class RMSELoss(nn.Module):
     """
-    Class to calculate RMSE
+    Class to calculate RMSE.
     """
     def __init__(self, eps: float = 1e-7) -> None:
         """
@@ -21,7 +21,7 @@ class RMSELoss(nn.Module):
 
     def forward(self, yhat: float, y: float) -> float:
         """
-        Calculate RMSE
+        Calculate RMSE.
 
         Args:
             yhat (float): prediction value
@@ -36,14 +36,14 @@ class RMSELoss(nn.Module):
 
 class Regularization(object):
     """
-    Class to calculate regularization loss
+    Class to calculate regularization loss.
 
     Args:
         object (_type_): _description_
     """
     def __init__(self, order: int, weight_decay: float) -> None:
         """
-        The initialization of Regularization class
+        The initialization of Regularization class.
 
         Args:
             order: (int) norm order number
@@ -73,7 +73,7 @@ class Regularization(object):
 
 class NegativeLogLikelihood(nn.Module):
     """
-    Class to calculate RMSE
+    Class to calculate RMSE.
     """
     def __init__(self, device: torch.device) -> None:
         """
@@ -87,7 +87,7 @@ class NegativeLogLikelihood(nn.Module):
 
     def forward(self, risk_pred: List[float], y: List[int], e: List[int], network: nn.Module) -> float:
         """
-        Calculates Negative Log Likelihood
+        Calculates Negative Log Likelihood.
 
         Args:
             risk_pred (List[float]): prediction value
@@ -115,7 +115,7 @@ class NegativeLogLikelihood(nn.Module):
 
 class Criterion:
     """
-    Criterion
+    Criterion.
     """
     criterions = {
         'CEL': nn.CrossEntropyLoss,
@@ -126,9 +126,9 @@ class Criterion:
         }
 
 
-def set_criterion(criterion_name: str, device: torch.device) -> nn:
+def set_criterion(criterion_name: str, device: torch.device) -> nn.Module:
     """
-    Set criterion
+    Set criterion.
 
     Args:
         criterion_name (str): criterion nama

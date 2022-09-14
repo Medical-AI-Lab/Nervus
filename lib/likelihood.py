@@ -3,13 +3,10 @@
 
 from pathlib import Path
 import pandas as pd
-from .logger import get_logger
+from .logger import Logger as logger
 from typing import List, Dict, Union
 from torch import Tensor
 import numpy
-
-
-log = get_logger('models.likelihood')
 
 
 class BaseLikelihood:
@@ -201,4 +198,4 @@ def set_likelihood(task: str, class_name_in_raw_label: Dict[str, Dict[str, int]]
     elif task == 'deepsurv':
         return DeepSurvLikelihood(class_name_in_raw_label, test_datetime)
     else:
-        log.error(f"Invalid task:{task}.")
+        logger.logger.error(f"Invalid task:{task}.")

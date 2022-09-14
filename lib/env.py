@@ -110,7 +110,7 @@ class SplitProvider:
     # Cast
     def _cast_csv(self, df_source_labeled: Type[pd.DataFrame], task: str) -> pd.DataFrame:
         """
-        Cast columns as required by the task
+        Cast columns as required by the task.
 
         Args:
             df_source_labeled (pd.DataFrame): DataFrame of labeled csv
@@ -141,7 +141,7 @@ class SplitProvider:
 
 def make_split_provider(split_path: Path, task: str) -> SplitProvider:
     """
-    Format by making label
+    Format csv by making label dependinf on task.
 
     Args:
         split_path (Path): path to csv

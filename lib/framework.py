@@ -12,14 +12,11 @@ from .criterion import set_criterion
 from .optimizer import set_optimizer
 from .loss import create_loss_reg
 from .likelihood import set_likelihood
-from .logger import get_logger
+from .logger import Logger as logger
 import argparse
 from .env import SplitProvider
 from typing import Dict, Union, Optional
 from torch import Tensor
-
-
-log = get_logger('models.framework')
 
 
 class BaseModel(ABC):
@@ -148,7 +145,8 @@ class BaseModel(ABC):
         self.loss_reg.cal_running_loss(batch_size)
 
     def cal_epoch_loss(self, epoch: int, phase: str, dataset_size: int = None) -> None:
-        """_summary_
+        """
+        Calculate loss for each epoch.
 
         Args:
             epoch (int): epoch number
@@ -361,7 +359,7 @@ class CVModel(ModelWidget):
 
 class FusionModel(ModelWidget):
     """
-    Class for MLP+CNN or MLP+ViT model
+    Class for MLP+CNN or MLP+ViT model.
     """
     def __init__(self, args: argparse.Namespace, split_provider: SplitProvider) -> None:
         """
@@ -469,7 +467,7 @@ class CVDeepSurv(ModelWidget):
 
 class FusionDeepSurv(ModelWidget):
     """
-    Class for DeepSurv model with MLP+CNN or MLP+ViT model
+    Class for DeepSurv model with MLP+CNN or MLP+ViT model.
     """
     def __init__(self, args: argparse.Namespace, split_provider: SplitProvider) -> None:
         """
@@ -528,7 +526,7 @@ def create_model(args: argparse.Namespace, split_provider: SplitProvider, weight
         elif (mlp is not None) and (net is not None):
             model = FusionModel(args, split_provider)
         else:
-            log.error(f"Cannot identify model type for {task}.")
+            logger.logger.error(f"Cannot identify model type for {task}.")
 
     elif task == 'deepsurv':
         if (mlp is not None) and (net is None):
@@ -538,10 +536,10 @@ def create_model(args: argparse.Namespace, split_provider: SplitProvider, weight
         elif (mlp is not None) and (net is not None):
             model = FusionDeepSurv(args, split_provider)
         else:
-            log.error(f"Cannot identify model type for {task}.")
+            logger.logger.error(f"Cannot identify model type for {task}.")
 
     else:
-        log.error(f"Invalid task: {task}.")
+        logger.logger.error(f"Invalid task: {task}.")
 
     # When test
     # load weight should be done before GPU setting.

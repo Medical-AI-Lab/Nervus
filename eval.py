@@ -6,7 +6,8 @@ from pathlib import Path
 import re
 import pandas as pd
 import metrics
-import lib
+from lib import set_logger
+from lib.logger import Logger as logger
 
 
 def _get_latest_eval_datetime():
@@ -48,7 +49,7 @@ def _set_eval(task):
     elif task == 'deepsurv':
         return metrics.make_c_index, 'C_Index'
     else:
-        log.error(f"Invalid task: {task}.")
+        logger.logger.error(f"Invalid task: {task}.")
         exit()
 
 
@@ -64,25 +65,25 @@ def update_summary(df_summary):
     df_updated.to_csv(summary_path, index=False)
 
 
-def main(args, log):
+def main(args):
     eval_datetime = args.eval_datetime
     likelihood_paths = _collect_likelihood(eval_datetime)
     task = _check_task(eval_datetime)
     make_eval, _metrics = _set_eval(task)
 
-    log.info(f"\nCalculating {_metrics} for {eval_datetime}.\n")
+    logger.logger.info(f"Calculating {_metrics} for {eval_datetime}.\n")
 
     for likelihood_path in likelihood_paths:
-        log.info(likelihood_path.name)
+        logger.logger.info(likelihood_path.name)
         df_summary = make_eval(eval_datetime, likelihood_path)
         update_summary(df_summary)
-        log.info('')
-
-    log.info('Updated summary.')
-    log.info('Evaluation done.\n')
+        logger.logger.info('')
 
 
 if __name__ == '__main__':
-    log = lib.get_logger('eval')
+    set_logger()
+    logger.logger.info('\nEvaluation started.\n')
     args = check_eval_options()
-    main(args, log)
+    main(args)
+    logger.logger.info('\nUpdated summary.')
+    logger.logger.info('Evaluation done.\n')

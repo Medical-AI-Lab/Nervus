@@ -3,20 +3,28 @@
 
 import datetime
 import torch
-import lib
+from lib import (
+        check_train_options,
+        make_split_provider,
+        create_dataloader,
+        create_model,
+        set_logger
+        )
+from lib.logger import Logger as logger
 
 
-def main(opt, date_name, log):
-    log.info(f"\nTraining started at {date_name}.\n")
+def main(opt, date_name):
     args = opt.args
-    sp = lib.make_split_provider(args.csv_name, args.task)
+    sp = make_split_provider(args.csv_name, args.task)
 
     dataloaders = {
-        'train': lib.create_dataloader(args, sp, split='train'),
-        'val': lib.create_dataloader(args, sp, split='val')
+        'train': create_dataloader(args, sp, split='train'),
+        'val': create_dataloader(args, sp, split='val')
         }
 
-    model = lib.create_model(args, sp)
+    # print_dataloder_info(dataloaders)
+
+    model = create_model(args, sp)
 
     for epoch in range(args.epochs):
         for phase in ['train', 'val']:
@@ -25,7 +33,7 @@ def main(opt, date_name, log):
             elif phase == 'val':
                 model.eval()
             else:
-                log.error(f"Invalid phase: {phase}.")
+                logger.logger.error(f"Invalid phase: {phase}.")
                 exit()
 
             split_dataloader = dataloaders[phase]
@@ -57,12 +65,12 @@ def main(opt, date_name, log):
     model.save_weight(date_name, as_best=True)
     model.save_learning_curve(date_name)
     opt.save_parameter(date_name)
-    log.info('\nTraining finished.\n')
 
 
 if __name__ == '__main__':
-    log = lib.get_logger('train')
-    # Directory name for save
+    set_logger()
     date_name = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
-    opt = lib.check_train_options()
-    main(opt, date_name, log)
+    logger.logger.info(f"\nTraining started at {date_name}.\n")
+    opt = check_train_options()
+    main(opt, date_name)
+    logger.logger.info('\nTraining finished.\n')
