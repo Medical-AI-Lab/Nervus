@@ -17,7 +17,7 @@ class BaseLogger:
         Set logger.
 
         Args:
-            name (str): Potentially hierarchical name is desired, eg. lib.net.
+            name (str): If needed, potentially hierarchical name is desired, eg. lib.net, lib.dataloader, etc.
                         For the details, see https://docs.python.org/3/library/logging.html?highlight=logging#module-logging.
         Returns:
             logging.Logger: logger
