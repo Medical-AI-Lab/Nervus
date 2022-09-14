@@ -14,7 +14,6 @@ from lib.logger import Logger as logger
 
 
 def main(opt, date_name):
-    logger.logger.info(f"\nTraining started at {date_name}.\n")
     args = opt.args
     sp = make_split_provider(args.csv_name, args.task)
 
@@ -66,11 +65,12 @@ def main(opt, date_name):
     model.save_weight(date_name, as_best=True)
     model.save_learning_curve(date_name)
     opt.save_parameter(date_name)
-    logger.logger.info('\nTraining finished.\n')
 
 
 if __name__ == '__main__':
     set_logger()
     date_name = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
+    logger.logger.info(f"\nTraining started at {date_name}.\n")
     opt = check_train_options()
     main(opt, date_name)
+    logger.logger.info('\nTraining finished.\n')

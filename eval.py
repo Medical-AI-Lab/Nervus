@@ -71,7 +71,7 @@ def main(args):
     task = _check_task(eval_datetime)
     make_eval, _metrics = _set_eval(task)
 
-    logger.logger.info(f"\nCalculating {_metrics} for {eval_datetime}.\n")
+    logger.logger.info(f"Calculating {_metrics} for {eval_datetime}.\n")
 
     for likelihood_path in likelihood_paths:
         logger.logger.info(likelihood_path.name)
@@ -79,11 +79,11 @@ def main(args):
         update_summary(df_summary)
         logger.logger.info('')
 
-    logger.logger.info('Updated summary.')
-    logger.logger.info('Evaluation done.\n')
-
 
 if __name__ == '__main__':
     set_logger()
+    logger.logger.info('\nEvaluation started.\n')
     args = check_eval_options()
     main(args)
+    logger.logger.info('\nUpdated summary.')
+    logger.logger.info('Evaluation done.')

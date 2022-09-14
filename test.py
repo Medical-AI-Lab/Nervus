@@ -31,7 +31,6 @@ def print_dataset_info(dataloaders):
 
 
 def main(opt):
-    logger.logger.info('\nTest started.\n')
     args = opt.args
     sp = make_split_provider(args.csv_name, args.task)
 
@@ -62,10 +61,11 @@ def main(opt):
                 model.make_likelihood(data)
 
         model.save_likelihood(save_name=weight_path.stem)
-    logger.logger.info('\nTest finished.\n')
 
 
 if __name__ == '__main__':
     set_logger()
+    logger.logger.info('\nTest started.\n')
     opt = check_test_options()
     main(opt)
+    logger.logger.info('\nTest finished.\n')
