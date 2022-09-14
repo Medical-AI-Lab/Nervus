@@ -175,7 +175,7 @@ def make_summary(whole_roc, datetime, likelihood_path):
     for inst, inst_roc in whole_roc.items():
         _new = dict()
         _new['datetime'] = [datetime]
-        _new['weight'] = [likelihood_path.name.replace('likelihood_', '')]
+        _new['weight'] = [likelihood_path.stem.replace('likelihood_', '') + '.pt']
         _new['Institution'] = [inst]
         for raw_label_name, label_roc in inst_roc.items():
             _new[raw_label_name + '_val_auc'] = [f"{label_roc.val.auc:.2f}"]

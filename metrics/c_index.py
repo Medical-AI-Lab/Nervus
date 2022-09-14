@@ -60,7 +60,7 @@ def make_summary(whole_c_index, datetime, likelihood_path):
     for inst, inst_c_index in whole_c_index.items():
         _new = dict()
         _new['datetime'] = [datetime]
-        _new['weight'] = [likelihood_path.name.replace('likelihood_', '')]
+        _new['weight'] = [likelihood_path.stem.replace('likelihood_', '') + '.pt']
         _new['Institution'] = [inst]
         for raw_label_name, inst_c_index in inst_c_index.items():
             _new[raw_label_name + '_val_c_index'] = [f"{inst_c_index.val.c_index:.2f}"]
