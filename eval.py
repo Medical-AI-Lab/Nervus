@@ -6,7 +6,7 @@ from pathlib import Path
 import re
 import pandas as pd
 import metrics
-from lib import set_logger
+from lib import make_metrics, set_logger
 from lib.logger import Logger as logger
 
 
@@ -69,7 +69,8 @@ def main(args):
     eval_datetime = args.eval_datetime
     likelihood_paths = _collect_likelihood(eval_datetime)
     task = _check_task(eval_datetime)
-    make_eval, _metrics = _set_eval(task)
+    #make_eval, _metrics = _set_eval(task)
+    make_eval, _metrics = make_metrics(task)
 
     logger.logger.info(f"Calculating {_metrics} for {eval_datetime}.\n")
 

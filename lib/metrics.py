@@ -12,9 +12,6 @@ from lifelines.utils import concordance_index
 from lib.logger import Logger as logger
 
 
-from abc import ABC, abstractmethod
-
-
 # container
 # calculation
 # plot fig
@@ -22,64 +19,31 @@ from abc import ABC, abstractmethod
 # make summary
 # print metrics
 # update summary  -> eval.py
-
-
 # inst -> label -> cal
 
 
 # Container
 class ROC:
-    def __init__(self):
-        self.fpr = None
-        self.tpr = None
-        self.auc = None
-
-    def set_roc(self, fpr, tpr):
+    def __init__(self, fpr=None, tpr=None):
         self.fpr = fpr
         self.tpr = tpr
         self.auc = metrics.auc(fpr, tpr)
 
 
-class R2:
-    def __init__(self):
-        self.y_obs = None
-        self.y_pred = None
-        self.r2 = None
-
-    def set_r2(self, y_obs, y_pred):
-        self.y_obs = y_obs.values
-        self.y_pred = y_pred.values
-        self.r2 = metrics.r2_score(y_obs, y_pred)
-
-
-class C_Index:
-    def __init__(self):
-        self.c_index = None
-
-    def set_c_index(self, periods, preds, internal_labels):
-        self.c_index = concordance_index(periods, (-1)*preds, internal_labels)
-
-
-# Calculate for each label
 class LabelROC:
     def __init__(self):
         self.val = ROC()
         self.test = ROC()
 
-    def set_split_roc(self, split, fpr, tpr):
-        if split == 'val':
-            self.val.set_roc(fpr, tpr)
-        elif split == 'test':
-            self.test.set_roc(fpr, tpr)
-        else:
-            logger.logger.error('Invalid split.')
 
-    def _cal_label_roc_binary(self, raw_label_name, df_label):
-        """_summary_
+class MetricsMixin:
+    def _cal_label_roc_binary(self, raw_label_name: str, df_label: pd.DataFrame) -> None:
+        """
+        Calculate ROC for binaly-class
 
         Args:
-            raw_label_name (_type_): _description_
-            df_label (_type_): _description_
+            raw_label_name (str): raw label name
+            df_label (pd.DataFrame): likelihood for raw_label_name
         """
         pred_name_list = list(df_label.columns[df_label.columns.str.startswith('pred')])
         class_list = [column_name.rsplit('_', 1)[-1] for column_name in pred_name_list]   # [pred_label_discharge, pred_label_decease] -> ['discharge', 'decease']
@@ -95,11 +59,12 @@ class LabelROC:
             self.set_split_roc(split, _fpr, _tpr)
 
     def _cal_label_roc_multi(self, raw_label_name, df_label):
-        """Calculate ROC for multi-class by macro average.
+        """
+        Calculate ROC for multi-class by macro average.
 
         Args:
-            raw_label_name (str): labe name
-            df_label (DataFrame): likelihood for raw_label_name
+            raw_label_name (str): raw labe name
+            df_label (pd.DataFrame): likelihood for raw label name
         """
         pred_name_list = list(df_label.columns[df_label.columns.str.startswith('pred')])
         class_list = [column_name.rsplit('_', 1)[-1] for column_name in pred_name_list]
@@ -140,139 +105,102 @@ class LabelROC:
         else:
             self._cal_label_roc_binary(raw_label_name, df_label)
 
-
-class LabelR2:
-    def __init__(self):
-        self.val = R2()
-        self.test = R2()
-
-    def cal_label_r2(self, raw_label_name, df_label):
-        for split in ['val', 'test']:
-            df_split = df_label.query('split == @split')
-            y_obs = df_split[raw_label_name]
-            y_pred = df_split['pred_' + raw_label_name]
-            if split == 'val':
-                self.val.set_r2(y_obs, y_pred)
-            elif split == 'test':
-                self.test.set_r2(y_obs, y_pred)
-            else:
-                logger.logger.error('Invalid split.')
-                exit()
-
-
-class Label_C_Index:
-    def __init__(self):
-        self.val = C_Index()
-        self.test = C_Index()
-
-    def cal_label_c_index(self, raw_label_name, df_label):
-        for split in ['val', 'test']:
-            df_split = df_label.query('split == @split')
-            periods = df_split['period']
-            preds = df_split['pred_' + raw_label_name]
-            internal_labels = df_split['internal_' + raw_label_name]
-            if split == 'val':
-                self.val.set_c_index(periods, preds, internal_labels)
-            elif split == 'test':
-                self.test.set_c_index(periods, preds, internal_labels)
-            else:
-                logger.logger.error('Invalid split.')
-                exit()
-
-
-class BaseMetrics(ABC):
-    def __init__(self, task):
-        self.task = task
-
-    def cal_inst_metrics(self, df_inst):
+    def cal_inst_roc(self, df_inst):
         raw_label_list = list(df_inst.columns[df_inst.columns.str.startswith('label')])
-        inst_metrics = dict()
+        inst_roc = dict()
         for raw_label_name in raw_label_list:
             required_columns = list(df_inst.columns[df_inst.columns.str.contains(raw_label_name)]) + ['split']
             df_label = df_inst[required_columns]
+
             label_roc = LabelROC()
-            label_roc.cal_label_roc(raw_label_name, df_label)
+            self.cal_label_roc(raw_label_name, df_label)
+
             inst_roc[raw_label_name] = label_roc
         return inst_roc
 
 
-class LabelMetrics(ABC):
-    def __init__(self, task):
-        self.task = task
+class AuxMixin:
+    def plot_inst_roc(inst, inst_roc):
+        raw_label_list = inst_roc.keys()
+        num_rows = 1
+        num_cols = len(raw_label_list)
+        base_size = 7
+        height = num_rows * base_size
+        width = num_cols * height
+        fig = plt.figure(figsize=(width, height))
+
+        for i, raw_label_name in enumerate(raw_label_list):
+            label_roc = inst_roc[raw_label_name]
+            val_fpr = label_roc.val.fpr
+            val_tpr = label_roc.val.tpr
+            val_auc = label_roc.val.auc
+            test_fpr = label_roc.test.fpr
+            test_tpr = label_roc.test.tpr
+            test_auc = label_roc.test.auc
+
+            offset = i + 1
+            ax_i = fig.add_subplot(
+                                    num_rows,
+                                    num_cols,
+                                    offset,
+                                    title=inst + ': ' + raw_label_name,
+                                    xlabel='1 - Specificity',
+                                    ylabel='Sensitivity',
+                                    xmargin=0,
+                                    ymargin=0
+                                    )
+            ax_i.plot(val_fpr, val_tpr, label=f"AUC_val = {val_auc:.2f}", marker='x')
+            ax_i.plot(test_fpr, test_tpr, label=f"AUC_test = {test_auc:.2f}", marker='o')
+            ax_i.grid()
+            ax_i.legend()
+            fig.tight_layout()
+        return fig
 
 
-class MetricsMixin:
-    def save_metrics(self):
-        pass
+    def save_roc(whole_roc, datetime, likelihood_path):
+        for inst, inst_roc in whole_roc.items():
+            fig = plot_inst_roc(inst, inst_roc)
+            save_dir = Path('./results/sets', datetime, 'roc')
+            save_dir.mkdir(parents=True, exist_ok=True)
+            save_path = Path(save_dir, inst + '_roc_' + likelihood_path.stem.replace('likelihood_', '') + '.png')  # 'likelihood_weight_epoch-010_best.csv'  -> inst_roc_weight_epoch-010_best.png
+            fig.savefig(save_path)
+            plt.close()
 
-    def plot_fig(self):
-        pass
 
-    def save_fig(self):
-        pass
-
-    def make_summary(self, whole_metrics, datetime, likelihood_path, metrics_kind: str):
+    def make_summary(whole_roc, datetime, likelihood_path):
         df_summary = pd.DataFrame()
-        for inst, inst_metrics in whole_metrics.items():
+        for inst, inst_roc in whole_roc.items():
             _new = dict()
             _new['datetime'] = [datetime]
             _new['weight'] = [likelihood_path.stem.replace('likelihood_', '') + '.pt']
             _new['Institution'] = [inst]
-            for raw_label_name, label_metrics in inst_metrics.items():
-                val_metrics = getattr(label_metrics.val, metrics_kind)
-                test_metrics = getattr(label_metrics.test, metrics_kind)
-                _new[raw_label_name + '_val_' + metrics_kind] = [f"{val_metrics:.2f}"]
-                _new[raw_label_name + '_test_' + metrics_kind] = [f"{test_metrics:.2f}"]
+            for raw_label_name, label_roc in inst_roc.items():
+                _new[raw_label_name + '_val_auc'] = [f"{label_roc.val.auc:.2f}"]
+                _new[raw_label_name + '_test_auc'] = [f"{label_roc.test.auc:.2f}"]
             df_summary = pd.concat([df_summary, pd.DataFrame(_new)], ignore_index=True)
 
         df_summary = df_summary.sort_values('Institution')
         return df_summary
 
-    def update_summary(self):
+    def print_auc(df_summary):
+        label_list = list(df_summary.columns[df_summary.columns.str.startswith('label')])
+        num_splits = len(['val', 'test'])
+        _column_list = [label_list[i:i+num_splits] for i in range(0, len(label_list), num_splits)]
+        for _, row in df_summary.iterrows():
+            logger.logger.info(row['Institution'])
+            for _column in _column_list:
+                label_name = _column[0].replace('_val_auc', '')
+                logger.logger.info(f"{label_name:<25} val_auc: {row[_column[0]]:>5}, test_auc: {row[_column[1]]:>5}")
+
+
+class MetROCLabelROC(LabelROC, MetricsMixin,AuxMixin):
+    def __init__(self):
         pass
 
 
-
-class MetricsWidget(BaseMetrics, MetricsMixin):
-    pass
-
-class MetricsROC(MetricsWidget):
-    def __init__(self):
-        self.task = 'classification'
-        self.metrics = 'auc'
-
-    # overwrite
-    def make_summary(self, whole_metrics, datetime, likelihood_path):
-        return self.make_summary(whole_metrics, datetime, likelihood_path, 'roc')
-
-
-class MetricsYY(MetricsWidget):
-    def __init__(self):
-        self.task = 'regression'
-        self.metrics = 'r2'
-
-    # overwrite
-    def make_summary(self, whole_metrics, datetime, likelihood_path):
-        return self.make_summary(whole_metrics, datetime, likelihood_path, 'r2')
-
-
-class MetricsC_Index(MetricsWidget):
-    def __init__(self):
-        self.task = 'deepsurv'
-        self.metrics = 'c_index'
-
-    # overwrite
-    def make_summary(self, whole_metrics, datetime, likelihood_path):
-        return self.make_summary(whole_metrics, datetime, likelihood_path, 'c_index')
-
-
-def set_metrics(task):
-    if task == 'classification':
-        return  MetricsROC()
-    elif task == 'regression':
-        return  MetricsYY()
-    elif task == 'deepsurv':
-        return MetricsC_Index()
-    else:
-        logger.logger.error(f"Invalid task: {task}.")
-        exit()
+def make_metrics(datetime, likelihood_path):
+    whole_roc = cal_roc(likelihood_path)
+    save_roc(whole_roc, datetime, likelihood_path)
+    df_summary = make_summary(whole_roc, datetime, likelihood_path)
+    print_auc(df_summary)
+    return df_summary
