@@ -7,6 +7,7 @@ from lib import (
         check_test_options,
         make_split_provider,
         create_dataloader,
+        print_dataset_info,
         create_model,
         set_logger
         )
@@ -18,16 +19,6 @@ def _collect_weight(test_datetime):
     assert weight_paths != [], f"No weight for {test_datetime}."
     weight_paths.sort(key=lambda path: path.stat().st_mtime)
     return weight_paths
-
-
-def print_dataset_info(dataloaders):
-    train_total = len(dataloaders['train'].dataset)
-    val_total = len(dataloaders['val'].dataset)
-    test_total = len(dataloaders['test'].dataset)
-    logger.logger.info(f"train_data = {train_total}")
-    logger.logger.info(f"  val_data = {val_total}")
-    logger.logger.info(f" test_data = {test_total}")
-    logger.logger.info('')
 
 
 def main(opt):
