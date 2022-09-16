@@ -52,7 +52,7 @@ def _set_eval(task):
         logger.logger.error(f"Invalid task: {task}.")
         exit()
 
-
+"""
 def update_summary(df_summary):
     summary_dir = Path('./results/summary')
     summary_path = Path(summary_dir, 'summary.csv')
@@ -63,6 +63,7 @@ def update_summary(df_summary):
         summary_dir.mkdir(parents=True, exist_ok=True)
         df_updated = df_summary
     df_updated.to_csv(summary_path, index=False)
+"""
 
 
 def main(args):
@@ -70,14 +71,13 @@ def main(args):
     likelihood_paths = _collect_likelihood(eval_datetime)
     task = _check_task(eval_datetime)
     #make_eval, _metrics = _set_eval(task)
-    make_eval, _metrics = make_metrics(task)
+    make_eval, _metrics = make_metrics, 'ROC'
 
     logger.logger.info(f"Calculating {_metrics} for {eval_datetime}.\n")
 
     for likelihood_path in likelihood_paths:
         logger.logger.info(likelihood_path.name)
-        df_summary = make_eval(eval_datetime, likelihood_path)
-        update_summary(df_summary)
+        make_eval(eval_datetime, likelihood_path)
         logger.logger.info('')
 
 
