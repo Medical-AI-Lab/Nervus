@@ -57,6 +57,8 @@ def main(opt):
 if __name__ == '__main__':
     set_logger()
     logger.logger.info('\nTest started.\n')
+
     opt = check_test_options()
     main(opt)
+
     logger.logger.info('\nTest finished.\n')

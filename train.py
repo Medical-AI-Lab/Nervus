@@ -71,7 +71,6 @@ def main(opt, date_name):
 if __name__ == '__main__':
     set_logger()
     date_name = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
-
     logger.logger.info(f"\nTraining started at {date_name}.\n")
 
     opt = check_train_options()
