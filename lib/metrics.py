@@ -12,15 +12,6 @@ from lifelines.utils import concordance_index
 from lib.logger import Logger as logger
 from typing import Dict, Union
 
-# container
-# calculation
-# plot fig
-# save fig
-# make summary
-# print metrics
-# update summary  -> eval.py
-# inst -> label -> cal
-
 
 class MetricsData:
     """
@@ -84,6 +75,9 @@ class LabelMetrics:
 
 
 class ROCMixin:
+    """
+    Class for calculating ROC and AUC.
+    """
     def _set_roc(self, label_metrics: LabelMetrics, split: str, fpr: np.ndarray, tpr: np.ndarray) -> None:
         """
         Set fpr, tpr, and auc.
@@ -192,6 +186,9 @@ class ROCMixin:
 
 
 class YYMixin:
+    """
+    Class for calculating YY and R2.
+    """
     def _set_yy(self, label_metrics: LabelMetrics, split: str, y_obs: np.ndarray, y_pred: np.ndarray) -> None:
         """
         Set ground truth, prediction, and R2.
@@ -229,6 +226,9 @@ class YYMixin:
 
 
 class C_IndexMixin:
+    """
+    Class for calculating C-Index.
+    """
     def _set_c_index(
                     self,
                     label_metrics: LabelMetrics,
@@ -274,6 +274,9 @@ class C_IndexMixin:
 
 
 class MetricsMixin:
+    """
+    Class which has common methods to calculating metrics and making summary.
+    """
     def _cal_inst_metrics(self, df_inst: pd.DataFrame) -> Dict[str, LabelMetrics]:
         """
         Calculate metrics for each institution.
@@ -399,6 +402,9 @@ class MetricsMixin:
 
 
 class FigROCMixin:
+    """
+    Class to plot ROC.
+    """
     def _plot_fig_inst_metrics(self, inst: str, inst_metrics: Dict[str, LabelMetrics]) -> plt:
         """
         Plot ROC.
@@ -440,6 +446,9 @@ class FigROCMixin:
 
 
 class FigYYMixin:
+    """
+    Class to plot YY-graph.
+    """
     def _plot_fig_inst_metrics(self, inst: str, inst_metrics: Dict[str, LabelMetrics]) -> plt:
         """
         Plot yy.
@@ -516,6 +525,10 @@ class FigYYMixin:
 
 
 class FigMixin:
+    """
+    Class for make and save figure
+    This class is for ROC and YY-graph.
+    """
     def make_save_fig(self, whole_metrics: Dict[str, Dict[str, LabelMetrics]], datetime: str, likelihood_path: Path, fig_kind: str) -> None:
         """
         Make and save figure.
@@ -539,7 +552,7 @@ class ClsEval(ROCMixin, MetricsMixin, FigROCMixin, FigMixin):
     """
     Class for calculation metrics for classification.
 
-    self.add_cols is required in def _cal_inst_metrics() in class MetricsMixin
+    self.add_cols is required in def _cal_inst_metrics() in class MetricsMixin.
     """
     def __init__(self) -> None:
         self.fig_kind = 'roc'
@@ -551,7 +564,7 @@ class RegEval(YYMixin, MetricsMixin, FigYYMixin, FigMixin):
     """
     Class for calculation metrics for regression.
 
-    self.add_cols is required in def _cal_inst_metrics() in class MetricsMixin
+    self.add_cols is required in def _cal_inst_metrics() in class MetricsMixin.
     """
     def __init__(self) -> None:
         self.fig_kind = 'yy'
@@ -563,7 +576,7 @@ class DeepSurvEval(C_IndexMixin, MetricsMixin):
     """
     Class for calculation metrics for DeepSurv.
 
-    self.add_cols is required in def _cal_inst_metrics() in class MetricsMixin
+    self.add_cols is required in def _cal_inst_metrics() in class MetricsMixin.
     """
     def __init__(self) -> None:
         self.fig_kind = None
