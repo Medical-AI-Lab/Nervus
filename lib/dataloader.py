@@ -185,14 +185,14 @@ class DeepSurvMixin:
         return period
 
 
-class DatasetWidget(InputDataMixin, ImageMixin, DeepSurvMixin):
+class DataSetWidget(InputDataMixin, ImageMixin, DeepSurvMixin):
     """
     Class for a widget to inherit multiple classes simultaneously.
     """
     pass
 
 
-class LoadDataSet(Dataset, DatasetWidget):
+class LoadDataSet(Dataset, DataSetWidget):
     """
     Dataset for split.
     """
@@ -222,8 +222,8 @@ class LoadDataSet(Dataset, DatasetWidget):
             self.scaler = self._make_scaler()
 
         if (self.args.net is not None):
-            self.transform = self._make_transforms()
             self.augmentation = self._make_augmentations()
+            self.transform = self._make_transforms()
 
     def __len__(self) -> int:
         """
