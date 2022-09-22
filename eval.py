@@ -5,8 +5,7 @@ import argparse
 from pathlib import Path
 import re
 import pandas as pd
-import metrics
-from lib import set_logger
+from lib import set_eval, set_logger
 from lib.logger import Logger as logger
 
 
@@ -41,49 +40,25 @@ def _check_task(eval_datetime):
     return task
 
 
-def _set_eval(task):
-    if task == 'classification':
-        return metrics.make_roc, 'ROC'
-    elif task == 'regression':
-        return metrics.make_yy, 'YY'
-    elif task == 'deepsurv':
-        return metrics.make_c_index, 'C_Index'
-    else:
-        logger.logger.error(f"Invalid task: {task}.")
-        exit()
-
-
-def update_summary(df_summary):
-    summary_dir = Path('./results/summary')
-    summary_path = Path(summary_dir, 'summary.csv')
-    if summary_path.exists():
-        df_prev = pd.read_csv(summary_path)
-        df_updated = pd.concat([df_prev, df_summary], axis=0)
-    else:
-        summary_dir.mkdir(parents=True, exist_ok=True)
-        df_updated = df_summary
-    df_updated.to_csv(summary_path, index=False)
-
-
 def main(args):
     eval_datetime = args.eval_datetime
     likelihood_paths = _collect_likelihood(eval_datetime)
     task = _check_task(eval_datetime)
-    make_eval, _metrics = _set_eval(task)
+    task_eval = set_eval(task)
 
-    logger.logger.info(f"Calculating {_metrics} for {eval_datetime}.\n")
-
+    logger.logger.info(f"Calculating metrics of {task} for {eval_datetime}.\n")
     for likelihood_path in likelihood_paths:
         logger.logger.info(likelihood_path.name)
-        df_summary = make_eval(eval_datetime, likelihood_path)
-        update_summary(df_summary)
+        task_eval.make_metrics(eval_datetime, likelihood_path)
         logger.logger.info('')
+    logger.logger.info('\nUpdated summary.')
 
 
 if __name__ == '__main__':
     set_logger()
     logger.logger.info('\nEvaluation started.\n')
+
     args = check_eval_options()
     main(args)
-    logger.logger.info('\nUpdated summary.')
+
     logger.logger.info('Evaluation done.\n')

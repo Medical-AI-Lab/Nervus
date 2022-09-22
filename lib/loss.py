@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import dataclasses
+from dataclasses import dataclass, field
 from abc import ABC, abstractmethod
 import torch
 from lib.logger import Logger as logger
@@ -10,13 +10,13 @@ from torch import Tensor
 import torch.nn as nn
 
 
-@dataclasses.dataclass
+@dataclass
 class EpochLoss:
     """
     Class to store epoch loss of each internal label.
     """
-    train: List[float] = dataclasses.field(default_factory=list)
-    val: List[float] = dataclasses.field(default_factory=list)
+    train: List[float] = field(default_factory=list)
+    val: List[float] = field(default_factory=list)
     best_val_loss: float = None
     best_epoch: int = None
     update_flag: bool = False

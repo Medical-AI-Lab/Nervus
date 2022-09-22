@@ -179,7 +179,7 @@ class Options:
                 message += '{:>25}: {:<40}{}\n'.format(str(k), str_v, comment)
             else:
                 pass
-        message += '------------------------ End -------------------------------'
+        message += '------------------------ End -------------------------------\n'
         logger.logger.info(message)
 
     def save_parameter(self, date_name: str) -> None:

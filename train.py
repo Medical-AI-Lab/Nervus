@@ -7,6 +7,7 @@ from lib import (
         check_train_options,
         make_split_provider,
         create_dataloader,
+        print_dataset_info,
         create_model,
         set_logger
         )
@@ -22,7 +23,7 @@ def main(opt, date_name):
         'val': create_dataloader(args, sp, split='val')
         }
 
-    # print_dataloder_info(dataloaders)
+    print_dataset_info(dataloaders)
 
     model = create_model(args, sp)
 
@@ -71,6 +72,8 @@ if __name__ == '__main__':
     set_logger()
     date_name = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
     logger.logger.info(f"\nTraining started at {date_name}.\n")
+
     opt = check_train_options()
     main(opt, date_name)
+
     logger.logger.info('\nTraining finished.\n')
