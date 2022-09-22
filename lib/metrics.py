@@ -37,7 +37,7 @@ class MetricsData:
 
 class LabelMetrics:
     """
-    Class to store metrics for each label.
+    Class to store metrics of each split for each label.
     """
     def __init__(self) -> None:
         """
@@ -93,19 +93,21 @@ class ROCMixin:
         label_metrics.set_label_metrics(split, 'fpr', fpr)
         label_metrics.set_label_metrics(split, 'tpr', tpr)
         label_metrics.set_label_metrics(split, self.metrics_kind, metrics.auc(fpr, tpr))
-        # self.metrics_kind = 'auc' is defined in class ClsEval below.
 
-    def _cal_label_roc_binary(self, raw_label_name: str, df_label: pd.DataFrame) -> LabelMetrics:
+    def _cal_label_roc_binary(self, raw_label_name: str, df_inst: pd.DataFrame) -> LabelMetrics:
         """
         Calculate ROC for binary class.
 
         Args:
             raw_label_name (str): raw label name
-            df_label (pd.DataFrame): likelihood for raw label name
+            df_inst (pd.DataFrame): likelihood for institution
 
         Returns:
             LabelMetrics: metrics of 'val' and 'test'
         """
+        required_columns = list(df_inst.columns[df_inst.columns.str.contains(raw_label_name)]) + ['split']
+        df_label = df_inst[required_columns]
+
         pred_name_list = list(df_label.columns[df_label.columns.str.startswith('pred')])
         class_list = [column_name.rsplit('_', 1)[-1] for column_name in pred_name_list]   # [pred_label_discharge, pred_label_decease] -> ['discharge', 'decease']
         POSITIVE = 1
@@ -121,17 +123,20 @@ class ROCMixin:
             self._set_roc(label_metrics, split, _fpr, _tpr)
         return label_metrics
 
-    def _cal_label_roc_multi(self, raw_label_name: str, df_label: pd.DataFrame) -> LabelMetrics:
+    def _cal_label_roc_multi(self, raw_label_name: str, df_inst: pd.DataFrame) -> LabelMetrics:
         """
         Calculate ROC for multi-class by macro average.
 
         Args:
             raw_label_name (str): raw label name
-            df_label (pd.DataFrame): likelihood for raw label name
+            df_inst (pd.DataFrame): likelihood for institution
 
         Returns:
             LabelMetrics: metrics of 'val' and 'test'
         """
+        required_columns = list(df_inst.columns[df_inst.columns.str.contains(raw_label_name)]) + ['split']
+        df_label = df_inst[required_columns]
+
         pred_name_list = list(df_label.columns[df_label.columns.str.startswith('pred')])
         class_list = [column_name.rsplit('_', 1)[-1] for column_name in pred_name_list]
         num_classes = len(class_list)
@@ -165,23 +170,23 @@ class ROCMixin:
             self._set_roc(label_metrics, split, _fpr['macro'], _tpr['macro'])
         return label_metrics
 
-    def cal_label_metrics(self, raw_label_name: str, df_label: pd.DataFrame) -> LabelMetrics:
+    def cal_label_metrics(self, raw_label_name: str, df_inst: pd.DataFrame) -> LabelMetrics:
         """
         Calculate ROC and AUC for label depending on the number of classes of raw label.
 
         Args:
             raw_label_name (str): raw label name
-            df_label (pd.DataFrame): likelihood for raw label name
+            df_inst (pd.DataFrame): likelihood for institution
 
         Returns:
             LabelMetrics: metrics of 'val' and 'test'
         """
-        pred_name_list = list(df_label.columns[df_label.columns.str.startswith('pred')])
+        pred_name_list = df_inst.columns[df_inst.columns.str.contains(raw_label_name) & df_inst.columns.str.startswith('pred')]
         isMultiClass = (len(pred_name_list) > 2)
         if isMultiClass:
-            label_metrics = self._cal_label_roc_multi(raw_label_name, df_label)
+            label_metrics = self._cal_label_roc_multi(raw_label_name, df_inst)
         else:
-            label_metrics = self._cal_label_roc_binary(raw_label_name, df_label)
+            label_metrics = self._cal_label_roc_binary(raw_label_name, df_inst)
         return label_metrics
 
 
@@ -205,17 +210,19 @@ class YYMixin:
         label_metrics.set_label_metrics(split, 'y_pred', y_pred.values)
         label_metrics.set_label_metrics(split, self.metrics_kind, metrics.r2_score(y_obs, y_pred))
 
-    def cal_label_metrics(self, raw_label_name: str, df_label: pd.DataFrame) -> LabelMetrics:
+    def cal_label_metrics(self, raw_label_name: str, df_inst: pd.DataFrame) -> LabelMetrics:
         """
         Calculate YY and R2 for raw label.
 
         Args:
             raw_label_name (str): raw label name
-            df_label (pd.DataFrame): likelihood for raw label name
+            df_inst (pd.DataFrame): likelihood for institution
 
         Returns:
             LabelMetrics: metrics of 'val' and 'test'
         """
+        required_columns = list(df_inst.columns[df_inst.columns.str.contains(raw_label_name)]) + ['split']
+        df_label = df_inst[required_columns]
         label_metrics = LabelMetrics()
         for split in ['val', 'test']:
             df_split = df_label.query('split == @split')
@@ -252,17 +259,19 @@ class C_IndexMixin:
         value_c_index = concordance_index(periods, (-1)*preds, internal_labels)
         label_metrics.set_label_metrics(split, self.metrics_kind, value_c_index)
 
-    def cal_label_metrics(self, raw_label_name: str, df_label: pd.DataFrame) -> LabelMetrics:
+    def cal_label_metrics(self, raw_label_name: str, df_inst: pd.DataFrame) -> LabelMetrics:
         """
         Calculate C-Index for raw label.
 
         Args:
             raw_label_name (str): raw label name
-            df_label (pd.DataFrame): likelihood for raw label name
+            df_inst (pd.DataFrame): likelihood for institution
 
         Returns:
             LabelMetrics: metrics of 'val' and 'test'
         """
+        required_columns = list(df_inst.columns[df_inst.columns.str.contains(raw_label_name)]) + ['period', 'split']
+        df_label = df_inst[required_columns]
         label_metrics = LabelMetrics()
         for split in ['val', 'test']:
             df_split = df_label.query('split == @split')
@@ -282,19 +291,16 @@ class MetricsMixin:
         Calculate metrics for each institution.
 
         Args:
-            df_inst (pd.DataFrame): likelihood for raw label name
+            df_inst (pd.DataFrame): likelihood for institution
 
         Returns:
-            Dict[str, LabelMetrics]: LabelMetrics for each label
-
-        self.add_cols is defined in Eval class below.
+            Dict[str, LabelMetrics]: dictionary of label and its LabelMetrics
+            eg. {{label_1: LabelMetrics(), label_2: LabelMetrics(), ...}
         """
         raw_label_list = list(df_inst.columns[df_inst.columns.str.startswith('label')])
         inst_metrics = dict()
         for raw_label_name in raw_label_list:
-            required_columns = list(df_inst.columns[df_inst.columns.str.contains(raw_label_name)]) + self.add_cols
-            df_label = df_inst[required_columns]
-            label_metrics = self.cal_label_metrics(raw_label_name, df_label)
+            label_metrics = self.cal_label_metrics(raw_label_name, df_inst)
             inst_metrics[raw_label_name] = label_metrics
         return inst_metrics
 
@@ -306,7 +312,11 @@ class MetricsMixin:
             likelihood_path (Path): path to likelihood
 
         Returns:
-            Dict[str, Dict[str, LabelMetrics]]: dictionary of institution and LabelMetrics for labels
+            Dict[str, Dict[str, LabelMetrics]]: dictionary of institution and dictionary of label and its LabelMetrics
+            eg. {
+                instA: {label_1: LabelMetrics(), label_2: LabelMetrics(), ...}, 
+                instB: {label_1: LabelMetrics(), label_2: LabelMetrics()}, ...},
+                ...}
         """
         df_likelihood = pd.read_csv(likelihood_path)
         whole_metrics = dict()
@@ -329,7 +339,7 @@ class MetricsMixin:
             whole_metrics (Dict[str, Dict[str, LabelMetrics]]): metrics for all institutions
             datetime (str): date time
             likelihood_path (Path): path to likelihood
-            metrics_kind (str): kind of metrics, ie, 'auc', 'r2', or 'c-index'
+            metrics_kind (str): kind of metrics, ie, 'auc', 'r2', or 'c_index'
 
         Returns:
             pd.DataFrame: summary
@@ -356,7 +366,7 @@ class MetricsMixin:
 
         Args:
             df_summary (pd.DataFrame): summary
-            metrics_kind (str): kind of metrics
+            metrics_kind (str): kind of metrics, ie. 'auc', 'r2', or 'c_index'
         """
         label_list = list(df_summary.columns[df_summary.columns.str.startswith('label')])  # [label_1_val, label_1_test, label_2_val, label_2_test, ...]
         num_splits = len(['val', 'test'])
@@ -537,7 +547,7 @@ class FigMixin:
             whole_metrics (Dict[str, Dict[str, LabelMetrics]]): metrics for all institutions
             datetime (str): date time
             likelihood_path (Path): path to likelihood
-            fig_kind (str): 'roc' or 'yy'
+            fig_kind (str): kind of figure, ie. 'roc' or 'yy'
         """
         for inst, inst_metrics in whole_metrics.items():
             fig = self._plot_fig_inst_metrics(inst, inst_metrics)
@@ -551,37 +561,28 @@ class FigMixin:
 class ClsEval(ROCMixin, MetricsMixin, FigROCMixin, FigMixin):
     """
     Class for calculation metrics for classification.
-
-    self.add_cols is required in def _cal_inst_metrics() in class MetricsMixin.
     """
     def __init__(self) -> None:
         self.fig_kind = 'roc'
         self.metrics_kind = 'auc'
-        self.add_cols = ['split']
 
 
 class RegEval(YYMixin, MetricsMixin, FigYYMixin, FigMixin):
     """
     Class for calculation metrics for regression.
-
-    self.add_cols is required in def _cal_inst_metrics() in class MetricsMixin.
     """
     def __init__(self) -> None:
         self.fig_kind = 'yy'
         self.metrics_kind = 'r2'
-        self.add_cols = ['split']
 
 
 class DeepSurvEval(C_IndexMixin, MetricsMixin):
     """
     Class for calculation metrics for DeepSurv.
-
-    self.add_cols is required in def _cal_inst_metrics() in class MetricsMixin.
     """
     def __init__(self) -> None:
         self.fig_kind = None
         self.metrics_kind = 'c_index'
-        self.add_cols = ['period', 'split']
 
     def make_metrics(self, eval_datetime: str, likelihood_path: Path) -> None:
         """
@@ -591,8 +592,8 @@ class DeepSurvEval(C_IndexMixin, MetricsMixin):
             eval_datetime (str): date time
             likelihood_path (Path): path to likelihood
 
-        Orverwrite def make_metrics() in class MetricsMixin
-        by deleteing self.make_save_fig(), ie. no need to plot and save figure.
+        Orverwrite def make_metrics() in class MetricsMixin by deleteing self.make_save_fig(),
+        ie. no need to plot and save figure.
         """
         whole_metrics = self.cal_whole_metrics(likelihood_path)
         df_summary = self.make_summary(whole_metrics, eval_datetime, likelihood_path, self.metrics_kind)
