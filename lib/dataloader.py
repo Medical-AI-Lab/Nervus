@@ -9,17 +9,55 @@ from torch.utils.data.dataset import Dataset
 from torch.utils.data.dataloader import DataLoader
 from torch.utils.data.sampler import WeightedRandomSampler
 from PIL import Image
+from sklearn.preprocessing import MinMaxScaler
 from .logger import Logger as logger
-from typing import Union, List, Dict
+from typing import List, Dict, Union
 import argparse
 from torch import Tensor
 from .env import SplitProvider
 
 
-class XrayAugment(torch.nn.Module):
+class InputValueMixin:
+    def _make_scaler(self):
+        _scaler = MinMaxScaler()
+        _df_train = self.df_source[self.df_source['split'] == 'train']  # should be normalized with min and max of training data
+        _ = _scaler.fit(_df_train[self.input_list])                     # fit only
+        return _scaler
+
+    def _load_input_value_if_mlp(self, idx: int) -> Union[Tensor, str]:
+        """
+        Load input values after converting them into tensor if MLP is used.
+
+        Args:
+            idx (int): index
+
+        Returns:
+            Union[Tensor[float], str]: tensor of input values, or empty string
+        """
+        inputs_value = ''
+
+        if self.args.mlp is None:
+            return inputs_value
+
+        index_input_list = [self.col_index_dict[input] for input in self.input_list]
+
+        # When specifying iloc[[idx], index_input_list], pd.DataFrame is obtained,
+        # therefore it fits the input type of self.scaler.transform.
+        # However, after normalizing, the shape of inputs_value is (1, N), where N is the number of input value.
+        # so, convert (1, N) -> (N,) by squeeze() so that calculating loss would work.
+        _df_inputs_value = self.df_split.iloc[[idx], index_input_list]
+        inputs_value = self.scaler.transform(_df_inputs_value).squeeze()  # normalize and squeeze() cenverts (1, 46) -> (46,)
+        inputs_value = np.array(inputs_value, dtype=np.float64)
+        inputs_value = torch.from_numpy(inputs_value.astype(np.float32)).clone()  # numpy -> Tensor
+        return inputs_value
+
+
+class PrivateAugment(torch.nn.Module):
     """
-    Augmentation for X-ray photo.
+    Augmentation defined privately.
+    Variety of augmentation can be written in this class if necessary.
     """
+    # For X-ray photo.
     xray_augs_list = [
                     transforms.RandomAffine(degrees=(-3, 3), translate=(0.02, 0.02)),
                     transforms.RandomAdjustSharpness(sharpness_factor=2),
@@ -27,35 +65,35 @@ class XrayAugment(torch.nn.Module):
                     ]
 
 
-class LoadDataSet(Dataset):
+class ImageMixin:
     """
-    Dataset for split.
+    Class to normalize and imgae
+
+    augmentation -> transform
     """
-    def __init__(self, args: argparse.Namespace, split_provider: SplitProvider, split: str) -> None:
+    def _make_augmentations(self) -> List:
         """
-        Args:
-            args (argparse.Namespace): options
-            split_provider (SplitProvider): Object of Splitprovider
-            split (str): split
+        Define which augmentation is applied.
+
+        When traning, augmentation is needed for train data only.
+        When test, no need of augmentation.
         """
-        super().__init__()
+        _augmentation = []
+        if (self.args.isTrain) and (self.split == 'train'):
+            if self.args.augmentation == 'xrayaug':
+                _augmentation = PrivateAugment.xray_augs_list
+            elif self.args.augmentation == 'trivialaugwide':
+                _augmentation.append(transforms.TrivialAugmentWide())
+            elif self.args.augmentation == 'randaug':
+                _augmentation.append(transforms.RandAugment())
+            elif self.args.augmentation == 'no':
+                pass
+            else:
+                logger.logger.error(f"Invalid augmentation for {self.split}: {self.args.augmentation}.")
+                exit()
 
-        self.args = args
-        self.split_provider = split_provider
-        self.split = split
-
-        self.df_source = self.split_provider.df_source
-        self.df_split = self.df_source[self.df_source['split'] == self.split]
-
-        self.raw_label_list = self.split_provider.raw_label_list
-        self.internal_label_list = self.split_provider.internal_label_list
-        self.input_list = self.split_provider.input_list
-
-        self.col_index_dict = {col_name: self.df_split.columns.get_loc(col_name) for col_name in self.df_split.columns}
-
-        if (self.args.net is not None):
-            self.transform = self._make_transforms()
-            self.augmentation = self._make_augmentations()
+        _augmentation = transforms.Compose(_augmentation)
+        return _augmentation
 
     def _make_transforms(self) -> List:
         """
@@ -84,62 +122,7 @@ class LoadDataSet(Dataset):
         _transforms = transforms.Compose(_transforms)
         return _transforms
 
-    def _make_augmentations(self) -> List:
-        """
-        Decide which augmentation.
-
-        Returns:
-            list of transformes: augmentation
-        """
-        _augmentation = []
-        if self.args.isTrain:
-            if self.split == 'train':
-                if self.args.augmentation == 'xrayaug':
-                    _augmentation = XrayAugment.xray_augs_list
-                elif self.args.augmentation == 'trivialaugwide':
-                    _augmentation.append(transforms.TrivialAugmentWide())
-                elif self.args.augmentation == 'randaug':
-                    _augmentation.append(transforms.RandAugment())
-                elif self.args.augmentation == 'no':
-                    pass
-                else:
-                    logger.logger.error(f"Invalid augmentation: {self.args.augmentation}.")
-                    exit()
-            elif self.split == 'val':
-                # No need of augmentation fot val
-                pass
-            else:
-                logger.logger.error(f"Invalid split: {self.split}.")
-                exit()
-        else:
-            # No need of augmentation when test
-            pass
-
-        _augmentation = transforms.Compose(_augmentation)
-        return _augmentation
-
-    def _input_value_to_single_tensor_if_mlp(self, idx: int) -> Tensor:
-        """
-        Convert input values to tensor if MLP is used.
-
-        Args:
-            idx (int): index
-
-        Returns:
-            Tensor[float]: tensor of input values, otherwise empty string
-        """
-        inputs_value = ''
-
-        if self.args.mlp is None:
-            return inputs_value
-
-        index_input_list = [self.col_index_dict[input] for input in self.input_list]
-        s_inputs_value = self.df_split.iloc[idx, index_input_list]
-        inputs_value = np.array(s_inputs_value, dtype=np.float64)
-        inputs_value = torch.from_numpy(inputs_value.astype(np.float32)).clone()
-        return inputs_value
-
-    def _load_image_if_cnn(self, idx: int) -> Tensor:
+    def _load_image_if_cnn(self, idx: int) -> Union[Tensor, str]:
         """
         Load image and convert it to tensor if any of CNN or ViT is used.
 
@@ -147,7 +130,7 @@ class LoadDataSet(Dataset):
             idx (int): index
 
         Returns:
-            Tensor[float]: tensor converted from image, otherwise empty string
+            Union[Tensor[float], str]: tensor converted from image, or empty string
         """
         image = ''
 
@@ -167,7 +150,9 @@ class LoadDataSet(Dataset):
         image = self.transform(image)
         return image
 
-    def _load_periods_if_deepsurv(self, idx: int) -> int:
+
+class DeepSurvMixin:
+    def _load_periods_if_deepsurv(self, idx: int) -> Union[int, str]:
         """
         Return period if deepsurv.
 
@@ -175,9 +160,10 @@ class LoadDataSet(Dataset):
             idx (int): index
 
         Returns:
-            int: period, otherwise empty string
+            Union[int, str]: period, or empty string
         """
         period = ''
+
         if self.args.task != 'deepsurv':
             return period
 
@@ -187,6 +173,44 @@ class LoadDataSet(Dataset):
         period = np.array(period, dtype=np.float64)
         period = torch.from_numpy(period.astype(np.float32)).clone()
         return period
+
+
+class DataWidget(InputValueMixin, ImageMixin, DeepSurvMixin):
+    pass
+
+
+class LoadDataSet(Dataset, DataWidget):
+    """
+    Dataset for split.
+    """
+    def __init__(self, args: argparse.Namespace, split_provider: SplitProvider, split: str) -> None:
+        """
+        Args:
+            args (argparse.Namespace): options
+            split_provider (SplitProvider): Object of Splitprovider
+            split (str): split
+        """
+        super().__init__()
+
+        self.args = args
+        self.split_provider = split_provider
+        self.split = split
+
+        self.df_source = self.split_provider.df_source
+        self.df_split = self.df_source[self.df_source['split'] == self.split]
+
+        self.raw_label_list = self.split_provider.raw_label_list
+        self.internal_label_list = self.split_provider.internal_label_list
+        self.input_list = self.split_provider.input_list
+
+        self.col_index_dict = {col_name: self.df_split.columns.get_loc(col_name) for col_name in self.df_split.columns}
+
+        if (self.args.mlp is not None):
+            self.scaler = self._make_scaler()
+
+        if (self.args.net is not None):
+            self.transform = self._make_transforms()
+            self.augmentation = self._make_augmentations()
 
     def __len__(self) -> int:
         """
@@ -212,7 +236,7 @@ class LoadDataSet(Dataset):
         institution = self.df_split.iat[idx, self.col_index_dict['Institution']]
         raw_label_dict = {raw_label_name: self.df_split.iat[idx, self.col_index_dict[raw_label_name]] for raw_label_name in self.raw_label_list}
         internal_label_dict = {internal_label_name: self.df_split.iat[idx, self.col_index_dict[internal_label_name]] for internal_label_name in self.internal_label_list}
-        inputs_value = self._input_value_to_single_tensor_if_mlp(idx)
+        inputs_value = self._load_input_value_if_mlp(idx)
         image = self._load_image_if_cnn(idx)
         period = self._load_periods_if_deepsurv(idx)
         split = self.df_split.iat[idx, self.col_index_dict['split']]
