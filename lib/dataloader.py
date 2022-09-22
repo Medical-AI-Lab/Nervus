@@ -17,8 +17,30 @@ from torch import Tensor
 from .env import SplitProvider
 
 
-class InputValueMixin:
-    def _make_scaler(self):
+class PrivateAugment(torch.nn.Module):
+    """
+    Augmentation defined privately.
+    Variety of augmentation can be written in this class if necessary.
+    """
+    # For X-ray photo.
+    xray_augs_list = [
+                    transforms.RandomAffine(degrees=(-3, 3), translate=(0.02, 0.02)),
+                    transforms.RandomAdjustSharpness(sharpness_factor=2),
+                    transforms.RandomAutocontrast()
+                    ]
+
+
+class InputDataMixin:
+    """
+    Class to normalizes input data.
+    """
+    def _make_scaler(self) -> MinMaxScaler:
+        """
+        Normalizes inputa data by min-max normalization with train data.
+
+        Returns:
+            MinMaxScaler: scaler
+        """
         _scaler = MinMaxScaler()
         _df_train = self.df_source[self.df_source['split'] == 'train']  # should be normalized with min and max of training data
         _ = _scaler.fit(_df_train[self.input_list])                     # fit only
@@ -42,7 +64,7 @@ class InputValueMixin:
         index_input_list = [self.col_index_dict[input] for input in self.input_list]
 
         # When specifying iloc[[idx], index_input_list], pd.DataFrame is obtained,
-        # therefore it fits the input type of self.scaler.transform.
+        # it fits the input type of self.scaler.transform.
         # However, after normalizing, the shape of inputs_value is (1, N), where N is the number of input value.
         # so, convert (1, N) -> (N,) by squeeze() so that calculating loss would work.
         _df_inputs_value = self.df_split.iloc[[idx], index_input_list]
@@ -52,24 +74,9 @@ class InputValueMixin:
         return inputs_value
 
 
-class PrivateAugment(torch.nn.Module):
-    """
-    Augmentation defined privately.
-    Variety of augmentation can be written in this class if necessary.
-    """
-    # For X-ray photo.
-    xray_augs_list = [
-                    transforms.RandomAffine(degrees=(-3, 3), translate=(0.02, 0.02)),
-                    transforms.RandomAdjustSharpness(sharpness_factor=2),
-                    transforms.RandomAutocontrast()
-                    ]
-
-
 class ImageMixin:
     """
-    Class to normalize and imgae
-
-    augmentation -> transform
+    Class to normalizes and transforms image
     """
     def _make_augmentations(self) -> List:
         """
@@ -97,7 +104,7 @@ class ImageMixin:
 
     def _make_transforms(self) -> List:
         """
-        Make list of transformes.
+        Make list of transforms.
 
         Returns:
             list of transforms: image normalization
@@ -152,6 +159,9 @@ class ImageMixin:
 
 
 class DeepSurvMixin:
+    """
+    Class to handle required data for deepsurv
+    """
     def _load_periods_if_deepsurv(self, idx: int) -> Union[int, str]:
         """
         Return period if deepsurv.
@@ -175,11 +185,14 @@ class DeepSurvMixin:
         return period
 
 
-class DataWidget(InputValueMixin, ImageMixin, DeepSurvMixin):
+class DatasetWidget(InputDataMixin, ImageMixin, DeepSurvMixin):
+    """
+    Class for a widget to inherit multiple classes simultaneously.
+    """
     pass
 
 
-class LoadDataSet(Dataset, DataWidget):
+class LoadDataSet(Dataset, DatasetWidget):
     """
     Dataset for split.
     """
