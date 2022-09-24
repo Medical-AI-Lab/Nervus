@@ -134,8 +134,12 @@ dmypy.json
 
 # Additional
 __pycache__/
-results/
 materials/
+results/
+logs/
 tmp/
+parameter.csv
+Makefile
 
 .DS_Store
+
