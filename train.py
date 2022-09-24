@@ -11,7 +11,7 @@ from lib import (
         create_model,
         set_logger
         )
-from lib.logger import Logger as logger
+from lib import Logger as logger
 
 
 def main(opt, date_name):

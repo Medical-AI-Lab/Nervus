@@ -12,8 +12,8 @@ from PIL import Image
 from sklearn.preprocessing import MinMaxScaler
 from .logger import Logger as logger
 from typing import List, Dict, Union
+#####
 import argparse
-from torch import Tensor
 from .env import SplitProvider
 
 
@@ -46,7 +46,7 @@ class InputDataMixin:
         _ = _scaler.fit(_df_train[self.input_list])                     # fit only
         return _scaler
 
-    def _load_input_value_if_mlp(self, idx: int) -> Union[Tensor, str]:
+    def _load_input_value_if_mlp(self, idx: int) -> Union[torch.Tensor, str]:
         """
         Load input values after converting them into tensor if MLP is used.
 
@@ -54,7 +54,7 @@ class InputDataMixin:
             idx (int): index
 
         Returns:
-            Union[Tensor[float], str]: tensor of input values, or empty string
+            Union[torch.Tensor[float], str]: tensor of input values, or empty string
         """
         inputs_value = ''
 
@@ -129,7 +129,7 @@ class ImageMixin:
         _transforms = transforms.Compose(_transforms)
         return _transforms
 
-    def _load_image_if_cnn(self, idx: int) -> Union[Tensor, str]:
+    def _load_image_if_cnn(self, idx: int) -> Union[torch.Tensor, str]:
         """
         Load image and convert it to tensor if any of CNN or ViT is used.
 
@@ -137,7 +137,7 @@ class ImageMixin:
             idx (int): index
 
         Returns:
-            Union[Tensor[float], str]: tensor converted from image, or empty string
+            Union[torch.Tensor[float], str]: tensor converted from image, or empty string
         """
         image = ''
 

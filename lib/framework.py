@@ -1,22 +1,19 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+# import importlib
 from pathlib import Path
 import copy
 from abc import ABC, abstractmethod
 import pandas as pd
 import torch
 import torch.nn as nn
-from .net import create_net
-from .criterion import set_criterion
-from .optimizer import set_optimizer
-from .loss import create_loss_reg
-from .likelihood import set_likelihood
+from .component import create_net
 from .logger import Logger as logger
+from typing import Dict, Union, Optional
+###
 import argparse
 from .env import SplitProvider
-from typing import Dict, Union, Optional
-from torch import Tensor
 
 
 class BaseModel(ABC):
@@ -50,10 +47,14 @@ class BaseModel(ABC):
         self.isTrain = self.args.isTrain
 
         if self.isTrain:
+            # importlib
+            from .component import set_criterion, set_optimizer, create_loss_reg
             self.criterion = set_criterion(self.args.criterion, self.device)
             self.optimizer = set_optimizer(self.args.optimizer, self.network, self.args.lr)
             self.loss_reg = create_loss_reg(self.task, self.criterion, self.internal_label_list, self.device)
         else:
+            # importlib
+            from .component import set_likelihood
             self.likelihood = set_likelihood(self.task, self.sp.class_name_in_raw_label, self.args.test_datetime)
 
     def train(self) -> None:
@@ -108,12 +109,12 @@ class BaseModel(ABC):
     def forward(self):
         pass
 
-    def get_output(self) -> Dict[str, Tensor]:
+    def get_output(self) -> Dict[str, torch.Tensor]:
         """
         Return output of model.
 
         Returns:
-            Dict[str, Tensor]: output of model
+            Dict[str, torch.Tensor]: output of model
         """
         return self.multi_output
 

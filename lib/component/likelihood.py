@@ -3,9 +3,9 @@
 
 from pathlib import Path
 import pandas as pd
-from .logger import Logger as logger
+from ..logger import Logger as logger
 from typing import List, Dict, Union
-from torch import Tensor
+import torch
 import numpy
 
 
@@ -23,15 +23,15 @@ class BaseLikelihood:
         self.test_datetime = test_datetime
         self.df_likelihood = pd.DataFrame()
 
-    def _convert_to_numpy(self, raw_data: Tensor) -> numpy:
+    def _convert_to_numpy(self, raw_data: torch.Tensor) -> numpy.ndarray:
         """"
         Convert Tensor of output of model to numpy
 
         Args:
-            raw_data (Tensor): output of model
+            raw_data (torch.Tensor): output of model
 
         Returns:
-            numpy: numpy of output of model to numpy
+            numpy.ndarray: numpy of output of model to numpy
         """
         converted_data = raw_data.to('cpu').detach().numpy().copy()
         return converted_data
@@ -53,13 +53,17 @@ class BaseLikelihood:
             pred_names.append(pred_name)
         return pred_names
 
-    def make_likehood(self, data: Dict[str, Union[str, int, Dict[str, int], float]], output: Dict[str, Tensor]) -> None:
+    def make_likehood(
+                    self,
+                    data: Dict[str, Union[str, int, Dict[str, int], float]],
+                    output: Dict[str, torch.Tensor]
+                    ) -> None:
         """
         Make DataFrame of likelihood every batch
 
         Args:
-            data (dict): batch data from dataloader
-            output (dict): output of model
+            data (Dict[str, Union[str, int, Dict[str, int], float]]): batch data from dataloader
+            output (Dict[str, torch.Tensor]): output of model
         """
         _df_new = pd.DataFrame({
                             'Filename': data['Filename'],
@@ -150,7 +154,18 @@ class DeepSurvLikelihood(RegLikelihood):
         super().__init__(class_name_in_raw_label, test_datetime)
 
     # Orverwrite
-    def make_likehood(self, data: Dict[str, Dict[str, int]], output: Dict[str, Tensor]) -> None:
+    def make_likehood(
+                    self,
+                    data: Dict[str, Dict[str, int]],
+                    output: Dict[str, torch.Tensor]
+                    ) -> None:
+        """
+        Make DataFrame of likelihood every batch
+
+        Args:
+            data (Dict[str, Dict[str, int]]): _description_
+            output (Dict[str, torch.Tensor]): _description_
+        """
         _period_list = self._convert_to_numpy(data['period'])
         _df_new = pd.DataFrame({
                             'Filename': data['Filename'],
@@ -179,7 +194,11 @@ class DeepSurvLikelihood(RegLikelihood):
         self.df_likelihood = pd.concat([self.df_likelihood, _df_new], ignore_index=True)
 
 
-def set_likelihood(task: str, class_name_in_raw_label: Dict[str, Dict[str, int]], test_datetime: str) -> BaseLikelihood:
+def set_likelihood(
+                task: str,
+                class_name_in_raw_label: Dict[str, Dict[str, int]],
+                test_datetime: str
+                ) -> BaseLikelihood:
     """
     Set likelihood object depending task.
 

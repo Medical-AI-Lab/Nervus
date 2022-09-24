@@ -7,6 +7,7 @@ from .dataloader import create_dataloader, print_dataset_info
 from .framework import create_model
 from .metrics import set_eval
 from .logger import set_logger
+from .logger import Logger
 
 __all__ = [
             'check_train_options',
@@ -16,5 +17,6 @@ __all__ = [
             'print_dataset_info',
             'create_model',
             'set_eval',
-            'set_logger'
-            ]
+            'set_logger',
+            'Logger'
+        ]

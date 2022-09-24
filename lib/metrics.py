@@ -9,7 +9,7 @@ from sklearn.preprocessing import label_binarize
 import matplotlib.pyplot as plt
 from matplotlib import colors as mcolors
 from lifelines.utils import concordance_index
-from lib.logger import Logger as logger
+from .logger import Logger as logger
 from typing import Dict, Union
 
 

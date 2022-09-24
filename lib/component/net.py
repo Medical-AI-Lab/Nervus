@@ -6,9 +6,8 @@ import torch
 import torch.nn as nn
 from torchvision.ops import MLP
 import torchvision.models as models
-from .logger import Logger as logger
+from ..logger import Logger as logger
 from typing import Dict, Optional
-from torch import Tensor
 
 
 class BaseNet:
@@ -456,15 +455,15 @@ class MultiNet(MultiWidget):
         self.extractor = self.constuct_extractor(self.net_name, mlp_num_inputs=self.mlp_num_inputs, in_channel=self.in_channel, vit_image_size=self.vit_image_size)
         self.multi_classifier = self.construct_multi_classifier(self.net_name, self.num_classes_in_internal_label)
 
-    def forward(self, x: Tensor) -> Dict[str, Tensor]:
+    def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
         """
         Forward.
 
         Args:
-            x (Tensor): tabular data or image
+            x (torch.Tensor): tabular data or image
 
         Returns:
-            Dict[str, Tensor]: output
+            Dict[str, torch.Tensor]: output
         """
         out_features = self.extractor(x)
         output = self.multi_forward(out_features)
@@ -475,7 +474,14 @@ class MultiNetFusion(MultiWidget):
     """
     Fusion model of MLP and CNN or ViT.
     """
-    def __init__(self, net_name: str, num_classes_in_internal_label: Dict[str, int], mlp_num_inputs: int = None, in_channel: int = None, vit_image_size: Optional[int] = None) -> Dict[str, Tensor]:
+    def __init__(
+                self,
+                net_name: str,
+                num_classes_in_internal_label: Dict[str, int],
+                mlp_num_inputs: int = None,
+                in_channel: int = None,
+                vit_image_size: Optional[int] = None
+                ) -> Dict[str, torch.Tensor]:
         """
         Args:
             net_name (str): CNN or ViT name. It is clear that MLP is used in fusion model.
@@ -485,7 +491,7 @@ class MultiNetFusion(MultiWidget):
             vit_image_size (int, optional): imaghe size to be input to ViT. Defaults to None.
 
         Returns:
-            Dict[str, Tensor]: output
+            Dict[str, torch.Tensor]: output
         """
         assert (net_name != 'MLP'), 'net_name should not be MLP.'
 
@@ -511,16 +517,16 @@ class MultiNetFusion(MultiWidget):
         # Multi classifier
         self.multi_classifier = self.construct_multi_classifier('MLP', num_classes_in_internal_label)
 
-    def forward(self, x_mlp: Tensor, x_net: Tensor) -> Dict[str, Tensor]:
+    def forward(self, x_mlp: torch.Tensor, x_net: torch.Tensor) -> Dict[str, torch.Tensor]:
         """
         Forward.
 
         Args:
-            x_mlp (Tensor): tabular data
-            x_net (Tensor): image
+            x_mlp (torch.Tensor): tabular data
+            x_net (torch.Tensor): image
 
         Returns:
-            Dict[str, Tensor]: output
+            Dict[str, torch.Tensor]: output
         """
         out_mlp = self.extractor_mlp(x_mlp)
         out_net = self.extractor_net(x_net)
