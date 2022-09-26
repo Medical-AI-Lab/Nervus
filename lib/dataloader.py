@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import sys
 from pathlib import Path
 import numpy as np
 import torch
@@ -96,7 +97,7 @@ class ImageMixin:
                 pass
             else:
                 logger.logger.error(f"Invalid augmentation for {self.split}: {self.args.augmentation}.")
-                exit()
+                sys.exit()
 
         _augmentation = transforms.Compose(_augmentation)
         return _augmentation
@@ -123,7 +124,7 @@ class ImageMixin:
             pass
         else:
             logger.logger.error(f"Invalid normalize_image: {self.args.augmentation}.")
-            exit()
+            sys.exit()
 
         _transforms = transforms.Compose(_transforms)
         return _transforms

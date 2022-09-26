@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import sys
 from pathlib import Path
 import pandas as pd
 from ..logger import Logger as logger
@@ -218,3 +219,4 @@ def set_likelihood(
         return DeepSurvLikelihood(class_name_in_raw_label, test_datetime)
     else:
         logger.logger.error(f"Invalid task:{task}.")
+        sys.exit()

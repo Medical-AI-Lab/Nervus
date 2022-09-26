@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import sys
 from dataclasses import dataclass, field
 from abc import ABC, abstractmethod
 import torch
@@ -413,4 +414,5 @@ def create_loss_reg(
         loss_reg = DeepSurvLoss(criterion, internal_label_list, device)
     else:
         logger.logger.error(f"Cannot identify task: {task}.")
+        sys.exit()
     return loss_reg

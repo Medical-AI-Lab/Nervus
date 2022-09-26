@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import sys
 from pathlib import Path
 import numpy as np
 import pandas as pd
@@ -619,4 +620,4 @@ def set_eval(task: str) -> Union[ClsEval, RegEval, DeepSurvEval]:
         return DeepSurvEval()
     else:
         logger.logger.error(f"Invalid task: {task}.")
-        exit()
+        sys.exit()

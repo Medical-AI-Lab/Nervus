@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-r
 
+import sys
 from collections import OrderedDict
 import torch
 import torch.nn as nn
@@ -117,19 +118,6 @@ class BaseNet:
 
     DUMMY = nn.Identity()
 
-    """
-    #  The below funstions are one to get and set nested attibute.
-
-    def _getattr(cls, target, attr):
-        value = target
-        for attr in attrs:
-            value = getattr(value, attr)
-        return value
-
-    def _setattr(cls, target, attr):
-        pass
-    """
-
     @classmethod
     def MLPNet(cls, mlp_num_inputs: int, inplace: bool = None) -> MLP:
         """
@@ -180,6 +168,7 @@ class BaseNet:
 
         else:
             logger.logger.error(f"No specified net: {net_name}.")
+            sys.exit()
         return net
 
     @classmethod
@@ -316,6 +305,7 @@ class BaseNet:
                                                         flatten,
                                                         nn.Linear(in_features, num_classes)
                                                     )
+
         elif net_name.startswith('ViT'):
             base_classifier = cls.get_classifier(net_name)
             in_features = base_classifier.head.in_features
@@ -326,6 +316,7 @@ class BaseNet:
 
         else:
             logger.logger.error(f"No specified net: {net_name}.")
+            sys.exit()
 
         multi_classifier = nn.ModuleDict(classifiers)
         return multi_classifier
@@ -369,6 +360,7 @@ class BaseNet:
 
         else:
             logger.logger.error(f"No specified net: {net_name}.")
+            sys.exit()
         return in_features
 
     @classmethod
@@ -561,5 +553,6 @@ def create_net(mlp: Optional[str], net: Optional[str], num_classes_in_internal_l
         multi_net = MultiNetFusion(net, num_classes_in_internal_label, mlp_num_inputs=mlp_num_inputs, in_channel=in_channel, vit_image_size=vit_image_size)
     else:
         logger.logger.error('Cannot identify net type.')
+        sys.exit()
 
     return multi_net

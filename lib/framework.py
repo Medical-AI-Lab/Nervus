@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# import importlib
+import sys
 from pathlib import Path
 import copy
 from abc import ABC, abstractmethod
@@ -46,13 +46,11 @@ class BaseModel(ABC):
         self.isTrain = self.args.isTrain
 
         if self.isTrain:
-            # importlib
             from .component import set_criterion, set_optimizer, create_loss_reg
             self.criterion = set_criterion(self.args.criterion, self.device)
             self.optimizer = set_optimizer(self.args.optimizer, self.network, self.args.lr)
             self.loss_reg = create_loss_reg(self.task, self.criterion, self.internal_label_list, self.device)
         else:
-            # importlib
             from .component import set_likelihood
             self.likelihood = set_likelihood(self.task, self.sp.class_name_in_raw_label, self.args.test_datetime)
 
@@ -64,7 +62,7 @@ class BaseModel(ABC):
 
     def eval(self) -> None:
         """
-        Make self.network training mode.
+        Make self.network evaluation mode.
         """
         self.network.eval()
 
@@ -527,6 +525,7 @@ def create_model(args: argparse.Namespace, split_provider: SplitProvider, weight
             model = FusionModel(args, split_provider)
         else:
             logger.logger.error(f"Cannot identify model type for {task}.")
+            sys.exit()
 
     elif task == 'deepsurv':
         if (mlp is not None) and (net is None):
@@ -537,9 +536,11 @@ def create_model(args: argparse.Namespace, split_provider: SplitProvider, weight
             model = FusionDeepSurv(args, split_provider)
         else:
             logger.logger.error(f"Cannot identify model type for {task}.")
+            sys.exit()
 
     else:
         logger.logger.error(f"Invalid task: {task}.")
+        sys.exit()
 
     # When test
     # load weight should be done before GPU setting.

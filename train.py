@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import sys
 import datetime
 import torch
 from lib import (
@@ -35,7 +36,7 @@ def main(opt, date_name):
                 model.eval()
             else:
                 logger.logger.error(f"Invalid phase: {phase}.")
-                exit()
+                sys.exit()
 
             split_dataloader = dataloaders[phase]
             dataset_size = len(split_dataloader.dataset)
