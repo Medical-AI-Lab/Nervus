@@ -6,7 +6,7 @@ import re
 import argparse
 import pandas as pd
 from .logger import Logger as logger
-from typing import Dict, List, Tuple, Union, Any
+from typing import Dict, List, Tuple, Union
 
 
 class Options:
@@ -138,12 +138,12 @@ class Options:
             if self.args.test_datetime is None:
                 self.args.test_datetime = self._get_latest_test_datetime()
 
-    def _get_args(self) -> Dict[str, Any]:
+    def _get_args(self) -> Dict[str, Union[str, float, int]]:
         """
         Return dictionary of option name and its parameter.
 
         Returns:
-            Dict[str, Any]: dictionary of option name and its parameter
+            Dict[str, Union[str, float, int]]: dictionary of option name and its parameter
         """
         return vars(self.args)
 

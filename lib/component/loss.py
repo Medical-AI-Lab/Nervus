@@ -373,9 +373,7 @@ class DeepSurvLoss(LossWidget):
             period (torch.Tensor): periods
             network (torch.nn.Module): network
         """
-
-        # multi_labelの中にinternal_label_nameは1つだけだが、
-        # 上のClassification, Regressionの形を合わせておく
+        # internal_label_name should be one.
         for internal_label_name in multi_label.keys():
             _pred = multi_output[internal_label_name]
             _label = multi_label[internal_label_name].reshape(-1, 1)

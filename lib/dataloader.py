@@ -12,7 +12,6 @@ from PIL import Image
 from sklearn.preprocessing import MinMaxScaler
 from .logger import Logger as logger
 from typing import List, Dict, Union
-#####
 import argparse
 from .env import SplitProvider
 
@@ -278,7 +277,7 @@ def _make_sampler(split_data: LoadDataSet) -> WeightedRandomSampler:
     """
     _target = []
     for _, data in enumerate(split_data):
-        _target.append(list(data['internal_labels'].values())[0])   # split_provider.df_source から取り出した方が速い？
+        _target.append(list(data['internal_labels'].values())[0])
 
     class_sample_count = np.array([len(np.where(_target == t)[0]) for t in np.unique(_target)])
     weight = 1. / class_sample_count
@@ -326,7 +325,13 @@ def create_dataloader(args: argparse.Namespace, split_provider: SplitProvider, s
     return split_loader
 
 
-def print_dataset_info(dataloaders: Dict[str, DataLoader]) -> None:
+def print_dataset_info(dataloaders: Dict[str, LoadDataSet]) -> None:
+    """
+    Print dataset size for each split.
+
+    Args:
+        dataloaders (Dict[str, DataLoader]): dictionary of split and its dataset
+    """
     for split, dataloader in dataloaders.items():
         total = len(dataloader.dataset)
         logger.logger.info(f"{split:>5}_data = {total}")
