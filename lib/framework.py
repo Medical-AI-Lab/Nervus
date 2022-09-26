@@ -8,27 +8,30 @@ from abc import ABC, abstractmethod
 import pandas as pd
 import torch
 import torch.nn as nn
-from .component import create_net
+from .component import (
+                make_split_provider,
+                create_dataloader,
+                print_dataset_info,
+                create_net
+            )
 from .logger import Logger as logger
 from typing import Dict, Union, Optional
 import argparse
-from .env import SplitProvider
 
 
 class BaseModel(ABC):
     """
     Class to construct model. This class is the base class to construct model.
     """
-    def __init__(self, args: argparse.Namespace, split_provider: SplitProvider) -> None:
+    def __init__(self, args: argparse.Namespace) -> None:
         """
         Class to define Model
 
         Args:
             args (argparse.Namespace): options
-            split_provider (SplitProvider): Object of Splitprovider
         """
         self.args = args
-        self.sp = split_provider
+        self.sp = make_split_provider(args.csv_name, args.task)
 
         self.task = args.task
         self.mlp = self.args.mlp
@@ -50,9 +53,24 @@ class BaseModel(ABC):
             self.criterion = set_criterion(self.args.criterion, self.device)
             self.optimizer = set_optimizer(self.args.optimizer, self.network, self.args.lr)
             self.loss_reg = create_loss_reg(self.task, self.criterion, self.internal_label_list, self.device)
+            self.dataloaders = {
+                                'train': create_dataloader(self.args, self.sp, split='train'),
+                                'val': create_dataloader(self.args, self.sp, split='val')
+                                }
         else:
             from .component import set_likelihood
             self.likelihood = set_likelihood(self.task, self.sp.class_name_in_raw_label, self.args.test_datetime)
+            self.dataloaders = {
+                                'train': create_dataloader(self.args, self.sp, split='train'),
+                                'val': create_dataloader(self.args, self.sp, split='val'),
+                                'test': create_dataloader(self.args, self.sp, split='test')
+                                }
+
+    def print_dataset_info(self) -> None:
+        """
+        Print dataset size for each split.
+        """
+        print_dataset_info(self.dataloaders)
 
     def train(self) -> None:
         """
@@ -289,13 +307,12 @@ class MLPModel(ModelWidget):
     """
     Class for MLP model
     """
-    def __init__(self, args: argparse.Namespace, split_provider: SplitProvider) -> None:
+    def __init__(self, args: argparse.Namespace) -> None:
         """
         Args:
             args (argparse.Namespace): options
-            split_provider (SplitProvider): Object of Splitprovider
         """
-        super().__init__(args, split_provider)
+        super().__init__(args)
 
     def set_data(self, data: Dict[str, Union[str, int, Dict[str, int], float]]) -> None:
         """
@@ -324,13 +341,12 @@ class CVModel(ModelWidget):
     """
     Class for CNN or ViT model
     """
-    def __init__(self, args: argparse.Namespace, split_provider: SplitProvider) -> None:
+    def __init__(self, args: argparse.Namespace) -> None:
         """
         Args:
             args (argparse.Namespace): options
-            split_provider (SplitProvider): Object of Splitprovider
         """
-        super().__init__(args, split_provider)
+        super().__init__(args)
 
     def set_data(self, data: Dict[str, Union[str, int, Dict[str, int], float]]) -> None:
         """
@@ -359,13 +375,12 @@ class FusionModel(ModelWidget):
     """
     Class for MLP+CNN or MLP+ViT model.
     """
-    def __init__(self, args: argparse.Namespace, split_provider: SplitProvider) -> None:
+    def __init__(self, args: argparse.Namespace) -> None:
         """
         Args:
             args (argparse.Namespace): options
-            split_provider (SplitProvider): Object of Splitprovider
         """
-        super().__init__(args, split_provider)
+        super().__init__(args)
 
     def set_data(self, data: Dict[str, Union[str, int, Dict[str, int], float]]) -> None:
         """
@@ -395,13 +410,12 @@ class MLPDeepSurv(ModelWidget):
     """
     Class for DeepSurv model with MLP
     """
-    def __init__(self, args: argparse.Namespace, split_provider: SplitProvider) -> None:
+    def __init__(self, args: argparse.Namespace) -> None:
         """
         Args:
             args (argparse.Namespace): options
-            split_provider (SplitProvider): Object of Splitprovider
         """
-        super().__init__(args, split_provider)
+        super().__init__(args)
 
     def set_data(self, data: Dict[str, Union[str, int, Dict[str, int], float]]) -> None:
         """
@@ -431,13 +445,12 @@ class CVDeepSurv(ModelWidget):
     """
     Class for DeepSurv model with CNN or ViT
     """
-    def __init__(self, args: argparse.Namespace, split_provider: SplitProvider) -> None:
+    def __init__(self, args: argparse.Namespace) -> None:
         """
         Args:
-            args (argparse.Namespace): _description_
-            split_provider (SplitProvider): _description_
+            args (argparse.Namespace): options
         """
-        super().__init__(args, split_provider)
+        super().__init__(args)
 
     def set_data(self, data: Dict[str, Union[str, int, Dict[str, int], float]]) -> None:
         """
@@ -467,13 +480,12 @@ class FusionDeepSurv(ModelWidget):
     """
     Class for DeepSurv model with MLP+CNN or MLP+ViT model.
     """
-    def __init__(self, args: argparse.Namespace, split_provider: SplitProvider) -> None:
+    def __init__(self, args: argparse.Namespace) -> None:
         """
         Args:
             args (argparse.Namespace): options
-            split_provider (SplitProvider): Object of Splitprovider
         """
-        super().__init__(args, split_provider)
+        super().__init__(args)
 
     def set_data(self, data: Dict[str, Union[str, int, Dict[str, int], float]]) -> None:
         """
@@ -500,13 +512,12 @@ class FusionDeepSurv(ModelWidget):
         self.loss_reg.cal_batch_loss(self.multi_output, self.multi_label, self.period, self.network)
 
 
-def create_model(args: argparse.Namespace, split_provider: SplitProvider, weight_path: Optional[str] = None) -> nn.Module:
+def create_model(args: argparse.Namespace, weight_path: Optional[str] = None) -> nn.Module:
     """
     Construct model
 
     Args:
         args (argparse.Namespace): _description_
-        split_provider (SplitProvider): _description_
         weight_path (Optional[str], optional): path to weight. This is for use when test. Defaults to None.
 
     Returns:
@@ -518,22 +529,22 @@ def create_model(args: argparse.Namespace, split_provider: SplitProvider, weight
 
     if (task == 'classification') or (task == 'regression'):
         if (mlp is not None) and (net is None):
-            model = MLPModel(args, split_provider)
+            model = MLPModel(args)
         elif (mlp is None) and (net is not None):
-            model = CVModel(args, split_provider)
+            model = CVModel(args)
         elif (mlp is not None) and (net is not None):
-            model = FusionModel(args, split_provider)
+            model = FusionModel(args)
         else:
             logger.logger.error(f"Cannot identify model type for {task}.")
             sys.exit()
 
     elif task == 'deepsurv':
         if (mlp is not None) and (net is None):
-            model = MLPDeepSurv(args, split_provider)
+            model = MLPDeepSurv(args)
         elif (mlp is None) and (net is not None):
-            model = CVDeepSurv(args, split_provider)
+            model = CVDeepSurv(args)
         elif (mlp is not None) and (net is not None):
-            model = FusionDeepSurv(args, split_provider)
+            model = FusionDeepSurv(args)
         else:
             logger.logger.error(f"Cannot identify model type for {task}.")
             sys.exit()
