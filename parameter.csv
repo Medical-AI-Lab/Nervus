@@ -1,0 +1,4 @@
+task,csv_name,image_dir,model,criterion,optimizer,epochs,batch_size,sampler,augmentation,in_channel,save_weight,gpu_ids
+classification,clean_cla_multi_output_multi_class.csv,8bit/128,MLP+ResNet18,CEL,Adam,3,64,no,xrayaug,3,each,-1
+regression,clean_reg_multi_output.csv,8bit/128,MLP+ResNet18,MAE,Adam,3,64,no,xrayaug,3,each,-1
+deepsurv,clean_deepsurv.csv,8bit/128,MLP+ResNet18,NLL,Adam,3,64,no,xrayaug,3,each,-1

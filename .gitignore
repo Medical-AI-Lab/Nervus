@@ -138,8 +138,8 @@ materials/
 results/
 logs/
 tmp/
-parameter.csv
-Makefile
+# parameter.csv
+# Makefile
 
 .DS_Store
 
