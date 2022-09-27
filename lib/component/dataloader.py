@@ -471,16 +471,3 @@ def create_dataloader(args: argparse.Namespace, sp: SplitProvider, split: str = 
                             sampler=sampler
                             )
     return split_loader
-
-
-def print_dataset_info(dataloaders: Dict[str, LoadDataSet]) -> None:
-    """
-    Print dataset size for each split.
-
-    Args:
-        dataloaders (Dict[str, DataLoader]): dictionary of split and its dataset
-    """
-    for split, dataloader in dataloaders.items():
-        total = len(dataloader.dataset)
-        logger.logger.info(f"{split:>5}_data = {total}")
-    logger.logger.info('')

@@ -11,11 +11,10 @@ import torch.nn as nn
 from .component import (
                 make_split_provider,
                 create_dataloader,
-                print_dataset_info,
                 create_net
-            )
+                )
 from .logger import Logger as logger
-from typing import Dict, Union, Optional
+from typing import Dict, Union
 import argparse
 
 
@@ -47,30 +46,28 @@ class BaseModel(ABC):
         self.network = create_net(self.mlp, self.net, self.num_classes_in_internal_label, self.mlp_num_inputs, self.in_channel, self.vit_image_size)
 
         self.isTrain = self.args.isTrain
+        self._init_config_on_phase()
 
+    def _init_config_on_phase(self):
         if self.isTrain:
             from .component import set_criterion, set_optimizer, create_loss_reg
             self.criterion = set_criterion(self.args.criterion, self.device)
             self.optimizer = set_optimizer(self.args.optimizer, self.network, self.args.lr)
             self.loss_reg = create_loss_reg(self.task, self.criterion, self.internal_label_list, self.device)
-            self.dataloaders = {
-                                'train': create_dataloader(self.args, self.sp, split='train'),
-                                'val': create_dataloader(self.args, self.sp, split='val')
-                                }
+            self.dataloaders = {split: create_dataloader(self.args, self.sp, split=split) for split in ['train', 'val']}
         else:
             from .component import set_likelihood
             self.likelihood = set_likelihood(self.task, self.sp.class_name_in_raw_label, self.args.test_datetime)
-            self.dataloaders = {
-                                'train': create_dataloader(self.args, self.sp, split='train'),
-                                'val': create_dataloader(self.args, self.sp, split='val'),
-                                'test': create_dataloader(self.args, self.sp, split='test')
-                                }
+            self.dataloaders = {split: create_dataloader(self.args, self.sp, split=split) for split in ['train', 'val', 'test']}
 
     def print_dataset_info(self) -> None:
         """
         Print dataset size for each split.
         """
-        print_dataset_info(self.dataloaders)
+        for split, dataloader in self.dataloaders.items():
+            total = len(dataloader.dataset)
+            logger.logger.info(f"{split:>5}_data = {total}")
+        logger.logger.info('')
 
     def train(self) -> None:
         """
@@ -84,12 +81,16 @@ class BaseModel(ABC):
         """
         self.network.eval()
 
-    def enable_gpu(self) -> None:
+    def _enable_on_gpu_if_available(self) -> None:
         """
         Make model compute on the GPU.
         """
-        self.network.to(self.device)
-        self.network = nn.DataParallel(self.network, device_ids=self.gpu_ids)
+        if self.gpu_ids != []:
+            assert torch.cuda.is_available(), 'No avalibale GPU on this machine.'
+            self.network.to(self.device)
+            self.network = nn.DataParallel(self.network, device_ids=self.gpu_ids)
+        else:
+            pass
 
     @abstractmethod
     def set_data(self, data):
@@ -201,19 +202,10 @@ class BaseModel(ABC):
         """
         self.likelihood.make_likehood(data, self.get_output())
 
-    def save_likelihood(self, save_name: str = None) -> None:
-        """
-        Save likelihood.
-
-        Args:
-            save_name (str): save name for likelihood. Defaults to None.
-        """
-        self.likelihood.save_likelihood(save_name=save_name)
-
 
 class SaveLoadMixin:
     """
-    Class including methods for save or load.
+    Class including methods for save or load weight, learning_curve, or likelihood.
     """
     sets_dir = 'results/sets'
     weight_dir = 'weights'
@@ -223,6 +215,7 @@ class SaveLoadMixin:
     acting_best_weight = None
     acting_best_epoch = None
 
+    # For weight
     def store_weight(self) -> None:
         """
         Store weight.
@@ -254,7 +247,7 @@ class SaveLoadMixin:
             save_name_as_best = 'weight_epoch-' + str(self.acting_best_epoch).zfill(3) + '_best' + '.pt'
             save_path_as_best = Path(save_dir, save_name_as_best)
             if save_path.exists():
-                # Check if best weight already saved. If exists, rename with '-best'
+                # Check if best weight already saved. If exists, rename with '_best'
                 save_path.rename(save_path_as_best)
             else:
                 torch.save(self.acting_best_weight, save_path_as_best)
@@ -272,6 +265,10 @@ class SaveLoadMixin:
         weight = torch.load(weight_path)
         self.network.load_state_dict(weight)
 
+        # Make model compute on GPU after loading weight.
+        self._enable_on_gpu_if_available()
+
+    # For learning curve
     def save_learning_curve(self, date_name: str) -> None:
         """
         Save leraning curve.
@@ -294,6 +291,16 @@ class SaveLoadMixin:
             save_name = 'learning_curve_' + label_name + '_val-best-epoch-' + best_epoch + '_val-best-loss-' + best_val_loss + '.csv'
             save_path = Path(save_dir, save_name)
             df_each_epoch_loss.to_csv(save_path, index=False)
+
+    # For likelihood
+    def save_likelihood(self, save_name: str = None) -> None:
+        """
+        Save likelihood.
+
+        Args:
+            save_name (str): save name for likelihood. Defaults to None.
+        """
+        self.likelihood.save_likelihood(save_name=save_name)
 
 
 class ModelWidget(BaseModel, SaveLoadMixin):
@@ -512,13 +519,12 @@ class FusionDeepSurv(ModelWidget):
         self.loss_reg.cal_batch_loss(self.multi_output, self.multi_label, self.period, self.network)
 
 
-def create_model(args: argparse.Namespace, weight_path: Optional[str] = None) -> nn.Module:
+def create_model(args: argparse.Namespace) -> nn.Module:
     """
     Construct model
 
     Args:
-        args (argparse.Namespace): _description_
-        weight_path (Optional[str], optional): path to weight. This is for use when test. Defaults to None.
+        args (argparse.Namespace): options
 
     Returns:
         nn.Module: model
@@ -553,14 +559,9 @@ def create_model(args: argparse.Namespace, weight_path: Optional[str] = None) ->
         logger.logger.error(f"Invalid task: {task}.")
         sys.exit()
 
-    # When test
-    # load weight should be done before GPU setting.
-    if not args.isTrain:
-        assert (weight_path is not None), 'Specify weight_path.'
-        model.load_weight(weight_path)
-
-    if args.gpu_ids != []:
-        assert torch.cuda.is_available(), 'No avalibale GPU on this machine.'
-        model.enable_gpu()
+    if args.isTrain:
+        model._enable_on_gpu_if_available()
+    # When test, execute model._enable_on_gpu_if_available() in load_weight(),
+    # ie. after loadding weight.
 
     return model

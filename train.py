@@ -4,13 +4,16 @@
 import sys
 import datetime
 import torch
-from lib import check_train_options, create_model, set_logger
+from lib import (
+        check_train_options,
+        create_model,
+        set_logger
+        )
 from lib import Logger as logger
 
 
 def main(opt, date_name):
     args = opt.args
-
     model = create_model(args)
     model.print_dataset_info()
 
