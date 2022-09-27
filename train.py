@@ -5,27 +5,16 @@ import datetime
 import torch
 from lib import (
         check_train_options,
-        make_split_provider,
-        create_dataloader,
-        print_dataset_info,
         create_model,
         set_logger
         )
-from lib.logger import Logger as logger
+from lib import Logger as logger
 
 
 def main(opt, date_name):
     args = opt.args
-    sp = make_split_provider(args.csv_name, args.task)
-
-    dataloaders = {
-        'train': create_dataloader(args, sp, split='train'),
-        'val': create_dataloader(args, sp, split='val')
-        }
-
-    print_dataset_info(dataloaders)
-
-    model = create_model(args, sp)
+    model = create_model(args)
+    model.print_dataset_info()
 
     for epoch in range(args.epochs):
         for phase in ['train', 'val']:
@@ -34,10 +23,9 @@ def main(opt, date_name):
             elif phase == 'val':
                 model.eval()
             else:
-                logger.logger.error(f"Invalid phase: {phase}.")
-                exit()
+                raise ValueError(f"Invalid phase: {phase}.")
 
-            split_dataloader = dataloaders[phase]
+            split_dataloader = model.dataloaders[phase]
             dataset_size = len(split_dataloader.dataset)
 
             for i, data in enumerate(split_dataloader):

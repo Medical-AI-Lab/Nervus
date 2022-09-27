@@ -6,7 +6,7 @@ from pathlib import Path
 import re
 import pandas as pd
 from lib import set_eval, set_logger
-from lib.logger import Logger as logger
+from lib import Logger as logger
 
 
 def _get_latest_eval_datetime():

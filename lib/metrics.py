@@ -9,13 +9,13 @@ from sklearn.preprocessing import label_binarize
 import matplotlib.pyplot as plt
 from matplotlib import colors as mcolors
 from lifelines.utils import concordance_index
-from lib.logger import Logger as logger
+from .logger import Logger as logger
 from typing import Dict, Union
 
 
 class MetricsData:
     """
-    Class variables to store metrics.
+    Class to store metrics as class variable.
     Metrics are defined depenging on task.
 
     For ROC
@@ -618,5 +618,4 @@ def set_eval(task: str) -> Union[ClsEval, RegEval, DeepSurvEval]:
     elif task == 'deepsurv':
         return DeepSurvEval()
     else:
-        logger.logger.error(f"Invalid task: {task}.")
-        exit()
+        raise ValueError(f"Invalid task: {task}.")

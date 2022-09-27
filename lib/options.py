@@ -6,7 +6,7 @@ import re
 import argparse
 import pandas as pd
 from .logger import Logger as logger
-from typing import Dict, List, Tuple, Union, Any
+from typing import Dict, List, Tuple, Union
 
 
 class Options:
@@ -42,15 +42,15 @@ class Options:
             # Batch size
             self.parser.add_argument('--batch_size',      type=int,   default=None,  metavar='N', help='batch size in training (Default: None)')
 
-            # Preprocess for image
-            self.parser.add_argument('--augmentation',    type=str,   default=None,  help='xrayaug, trivialaugwide, randaug, no')
-            self.parser.add_argument('--normalize_image', type=str,   default='yes', help='image nomalization: yes, no (Default: yes)')
+            # Preprocess for imagez
+            self.parser.add_argument('--augmentation',    type=str,   choices=['xrayaug', 'trivialaugwide', 'randaug', 'no'], default=None,  help='kind of augmentation')
+            self.parser.add_argument('--normalize_image', type=str,   choices=['yes', 'no'], default='yes', help='image nomalization: yes, no (Default: yes)')
 
             # Sampler
-            self.parser.add_argument('--sampler',         type=str,   default=None,  help='sample data in traning or not, yes or no (Default: None)')
+            self.parser.add_argument('--sampler',         type=str,   choices=['yes', 'no'], default=None,  help='sample data in traning or not, yes or no (Default: None)')
 
             # Input channel
-            self.parser.add_argument('--in_channel',      type=int,   default=None,  help='channel of input image (Default: None)')
+            self.parser.add_argument('--in_channel',      type=int,   choices=[1, 3], default=None,  help='channel of input image (Default: None)')
             self.parser.add_argument('--vit_image_size',  type=int,   default=None,  help='input image size for ViT(Default: None)')
 
             # Weight saving strategy
@@ -138,12 +138,12 @@ class Options:
             if self.args.test_datetime is None:
                 self.args.test_datetime = self._get_latest_test_datetime()
 
-    def _get_args(self) -> Dict[str, Any]:
+    def _get_args(self) -> Dict[str, Union[str, float, int]]:
         """
         Return dictionary of option name and its parameter.
 
         Returns:
-            Dict[str, Any]: dictionary of option name and its parameter
+            Dict[str, Union[str, float, int]]: dictionary of option name and its parameter
         """
         return vars(self.args)
 

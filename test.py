@@ -5,13 +5,10 @@ from pathlib import Path
 import torch
 from lib import (
         check_test_options,
-        make_split_provider,
-        create_dataloader,
-        print_dataset_info,
         create_model,
         set_logger
         )
-from lib.logger import Logger as logger
+from lib import Logger as logger
 
 
 def _collect_weight(test_datetime):
@@ -23,25 +20,18 @@ def _collect_weight(test_datetime):
 
 def main(opt):
     args = opt.args
-    sp = make_split_provider(args.csv_name, args.task)
-
-    dataloaders = {
-        'train': create_dataloader(args, sp, split='train'),
-        'val': create_dataloader(args, sp, split='val'),
-        'test': create_dataloader(args, sp, split='test')
-        }
-
-    print_dataset_info(dataloaders)
+    model = create_model(args)
+    model.print_dataset_info()
 
     weight_paths = _collect_weight(args.test_datetime)
     for weight_path in weight_paths:
         logger.logger.info(f"Inference with {weight_path.name}.")
 
-        model = create_model(args, sp, weight_path=weight_path)
+        model.load_weight(weight_path)  # weight is reset every time
         model.eval()
 
         for split in ['train', 'val', 'test']:
-            split_dataloader = dataloaders[split]
+            split_dataloader = model.dataloaders[split]
 
             for i, data in enumerate(split_dataloader):
                 model.set_data(data)

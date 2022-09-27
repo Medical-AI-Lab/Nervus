@@ -4,10 +4,8 @@
 from dataclasses import dataclass, field
 from abc import ABC, abstractmethod
 import torch
-from lib.logger import Logger as logger
+from ..logger import Logger as logger
 from typing import List, Dict, Union
-from torch import Tensor
-import torch.nn as nn
 
 
 @dataclass
@@ -179,9 +177,9 @@ class LossRegistory(ABC):
                         cls,
                         multi_output: Dict[str, float],
                         multi_label: Dict[str, int],
-                        period: Tensor = None,
-                        network: nn.Module = None
-                    ) -> None:
+                        period: torch.Tensor = None,
+                        network: torch.nn.Module = None
+                        ) -> None:
         pass
 
     def cal_running_loss(self, batch_size: int = None) -> None:
@@ -265,10 +263,15 @@ class ClsLoss(LossWidget):
     """
     Class to calculate loss for classification.
     """
-    def __init__(self, criterion: nn.Module, internal_label_list: List[str], device: torch.device) -> None:
+    def __init__(
+                self,
+                criterion: torch.nn.Module,
+                internal_label_list: List[str],
+                device: torch.device
+                ) -> None:
         """
         Args:
-            criterion (nn.Module): ctiterion
+            criterion (torch.nn.Module): ctiterion
             internal_label_list (List[str]): internal label list
             device (torch.device): device
         """
@@ -277,12 +280,12 @@ class ClsLoss(LossWidget):
         self.criterion = criterion
         self.device = device
 
-    def cal_batch_loss(self, multi_output: Dict[str, Tensor], multi_label: Dict[str, Union[int, float]]) -> None:
+    def cal_batch_loss(self, multi_output: Dict[str, torch.Tensor], multi_label: Dict[str, Union[int, float]]) -> None:
         """
         Calculate loss for each batch.
 
         Args:
-            multi_output (Dict[str, Tensor]): output from model
+            multi_output (Dict[str, torch.Tensor]): output from model
             multi_label (Dict[str, Union[int, float]]): dictionary of each label and its value
         """
         for internal_label_name in multi_label.keys():
@@ -301,10 +304,10 @@ class RegLoss(LossWidget):
     """
     Class to calculate loss for regression.
     """
-    def __init__(self, criterion: nn.Module, internal_label_list: List[str], device: torch.device) -> None:
+    def __init__(self, criterion: torch.nn.Module, internal_label_list: List[str], device: torch.device) -> None:
         """
         Args:
-            criterion (nn.Module): ctiterion
+            criterion (torch.nn.Module): ctiterion
             internal_label_list (List[str]): internal label list
             device (torch.device): device
         """
@@ -313,12 +316,12 @@ class RegLoss(LossWidget):
         self.criterion = criterion
         self.device = device
 
-    def cal_batch_loss(self, multi_output: Dict[str, Tensor], multi_label: Dict[str, Union[int, float]]) -> None:
+    def cal_batch_loss(self, multi_output: Dict[str, torch.Tensor], multi_label: Dict[str, Union[int, float]]) -> None:
         """
         Calculate loss for each batch.
 
         Args:
-            multi_output (Dict[str, Tensor]): output from model
+            multi_output (Dict[str, torch.Tensor]): output from model
             multi_label (Dict[str, Union[int, float]]): dictionary of each label and its value
         """
         for internal_label_name in multi_label.keys():
@@ -337,10 +340,15 @@ class DeepSurvLoss(LossWidget):
     """
     Class to calculate loss for deepsurv
     """
-    def __init__(self, criterion: nn.Module, internal_label_list: List[str], device: torch.device) -> None:
+    def __init__(
+                self,
+                criterion: torch.nn.Module,
+                internal_label_list: List[str],
+                device: torch.device
+                ) -> None:
         """
         Args:
-            criterion (nn.Module): ctiterion
+            criterion (torch.nn.Module): ctiterion
             internal_label_list (List[str]): internal label list
             device (torch.device): device
         """
@@ -349,19 +357,23 @@ class DeepSurvLoss(LossWidget):
         self.criterion = criterion
         self.device = device
 
-    def cal_batch_loss(self, multi_output: Dict[str, Tensor], multi_label: Dict[str, Union[int, float]], period: Tensor, network: nn.Module) -> None:
+    def cal_batch_loss(
+                        self,
+                        multi_output: Dict[str, torch.Tensor],
+                        multi_label: Dict[str, Union[int, float]],
+                        period: torch.Tensor,
+                        network: torch.nn.Module
+                        ) -> None:
         """
         Calculate loss for each batch.
 
         Args:
-            multi_output (Dict[str, Tensor]):  output from model
+            multi_output (Dict[str, torch.Tensor]):  output from model
             multi_label (Dict[str, Union[int, float]]): dictionary of each label and its value
-            period (Tensor): periods
-            network (nn.Module): network
+            period (torch.Tensor): periods
+            network (torch.nn.Module): network
         """
-
-        # multi_labelの中にinternal_label_nameは1つだけだが、
-        # 上のClassification, Regressionの形を合わせておく
+        # internal_label_name should be one.
         for internal_label_name in multi_label.keys():
             _pred = multi_output[internal_label_name]
             _label = multi_label[internal_label_name].reshape(-1, 1)
@@ -375,13 +387,18 @@ class DeepSurvLoss(LossWidget):
         self.batch_loss['total'] = _total
 
 
-def create_loss_reg(task: str, criterion: nn.Module, internal_label_list: List[str], device: torch.device) -> LossRegistory:
+def create_loss_reg(
+                    task: str,
+                    criterion: torch.nn.Module,
+                    internal_label_list: List[str],
+                    device: torch.device
+                    ) -> LossRegistory:
     """
     Set LossRegistory depending on task
 
     Args:
         task (str): task
-        criterion (nn.Module): criterion
+        criterion (torch.nn.Module): criterion
         internal_label_list (List[str]): internal label list
         device (torch.device): device
 
@@ -395,5 +412,5 @@ def create_loss_reg(task: str, criterion: nn.Module, internal_label_list: List[s
     elif task == 'deepsurv':
         loss_reg = DeepSurvLoss(criterion, internal_label_list, device)
     else:
-        logger.logger.error(f"Cannot identify task: {task}.")
+        raise ValueError(f"Invalid task: {task}.")
     return loss_reg
