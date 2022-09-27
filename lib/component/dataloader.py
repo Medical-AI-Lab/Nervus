@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import sys
 from pathlib import Path
 import pandas as pd
 import numpy as np
@@ -12,7 +11,6 @@ from torch.utils.data.dataloader import DataLoader
 from torch.utils.data.sampler import WeightedRandomSampler
 from PIL import Image
 from sklearn.preprocessing import MinMaxScaler
-from ..logger import Logger as logger
 from typing import List, Dict, Tuple, Union
 import argparse
 
@@ -164,6 +162,9 @@ def make_split_provider(split_path: Path, task: str) -> SplitProvider:
     return sp
 
 
+#
+# The below is for dataloader.
+#
 class PrivateAugment(torch.nn.Module):
     """
     Augmentation defined privately.
@@ -232,6 +233,8 @@ class ImageMixin:
         When traning, augmentation is needed for train data only.
         When test, no need of augmentation.
         """
+        assert (self.args.augmentation is not None), 'Specify augmentation.'
+
         _augmentation = []
         if (self.args.isTrain) and (self.split == 'train'):
             if self.args.augmentation == 'xrayaug':
@@ -240,11 +243,9 @@ class ImageMixin:
                 _augmentation.append(transforms.TrivialAugmentWide())
             elif self.args.augmentation == 'randaug':
                 _augmentation.append(transforms.RandAugment())
-            elif self.args.augmentation == 'no':
-                pass
             else:
-                logger.logger.error(f"Invalid augmentation for {self.split}: {self.args.augmentation}.")
-                sys.exit()
+                # ie. self.args.augmentation == 'no':
+                pass
 
         _augmentation = transforms.Compose(_augmentation)
         return _augmentation
@@ -256,22 +257,21 @@ class ImageMixin:
         Returns:
             list of transforms: image normalization
         """
-        assert ((self.args.in_channel == 1) or (self.args.in_channel == 3)), f"Invalid input channel: {self.args.in_channel}."
-
         _transforms = []
         _transforms.append(transforms.ToTensor())
 
+        assert (self.args.normalize_image is not None), 'Specify normalize_image by yes or no.'
+        assert (self.args.in_channel is not None), 'Speficy in_channel by 1 or 3.'
         if self.args.normalize_image == 'yes':
             # transforms.Normalize accepts only Tensor.
             if self.args.in_channel == 1:
                 _transforms.append(transforms.Normalize(mean=(0.5, ), std=(0.5, )))
             else:
+                # ie. self.args.in_channel == 3
                 _transforms.append(transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]))
-        elif self.args.normalize_image == 'no':
-            pass
         else:
-            logger.logger.error(f"Invalid normalize_image: {self.args.augmentation}.")
-            sys.exit()
+            # ie. self.args.normalize_image == 'no'
+            pass
 
         _transforms = transforms.Compose(_transforms)
         return _transforms
@@ -295,9 +295,11 @@ class ImageMixin:
         filepath = self.df_split.iat[idx, self.col_index_dict['filepath']]
         image_path = Path(self.args.image_dir, filepath)
 
+        assert (self.args.in_channel is not None), 'Speficy in_channel by 1 or 3.'
         if self.args.in_channel == 1:
             image = Image.open(image_path).convert('L')
         else:
+            # ie. self.args.in_channel == 3
             image = Image.open(image_path).convert('RGB')
 
         image = self.augmentation(image)
@@ -454,12 +456,14 @@ def create_dataloader(args: argparse.Namespace, sp: SplitProvider, split: str = 
     else:
         batch_size = args.test_batch_size
 
+    assert (args.sampler is not None), 'Specify sampler by yes or no.'
     if args.sampler == 'yes':
         assert ((args.task == 'classification') or (args.task == 'deepsurv')), 'Cannot make sampler in regression.'
         assert (len(sp.raw_label_list) == 1), 'Cannot make sampler for multi-label.'
         shuffle = False
         sampler = _make_sampler(split_data)
     else:
+        # ie. args.sampler == 'no'
         shuffle = True
         sampler = None
 

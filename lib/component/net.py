@@ -1,13 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-r
 
-import sys
 from collections import OrderedDict
 import torch
 import torch.nn as nn
 from torchvision.ops import MLP
 import torchvision.models as models
-from ..logger import Logger as logger
 from typing import Dict, Optional
 
 
@@ -167,8 +165,7 @@ class BaseNet:
             net.conv_proj.weight = nn.Parameter(net.conv_proj.weight.sum(dim=1).unsqueeze(1))
 
         else:
-            logger.logger.error(f"No specified net: {net_name}.")
-            sys.exit()
+            raise ValueError(f"No specified net: {net_name}.")
         return net
 
     @classmethod
@@ -299,7 +296,7 @@ class BaseNet:
             flatten = base_classifier[1]
             in_features = base_classifier[2].in_features
             for internal_label_name, num_classes in num_classes_in_internal_label.items():
-                # * Shape is changed before nn.Linear.
+                # Shape is changed before nn.Linear.
                 classifiers[internal_label_name] = nn.Sequential(
                                                         layer_norm,
                                                         flatten,
@@ -315,8 +312,7 @@ class BaseNet:
                                                     ]))
 
         else:
-            logger.logger.error(f"No specified net: {net_name}.")
-            sys.exit()
+            raise ValueError(f"No specified net: {net_name}.")
 
         multi_classifier = nn.ModuleDict(classifiers)
         return multi_classifier
@@ -359,8 +355,7 @@ class BaseNet:
             in_features = base_classifier.head.in_features
 
         else:
-            logger.logger.error(f"No specified net: {net_name}.")
-            sys.exit()
+            raise ValueError(f"No specified net: {net_name}.")
         return in_features
 
     @classmethod
@@ -552,7 +547,6 @@ def create_net(mlp: Optional[str], net: Optional[str], num_classes_in_internal_l
     elif (mlp is not None) and (net is not None):
         multi_net = MultiNetFusion(net, num_classes_in_internal_label, mlp_num_inputs=mlp_num_inputs, in_channel=in_channel, vit_image_size=vit_image_size)
     else:
-        logger.logger.error('Cannot identify net type.')
-        sys.exit()
+        raise ValueError(f"Invalid net type: mlp={mlp}, net={net}.")
 
     return multi_net

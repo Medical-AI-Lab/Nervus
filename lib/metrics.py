@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import sys
 from pathlib import Path
 import numpy as np
 import pandas as pd
@@ -16,7 +15,7 @@ from typing import Dict, Union
 
 class MetricsData:
     """
-    Class variables to store metrics.
+    Class to store metrics as class variable.
     Metrics are defined depenging on task.
 
     For ROC
@@ -619,5 +618,4 @@ def set_eval(task: str) -> Union[ClsEval, RegEval, DeepSurvEval]:
     elif task == 'deepsurv':
         return DeepSurvEval()
     else:
-        logger.logger.error(f"Invalid task: {task}.")
-        sys.exit()
+        raise ValueError(f"Invalid task: {task}.")

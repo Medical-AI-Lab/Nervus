@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import sys
 from pathlib import Path
 import copy
 from abc import ABC, abstractmethod
@@ -541,8 +540,7 @@ def create_model(args: argparse.Namespace) -> nn.Module:
         elif (mlp is not None) and (net is not None):
             model = FusionModel(args)
         else:
-            logger.logger.error(f"Cannot identify model type for {task}.")
-            sys.exit()
+            raise ValueError(f"Invalid model type: mlp={mlp}, net={net}.")
 
     elif task == 'deepsurv':
         if (mlp is not None) and (net is None):
@@ -552,12 +550,10 @@ def create_model(args: argparse.Namespace) -> nn.Module:
         elif (mlp is not None) and (net is not None):
             model = FusionDeepSurv(args)
         else:
-            logger.logger.error(f"Cannot identify model type for {task}.")
-            sys.exit()
+            raise ValueError(f"Invalid model type: mlp={mlp}, net={net}.")
 
     else:
-        logger.logger.error(f"Invalid task: {task}.")
-        sys.exit()
+        raise ValueError(f"Invalid task: {task}.")
 
     if args.isTrain:
         model._enable_on_gpu_if_available()

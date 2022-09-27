@@ -1,10 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import sys
 from pathlib import Path
 import pandas as pd
-from ..logger import Logger as logger
 from typing import List, Dict, Union
 import torch
 import numpy
@@ -218,5 +216,4 @@ def set_likelihood(
     elif task == 'deepsurv':
         return DeepSurvLikelihood(class_name_in_raw_label, test_datetime)
     else:
-        logger.logger.error(f"Invalid task:{task}.")
-        sys.exit()
+        raise ValueError(f"Invalid task: {task}.")
