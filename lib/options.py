@@ -59,10 +59,17 @@ class Options:
             # GPU
             self.parser.add_argument('--gpu_ids',         type=str,   default='-1',  help='gpu ids: e.g. 0, 0-1-2, 0-2. use -1 for CPU (Default: -1)')
 
+            # Dataset to make weight
+            self.parser.add_argument('--trainset_dir',    type=str,   default='baseset', help='directory of dataset to make weight')
+
         else:
             # Test
             self.parser.add_argument('--test_datetime',   type=str,   default=None,  help='date time when trained(Default: None)')
             self.parser.add_argument('--test_batch_size', type=int,   default=64,    metavar='N', help='batch size for test (Default: 64)')
+
+            # External dataset
+            self.parser.add_argument('--testset_dir',      type=str,  default='baseset', help='diretrory of internal dataset or external dataset')
+            self.parser.add_argument('--weight_dir',       type=str,  default='baseset', help='directory of weight to be used when test. This is concatenated with --test_datetime')
 
         self.args = self.parser.parse_args()
         self.args.isTrain = isTrain
