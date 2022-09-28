@@ -23,9 +23,10 @@ class Options:
         self.parser = argparse.ArgumentParser(description='Options for training or test')
 
         if isTrain:
-            # Materials
-            self.parser.add_argument('--csv_name',        type=str,   default=None,   help='csv filename(Default: None)')
-            self.parser.add_argument('--image_dir',       type=str,   default=None,   help='directory name contaning images(Default: None)')
+            # Dataset to make weight
+            self.parser.add_argument('--trainset_dir',    type=str,   default='baseset', help='directory of dataset to make weight')
+            self.parser.add_argument('--csv_name',        type=str,   default=None,   help='csv filename (Default: None)')
+            self.parser.add_argument('--image_dir',       type=str,   default=None,   help='directory name contaning images (Default: None)')
 
             # Task
             self.parser.add_argument('--task',            type=str,   choices=['classification', 'regression', 'deepsurv'], default=None, help='Task: classification or regression (Default: None)')
@@ -42,7 +43,7 @@ class Options:
             # Batch size
             self.parser.add_argument('--batch_size',      type=int,   default=None,  metavar='N', help='batch size in training (Default: None)')
 
-            # Preprocess for imagez
+            # Preprocess for image
             self.parser.add_argument('--augmentation',    type=str,   choices=['xrayaug', 'trivialaugwide', 'randaug', 'no'], default=None,  help='kind of augmentation')
             self.parser.add_argument('--normalize_image', type=str,   choices=['yes', 'no'], default='yes', help='image nomalization: yes, no (Default: yes)')
 
@@ -58,18 +59,18 @@ class Options:
 
             # GPU
             self.parser.add_argument('--gpu_ids',         type=str,   default='-1',  help='gpu ids: e.g. 0, 0-1-2, 0-2. use -1 for CPU (Default: -1)')
-
-            # Dataset to make weight
-            self.parser.add_argument('--trainset_dir',    type=str,   default='baseset', help='directory of dataset to make weight')
-
         else:
-            # Test
-            self.parser.add_argument('--test_datetime',   type=str,   default=None,  help='date time when trained(Default: None)')
-            self.parser.add_argument('--test_batch_size', type=int,   default=64,    metavar='N', help='batch size for test (Default: 64)')
-
             # External dataset
             self.parser.add_argument('--testset_dir',      type=str,  default='baseset', help='diretrory of internal dataset or external dataset')
+            self.parser.add_argument('--test_csv_name',    type=str,   default=None,   help='csv filename for test(Default: None)')
+            self.parser.add_argument('--test_image_dir',   type=str,   default=None,   help='directory name contaning images for test (Default: None)')
+
+            # Test datatime
+            self.parser.add_argument('--test_datetime',   type=str,   default=None,  help='date time when trained(Default: None)')
             self.parser.add_argument('--weight_dir',       type=str,  default='baseset', help='directory of weight to be used when test. This is concatenated with --test_datetime')
+
+            # Test bash size
+            self.parser.add_argument('--test_batch_size', type=int,   default=64,    metavar='N', help='batch size for test (Default: 64)')
 
         self.args = self.parser.parse_args()
         self.args.isTrain = isTrain
@@ -116,7 +117,7 @@ class Options:
         Returns:
             str: directory name indicating date name
         """
-        date_names = [path for path in Path('./results/sets/').glob('*') if re.search(r'\d+', str(path))]
+        date_names = [path for path in Path(self.args.weight_dir, 'results/sets/').glob('*') if re.search(r'\d+', str(path))]
         latest = max(date_names, key=lambda date_name: date_name.stat().st_mtime).name
         return latest
 
@@ -132,12 +133,11 @@ class Options:
 
             # split path
             assert (self.args.csv_name is not None), 'Specify csv_name.'
-            self.args.csv_name = Path('./materials/splits', self.args.csv_name)
+            self.args.csv_name = Path(self.args.trainset_dir, 'splits', self.args.csv_name)
 
             # image directory
             if self.args.image_dir is not None:
-                self.args.image_dir = Path('./materials/images', self.args.image_dir)
-
+                self.args.image_dir = Path(self.args.trainset_dir, 'images', self.args.image_dir)
             # GPU IDs
             self.args.gpu_ids = self._parse_gpu_ids(self.args.gpu_ids)
 
@@ -224,17 +224,25 @@ class Options:
         """
         Set up paramters for test.
         """
-        parameter_path = Path('./results/sets', self.args.test_datetime, 'parameter.csv')
-        df_args = pd.read_csv(parameter_path)
+
+        # Align:
+        # self.args.test_datetime
+        # testset_dir
+        # test_csv_name
+        # test_image_dir
+        # weight_dir
+
+        parameter_path = Path(self.args.weight_dir, 'results/sets', self.args.test_datetime, 'parameter.csv')
+        df_args = pd.read_csv(parameter_path, index_col=0)
+
+        ignored = ['criterion', 'optimizer', 'lr', 'epochs', 'batch_size', 'save_weight', ]  # no need when test
 
         ignored = ['criterion', 'optimizer', 'lr', 'epochs', 'batch_size', 'save_weight']  # no need when test
-        # DataFrame -> Dict except ignored
-        args_dict = dict()
-        for each in df_args.to_dict(orient='records'):  # eg. each = {'option': 'model', 'parameter': 'ResNet18'}
-            if each['option'] not in ignored:
-                args_dict[each['option']] = each['parameter']
+        df_args = df_args.drop(ignored)
 
-        for option, parameter in args_dict.items():
+        for option, row in df_args.iterrows():
+            parameter = row['parameter']
+
             if option == 'in_channel':
                 setattr(self.args, 'in_channel', int(parameter))
 
@@ -253,6 +261,13 @@ class Options:
                     setattr(self.args, option, None)
                 else:
                     setattr(self.args, option, parameter)
+
+
+        # For external dataset
+        weight_dir = Path(self.args.weight_dir, 'results/sets', self.args.test_datetime, 'weights')
+        test_csv_path = Path(self.args.testset_dir, 'splits', self.args.test_csv_name)
+        test_image_dir = Path(self.args.testset_dir, 'splits', self.args.test_image_dir)
+
 
         # The below should be 'no' when test.
         setattr(self.args, 'augmentation', 'no')
