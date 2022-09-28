@@ -1,4 +1,6 @@
 task,csv_name,image_dir,model,criterion,optimizer,epochs,batch_size,sampler,augmentation,in_channel,save_weight,gpu_ids
-classification,trials.csv,128,MLP+ResNet18,CEL,RAdam,3,64,no,xrayaug,3,each,-1
-regression,ctrials.csv,png_256,MLP+ResNet18,MAE,Adam,3,64,no,xrayaug,3,each,-1
-deepsurv,trials.csv,png_256,MLP+ResNet18,NLL,Adam,3,64,no,xrayaug,3,each,-1
+classification,trial.csv,128,MLP,CEL,RAdam,50,64,no,trivialaugwide,3,each,-1
+classification,trial.csv,128,MLP+ResNet18,CEL,RAdam,50,64,no,trivialaugwide,1,best,0-1
+regression,trial.csv,128,ResNet18,MSE,RAdam,50,64,no,trivialaugwide,1,each,0-1-2
+regression,ctrial.csv,128,MLP+ResNet18,MSE,RAdam,50,64,no,trivialaugwide,1,best,0-1-2
+deepsurv,trial.csv,128,MLP+ResNet18,NLL,RAdam,50,64,no,trivialaugwide,1,bset,0-1-2

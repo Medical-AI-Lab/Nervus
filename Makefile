@@ -11,10 +11,10 @@
 # SAVE_WEIGHT = best | each
 # GPU_IDS = -1 | 0,1,2
 
-CSV_NAME := trials.csv
-IMAGE_DIR := 128
+CSV_NAME := trial.csv
+IMAGE_DIR := 8bit/128
 TASK := classification
-MODEL := MLP
+MODEL := ResNet18
 CRITERION := CEL
 OPTIMIZER := Adam
 EPOCHS := 3
@@ -41,8 +41,8 @@ TRAIN_OPT := \
 --gpu_ids $(GPU_IDS)
 
 
-# PYTHON := python -i
-PYTHON := python
+PYTHON := python -i
+#PYTHON := python
 
 TRAIN_CODE := train.py
 TEST_CODE := test.py
