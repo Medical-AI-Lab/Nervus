@@ -314,7 +314,7 @@ class MetricsMixin:
         Returns:
             Dict[str, Dict[str, LabelMetrics]]: dictionary of institution and dictionary of label and its LabelMetrics
             eg. {
-                instA: {label_1: LabelMetrics(), label_2: LabelMetrics(), ...}, 
+                instA: {label_1: LabelMetrics(), label_2: LabelMetrics(), ...},
                 instB: {label_1: LabelMetrics(), label_2: LabelMetrics()}, ...},
                 ...}
         """

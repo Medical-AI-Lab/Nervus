@@ -68,6 +68,37 @@ class BaseModel(ABC):
             logger.logger.info(f"{split:>5}_data = {total}")
         logger.logger.info('')
 
+    def inner_execute(self, isTrain, split_list, epoch=None):
+        for split in split_list:
+            if isTrain and (split == 'train'):
+                self.train()
+            else:
+                self.eval()
+
+            split_dataloader = self.dataloaders[split]
+
+            for i, data in enumerate(split_dataloader):
+                self.set_data(data)
+
+                with torch.set_grad_enabled(isTrain and (split == 'train')):
+                    self.forward()
+
+                    if isTrain:
+                        self.cal_batch_loss()
+
+                        if split == 'train':
+                            self.optimizer.zero_grad()
+                            self.backward()
+                            self.optimize_parameters()
+
+                if isTrain:
+                    self.cal_running_loss(batch_size=len(data['Filename']))
+                else:
+                    self.make_likelihood(data)
+
+            if isTrain:
+                self.cal_epoch_loss(epoch, split, dataset_size=len(split_dataloader.dataset))
+
     def train(self) -> None:
         """
         Make self.network training mode.

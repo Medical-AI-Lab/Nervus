@@ -28,6 +28,9 @@ def main(opt):
         logger.logger.info(f"Inference with {weight_path.name}.")
 
         model.load_weight(weight_path)  # weight is reset every time
+
+        model.inner_execute(args.isTrain, ['train', 'val', 'test'])
+        """
         model.eval()
 
         for split in ['train', 'val', 'test']:
@@ -40,7 +43,7 @@ def main(opt):
                     model.forward()
 
                 model.make_likelihood(data)
-
+        """
         model.save_likelihood(save_name=weight_path.stem)
 
 

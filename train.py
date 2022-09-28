@@ -17,6 +17,9 @@ def main(opt, date_name):
     model.print_dataset_info()
 
     for epoch in range(args.epochs):
+
+        model.inner_execute(args.isTrain, ['train', 'val'], epoch=epoch)
+        """
         for phase in ['train', 'val']:
             if phase == 'train':
                 model.train()
@@ -43,7 +46,7 @@ def main(opt, date_name):
                 model.cal_running_loss(batch_size=len(data['Filename']))
 
             model.cal_epoch_loss(epoch, phase, dataset_size=dataset_size)
-
+        """
         model.print_epoch_loss(epoch)
 
         if model.is_total_val_loss_updated():
