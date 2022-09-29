@@ -24,9 +24,9 @@ class Options:
 
         if isTrain:
             # Dataset to make weight
-            self.parser.add_argument('--trainset_dir',    type=str,   default='baseset', help='directory of dataset to make weight')
-            self.parser.add_argument('--csv_name',        type=str,   default=None,   help='csv filename (Default: None)')
-            self.parser.add_argument('--image_dir',       type=str,   default=None,   help='directory name contaning images (Default: None)')
+            self.parser.add_argument('--trainset_dir',    type=str,   default='baseset', help='directory of dataset for training and validation (Default: baseset)')
+            self.parser.add_argument('--train_csv_name',  type=str,   default=None,  help='csv name for training (Default: None)')
+            self.parser.add_argument('--train_image_dir', type=str,   default=None,  help='directory of images for training (Default: None)')
 
             # Task
             self.parser.add_argument('--task',            type=str,   choices=['classification', 'regression', 'deepsurv'], default=None, help='Task: classification or regression (Default: None)')
@@ -61,19 +61,19 @@ class Options:
             self.parser.add_argument('--gpu_ids',         type=str,   default='-1',  help='gpu ids: e.g. 0, 0-1-2, 0-2. use -1 for CPU (Default: -1)')
         else:
             # External dataset
-            self.parser.add_argument('--testset_dir',      type=str,  default='baseset', help='diretrory of internal dataset or external dataset')
-            self.parser.add_argument('--test_csv_name',    type=str,   default=None,   help='csv filename for test(Default: None)')
-            self.parser.add_argument('--test_image_dir',   type=str,   default=None,   help='directory name contaning images for test (Default: None)')
+            self.parser.add_argument('--testset_dir',      type=str,  default='baseset', help='diretrory of internal dataset or external dataset (Default: baseset)')
+            self.parser.add_argument('--test_csv_name',    type=str,  default=None,   help='csv name for test (Default: None)')
+            self.parser.add_argument('--test_image_dir',   type=str,  default=None,   help='directory name contaning images for test (Default: None)')
+            self.parser.add_argument('--weight_dir',       type=str,  default='baseset', help='directory of weight to be used when test. (Default: baseset) This is concatenated with --test_datetime.')
 
             # Test datatime
             self.parser.add_argument('--test_datetime',   type=str,   default=None,  help='date time when trained(Default: None)')
-            self.parser.add_argument('--weight_dir',       type=str,  default='baseset', help='directory of weight to be used when test. This is concatenated with --test_datetime')
 
             # Test bash size
             self.parser.add_argument('--test_batch_size', type=int,   default=64,    metavar='N', help='batch size for test (Default: 64)')
 
         self.args = self.parser.parse_args()
-        self.args.isTrain = isTrain
+        setattr(self.args, 'isTrain', isTrain)
 
     def _parse_model(self, model_name: str) -> Tuple[Union[str, None], Union[str, None]]:
         """
@@ -95,6 +95,7 @@ class Options:
     def _parse_gpu_ids(self, gpu_ids: str) -> List[int]:
         """
         Parse comma-separated GPU ids strings to list of integers to list of GPU ids.
+        eg. '0,1,2' -> [0, 1, 2], '-1' -> []
 
         Args:
             gpu_ids (str): comma-separated GPU Ids
@@ -110,40 +111,87 @@ class Options:
                 _gpu_ids.append(id)
         return _gpu_ids
 
-    def _get_latest_test_datetime(self) -> str:
+    def _unparse_gpu_ids(self, gpu_ids_list: List[int]) -> str:
         """
-        Return the most recent directory name.
+        Unpasrse gpu_ids,
+        ie, convert list of integers to list of GPU ids to strings of GPU ids concatenating '-'.
+        eg. [0, 1, 2] -> '0-1-2', [] -> '-1'
+
+        Args:
+            gpu_ids (List[int]): list of GPU ids
 
         Returns:
-            str: directory name indicating date name
+            str : strings of GPU ids concatenating '-'
         """
-        date_names = [path for path in Path(self.args.weight_dir, 'results/sets/').glob('*') if re.search(r'\d+', str(path))]
+
+        if gpu_ids_list == []:
+            return '-1'
+        else:
+            _gpu_ids = [str(i) for i in gpu_ids_list]
+            _gpu_ids = '-'.join(_gpu_ids)
+            return _gpu_ids
+
+    def _get_latest_test_datetime(self) -> str:
+        """
+        Return the latest directory made after training.
+
+        Returns:
+            str: directory name indicating date name, eg. 2022-01-02-13-30-20
+        """
+        date_names = [path for path in Path(self.args.weight_dir, 'results/sets').glob('*') if re.search(r'\d+', str(path))]
         latest = max(date_names, key=lambda date_name: date_name.stat().st_mtime).name
         return latest
 
     def parse(self) -> None:
         """
         Parse options.
+
+        For convenience,
+        set dataset_dir as trainset_dir or test_dir,
+        set csv_name as train_csv_name or test_csv_name, and
+        set image_dir as train_image_dir or test_image_dir.
         """
+        # dicetory for dataset, csv_name, and image_dir
+        if self.args.isTrain:
+            assert (self.args.train_csv_name is not None), 'Specify train_csv_name.'
+            assert (self.args.train_image_dir is not None), 'Specify train_image_dir.'
+            _dataset_dir = Path(self.args.trainset_dir)
+            _csv_name = Path(_dataset_dir, 'splits', self.args.train_csv_name)
+            _image_dir = Path(_dataset_dir, 'images', self.args.train_image_dir)
+        else:
+            assert (self.args.test_csv_name is not None), 'Specify test_csv_name.'
+            assert (self.args.test_image_dir is not None), 'Specify test_image_dir.'
+            _dataset_dir = Path(self.args.testset_dir)
+            _csv_name = Path(_dataset_dir, 'splits', self.args.test_csv_name)
+            _image_dir = Path(_dataset_dir, 'images', self.args.test_image_dir)
+
+        # !
+        # ! testの時、csv_name, image_dir == Noneなら、
+        # ! train_csv_name, train_image_dir と同じでいい？
+        # !
+
+        setattr(self.args, 'dataset_dir', _dataset_dir)
+        setattr(self.args, 'csv_name',  _csv_name)
+        setattr(self.args, 'image_dir', _image_dir)
+
+        # Others
         if self.args.isTrain:
             # model
-            mlp, net = self._parse_model(self.args.model)
-            self.args.mlp = mlp
-            self.args.net = net
+            _mlp, _net = self._parse_model(self.args.model)
+            setattr(self.args, 'mlp', _mlp)
+            setattr(self.args, 'net', _net)
 
-            # split path
-            assert (self.args.csv_name is not None), 'Specify csv_name.'
-            self.args.csv_name = Path(self.args.trainset_dir, 'splits', self.args.csv_name)
-
-            # image directory
-            if self.args.image_dir is not None:
-                self.args.image_dir = Path(self.args.trainset_dir, 'images', self.args.image_dir)
             # GPU IDs
-            self.args.gpu_ids = self._parse_gpu_ids(self.args.gpu_ids)
+            setattr(self.args, 'gpu_ids', self._parse_gpu_ids(self.args.gpu_ids))
 
         else:
+            # test datetime
             if self.args.test_datetime is None:
-                self.args.test_datetime = self._get_latest_test_datetime()
+                setattr(self.args, 'test_datetime', self._get_latest_test_datetime())
+
+            # weight
+            # _weight_dir = Path(self.args.weight_dir, 'results/sets', self.args.test_datetime, 'weights')
+            # setattr(self.args, 'weight_dir',  _weight_dir)
 
     def _get_args(self) -> Dict[str, Union[str, float, int]]:
         """
@@ -158,12 +206,18 @@ class Options:
         """
         Format and print options
         """
-        phase = 'Training' if self.args.isTrain else 'Test'
+        ignored = [
+                    'dataset_dir',
+                    'csv_name',
+                    'image_dir',
+                    'mlp',
+                    'net',
+                    'isTrain'
+                    ]
 
+        phase = 'Training' if self.args.isTrain else 'Test'
         message = ''
         message += f"--------------- Options for {phase} --------------------------\n"
-
-        ignored = ['isTrain', 'mlp', 'net']
         for k, v in self._get_args().items():
             if k not in ignored:
                 comment = ''
@@ -172,9 +226,11 @@ class Options:
                 str_default = str(default) if str(default) != '' else 'None'
                 str_v = str(v) if str(v) != '' else 'Not specified'
 
-                if k == 'csv_name':
+                if 'csv_name' in k:
+                    # k = 'train_csv_name' or 'test_csv_name'
                     str_v = Path(v).name
-                elif k == 'image_dir':
+                elif 'image_dir' in k:
+                    # k = 'train_image_dir' or 'test_image_dir'
                     str_v = Path(v).name
                 elif k == 'gpu_ids':
                     if str_v == '[]':
@@ -196,49 +252,51 @@ class Options:
         Args:
             date_name (str): diractory name for saving
         """
-        saved_args = self._get_args()
-
-        ignored = ['isTrain']
-        for ignore in ignored:
-            del saved_args[ignore]
-
-        for option, parameter in saved_args.items():
-            if option == 'gpu_ids':
-                if parameter == []:
-                    saved_args['gpu_ids'] = '-1'
+        _args = self._get_args()
+        no_need_to_save = [
+                            'dataset_dir',
+                            'csv_name',
+                            'image_dir',
+                            'isTrain'
+                            ]
+        saved_args = dict()
+        for option, parameter in _args.items():
+            if option not in no_need_to_save:
+                if option == 'gpu_ids':
+                    saved_args['gpu_ids'] = self._unparse_gpu_ids(parameter)
                 else:
-                    _gpu_ids = [str(i) for i in saved_args['gpu_ids']]
-                    _gpu_ids = '-'.join(_gpu_ids)   # ['0', '1', '2'] -> 0-1-2
-                    saved_args['gpu_ids'] = _gpu_ids
-            else:
-                if parameter is None:
-                    saved_args[option] = 'None'
+                    if parameter is None:
+                        saved_args[option] = 'None'
+                    else:
+                        saved_args[option] = parameter
 
         df_parameter = pd.DataFrame(saved_args.items(), columns=['option', 'parameter'])
-        save_dir = Path('./results/sets', date_name)
+        save_dir = Path(self.args.dataset_dir, 'results/sets', date_name)
         save_dir.mkdir(parents=True, exist_ok=True)
         save_path = Path(save_dir, 'parameter.csv')
         df_parameter.to_csv(save_path, index=False)
 
     def setup_parameter_for_test(self) -> None:
         """
-        Set up paramters for test.
+        Set up paramters for test by aligning parameters at trainig.
+
+        Note: self.args.weight_dir is directory not only
+            in which weights are store but also parameter.csv at training.
         """
-
-        # Align:
-        # self.args.test_datetime
-        # testset_dir
-        # test_csv_name
-        # test_image_dir
-        # weight_dir
-
         parameter_path = Path(self.args.weight_dir, 'results/sets', self.args.test_datetime, 'parameter.csv')
         df_args = pd.read_csv(parameter_path, index_col=0)
-
-        ignored = ['criterion', 'optimizer', 'lr', 'epochs', 'batch_size', 'save_weight', ]  # no need when test
-
-        ignored = ['criterion', 'optimizer', 'lr', 'epochs', 'batch_size', 'save_weight']  # no need when test
-        df_args = df_args.drop(ignored)
+        no_need_at_test = [
+                    'trainset_dir',
+                    'train_csv_name',
+                    'train_image_dir',
+                    'criterion',
+                    'optimizer',
+                    'lr',
+                    'epochs',
+                    'batch_size',
+                    'save_weight'
+                    ]
+        df_args = df_args.drop(no_need_at_test)
 
         for option, row in df_args.iterrows():
             parameter = row['parameter']
@@ -248,26 +306,19 @@ class Options:
 
             elif option == 'vit_image_size':
                 if parameter.isnumeric():
-                    setattr(self.args, option, int(parameter))
+                    setattr(self.args, 'vit_image_size', int(parameter))
                 else:
-                    setattr(self.args, option, None)
+                    setattr(self.args, 'vit_image_size', None)
 
             elif option == 'gpu_ids':
                 _gpu_ids = self._parse_gpu_ids(parameter)
-                setattr(self.args, option, _gpu_ids)
+                setattr(self.args, 'gpu_ids', _gpu_ids)
 
             else:
                 if parameter == 'None':
                     setattr(self.args, option, None)
                 else:
                     setattr(self.args, option, parameter)
-
-
-        # For external dataset
-        weight_dir = Path(self.args.weight_dir, 'results/sets', self.args.test_datetime, 'weights')
-        test_csv_path = Path(self.args.testset_dir, 'splits', self.args.test_csv_name)
-        test_image_dir = Path(self.args.testset_dir, 'splits', self.args.test_image_dir)
-
 
         # The below should be 'no' when test.
         setattr(self.args, 'augmentation', 'no')

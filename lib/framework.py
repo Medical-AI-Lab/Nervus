@@ -56,7 +56,8 @@ class BaseModel(ABC):
             self.dataloaders = {split: create_dataloader(self.args, self.sp, split=split) for split in ['train', 'val']}
         else:
             from .component import set_likelihood
-            self.likelihood = set_likelihood(self.task, self.sp.class_name_in_raw_label, self.args.test_datetime)
+            _test_datetime_dirpath = Path(self.args.testset_dir, 'results/sets', self.args.test_datetime)
+            self.likelihood = set_likelihood(self.task, self.sp.class_name_in_raw_label, _test_datetime_dirpath)
             self.dataloaders = {split: create_dataloader(self.args, self.sp, split=split) for split in ['train', 'val', 'test']}
 
     def print_dataset_info(self) -> None:
@@ -206,11 +207,7 @@ class SaveLoadMixin:
     """
     Class including methods for save or load weight, learning_curve, or likelihood.
     """
-    sets_dir = 'results/sets'
-    weight_dir = 'weights'
-    learning_curve_dir = 'learning_curves'
-
-    # variables to keep best_weight and best_epoch
+    # variables to keep best_weight and best_epoch temporarily.
     acting_best_weight = None
     acting_best_epoch = None
 
@@ -237,7 +234,7 @@ class SaveLoadMixin:
         """
         assert isinstance(as_best, bool), 'Argument as_best should be bool.'
 
-        save_dir = Path(self.sets_dir, date_name, self.weight_dir)
+        save_dir = Path(self.args.dataset_dir, 'results/sets', date_name, 'weights')
         save_dir.mkdir(parents=True, exist_ok=True)
         save_name = 'weight_epoch-' + str(self.acting_best_epoch).zfill(3) + '.pt'
         save_path = Path(save_dir, save_name)
@@ -275,7 +272,7 @@ class SaveLoadMixin:
         Args:
             date_name (str): save name for learning curve
         """
-        save_dir = Path(self.sets_dir, date_name, self.learning_curve_dir)
+        save_dir = Path(self.args.dataset_dir, 'results/sets', date_name, 'learning_curves')
         save_dir.mkdir(parents=True, exist_ok=True)
         epoch_loss = self.loss_reg.epoch_loss
         for internal_label_name in self.internal_label_list + ['total']:
@@ -292,14 +289,14 @@ class SaveLoadMixin:
             df_each_epoch_loss.to_csv(save_path, index=False)
 
     # For likelihood
-    def save_likelihood(self, save_name: str = None) -> None:
+    def save_likelihood(self, save_name: str) -> None:
         """
         Save likelihood.
 
         Args:
             save_name (str): save name for likelihood. Defaults to None.
         """
-        self.likelihood.save_likelihood(save_name=save_name)
+        self.likelihood.save_likelihood(save_name)
 
 
 class ModelWidget(BaseModel, SaveLoadMixin):

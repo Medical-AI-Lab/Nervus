@@ -12,14 +12,14 @@ class BaseLikelihood:
     """
     Class for making likelihood
     """
-    def __init__(self, class_name_in_raw_label: Dict[str, Dict[str, int]], test_datetime: str) -> None:
+    def __init__(self, class_name_in_raw_label: Dict[str, Dict[str, int]], test_datetime_dirpath: Path) -> None:
         """
         Args:
             class_name_in_raw_label (Dict[str, Dict[str, int]]): class names in each label
-            test_datetime (str): date time for test
+            test_datetime_dirpath (Path): save path to save likelihood
         """
         self.class_name_in_raw_label = class_name_in_raw_label
-        self.test_datetime = test_datetime
+        self.test_datetime_dirpath = test_datetime_dirpath
         self.df_likelihood = pd.DataFrame()
 
     def _convert_to_numpy(self, raw_data: torch.Tensor) -> numpy.ndarray:
@@ -86,16 +86,16 @@ class BaseLikelihood:
 
         self.df_likelihood = pd.concat([self.df_likelihood, _df_new], ignore_index=True)
 
-    def save_likelihood(self, save_name: str = None) -> None:
+    def save_likelihood(self, save_name: str) -> None:
         """
         Save likelihoood.
 
         Args:
-            save_name (str): save name for likelihood
+            save_name (str): save name of likelihood
         """
-        save_dir = Path('./results/sets', self.test_datetime, 'likelihoods')
+        save_dir = Path(self.test_datetime_dirpath, 'likelihoods')
         save_dir.mkdir(parents=True, exist_ok=True)
-        save_path = Path(save_dir, 'likelihood_' + save_name + '.csv')
+        save_path = Path(save_dir, 'likelihood_' + save_name).with_suffix('.csv')
         self.df_likelihood.to_csv(save_path, index=False)
 
 
@@ -103,26 +103,26 @@ class ClsLikelihood(BaseLikelihood):
     """
     Class for likelihood of classification
     """
-    def __init__(self, class_name_in_raw_label: Dict[str, Dict[str, int]], test_datetime: str) -> None:
+    def __init__(self, class_name_in_raw_label: Dict[str, Dict[str, int]], test_datetime_dirpath: Path) -> None:
         """
         Args:
             class_name_in_raw_label (Dict[str, Dict[str, int]]): class names in each label
-            test_datetime (str): date time for test
+            test_datetime_dirpath (Path): save path to save likelihood
         """
-        super().__init__(class_name_in_raw_label, test_datetime)
+        super().__init__(class_name_in_raw_label, test_datetime_dirpath)
 
 
 class RegLikelihood(BaseLikelihood):
     """
     Class for likelihood of regression
     """
-    def __init__(self, class_name_in_raw_label: Dict[str, Dict[str, int]], test_datetime: str) -> None:
+    def __init__(self, class_name_in_raw_label: Dict[str, Dict[str, int]], test_datetime_dirpath: Path) -> None:
         """
         Args:
             class_name_in_raw_label (Dict[str, Dict[str, int]]): class names in each label
-            test_datetime (str): date time for test
+            test_datetime_dirpath (Path): save path to save likelihood
         """
-        super().__init__(class_name_in_raw_label, test_datetime)
+        super().__init__(class_name_in_raw_label, test_datetime_dirpath)
 
     # Orverwrite
     def _make_pred_names(self, raw_label_name: str) -> List[str]:
@@ -144,13 +144,13 @@ class DeepSurvLikelihood(RegLikelihood):
     """
     Class for likelihood of DeepSurv
     """
-    def __init__(self, class_name_in_raw_label: Dict[str, Dict[str, int]], test_datetime: str) -> None:
+    def __init__(self, class_name_in_raw_label: Dict[str, Dict[str, int]], test_datetime_dirpath: Path) -> None:
         """
         Args:
             class_name_in_raw_label (Dict[str, Dict[str, int]]): class names in each label
-            test_datetime (str): date time for test
+            test_datetime_dirpath (Path): save path to save likelihood
         """
-        super().__init__(class_name_in_raw_label, test_datetime)
+        super().__init__(class_name_in_raw_label, test_datetime_dirpath)
 
     # Orverwrite
     def make_likehood(
@@ -196,7 +196,7 @@ class DeepSurvLikelihood(RegLikelihood):
 def set_likelihood(
                 task: str,
                 class_name_in_raw_label: Dict[str, Dict[str, int]],
-                test_datetime: str
+                test_datetime_dirpath: Path
                 ) -> BaseLikelihood:
     """
     Set likelihood object depending task.
@@ -204,16 +204,16 @@ def set_likelihood(
     Args:
         task (str): task
         class_name_in_raw_label (Dict[str, Dict[str, int]]): class names in each label
-        test_datetime (str): date time for test
+        test_datetime_dirpath (Path): save path to save likelihood
 
     Returns:
         BaseLikelihood: class of likelihood
     """
     if task == 'classification':
-        return ClsLikelihood(class_name_in_raw_label, test_datetime)
+        return ClsLikelihood(class_name_in_raw_label, test_datetime_dirpath)
     elif task == 'regression':
-        return RegLikelihood(class_name_in_raw_label, test_datetime)
+        return RegLikelihood(class_name_in_raw_label, test_datetime_dirpath)
     elif task == 'deepsurv':
-        return DeepSurvLikelihood(class_name_in_raw_label, test_datetime)
+        return DeepSurvLikelihood(class_name_in_raw_label, test_datetime_dirpath)
     else:
         raise ValueError(f"Invalid task: {task}.")

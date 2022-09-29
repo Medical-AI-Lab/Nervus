@@ -48,7 +48,7 @@ class BaseLogger:
 
         # file handler
         log_dir = Path('./logs')
-        log_dir.mkdir(exist_ok=True)
+        log_dir.mkdir(parents=True, exist_ok=True)
         log_path = Path(log_dir, 'log.log')
         fh = logging.FileHandler(log_path)
         _root_logger.addHandler(fh)

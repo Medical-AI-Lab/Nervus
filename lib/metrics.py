@@ -11,6 +11,7 @@ from matplotlib import colors as mcolors
 from lifelines.utils import concordance_index
 from .logger import Logger as logger
 from typing import Dict, Union
+import argparse
 
 
 class MetricsData:
@@ -386,7 +387,7 @@ class MetricsMixin:
         Args:
             df_summary (pd.DataFrame): summary to be added to the previous summary
         """
-        summary_dir = Path('./results/summary')
+        summary_dir = Path(self.args.eval_dir, 'results/summary')
         summary_path = Path(summary_dir, 'summary.csv')
         if summary_path.exists():
             df_prev = pd.read_csv(summary_path)
@@ -551,7 +552,7 @@ class FigMixin:
         """
         for inst, inst_metrics in whole_metrics.items():
             fig = self._plot_fig_inst_metrics(inst, inst_metrics)
-            save_dir = Path('./results/sets', datetime, fig_kind)
+            save_dir = Path(self.args.eval_dir, 'results/sets', datetime, fig_kind)
             save_dir.mkdir(parents=True, exist_ok=True)
             save_path = Path(save_dir, inst + '_' + fig_kind + '_' + likelihood_path.stem.replace('likelihood_', '') + '.png')  # 'likelihood_weight_epoch-010_best.csv'  -> inst_roc_weight_epoch-010_best.png
             fig.savefig(save_path)
@@ -562,7 +563,12 @@ class ClsEval(ROCMixin, MetricsMixin, FigROCMixin, FigMixin):
     """
     Class for calculation metrics for classification.
     """
-    def __init__(self) -> None:
+    def __init__(self, args: argparse.Namespace) -> None:
+        """
+        Args:
+            args (argparse.Namespace): options
+        """
+        self.args = args
         self.fig_kind = 'roc'
         self.metrics_kind = 'auc'
 
@@ -571,7 +577,12 @@ class RegEval(YYMixin, MetricsMixin, FigYYMixin, FigMixin):
     """
     Class for calculation metrics for regression.
     """
-    def __init__(self) -> None:
+    def __init__(self, args: argparse.Namespace) -> None:
+        """
+        Args:
+            args (argparse.Namespace): options
+        """
+        self.args = args
         self.fig_kind = 'yy'
         self.metrics_kind = 'r2'
 
@@ -580,7 +591,12 @@ class DeepSurvEval(C_IndexMixin, MetricsMixin):
     """
     Class for calculation metrics for DeepSurv.
     """
-    def __init__(self) -> None:
+    def __init__(self, args: argparse.Namespace) -> None:
+        """
+        Args:
+            args (argparse.Namespace): options
+        """
+        self.args = args
         self.fig_kind = None
         self.metrics_kind = 'c_index'
 
@@ -601,7 +617,7 @@ class DeepSurvEval(C_IndexMixin, MetricsMixin):
         self.update_summary(df_summary)
 
 
-def set_eval(task: str) -> Union[ClsEval, RegEval, DeepSurvEval]:
+def set_eval(args: argparse.Namespace) -> Union[ClsEval, RegEval, DeepSurvEval]:
     """
     Set class for evaluation depending on task depending on task.
 
@@ -611,11 +627,11 @@ def set_eval(task: str) -> Union[ClsEval, RegEval, DeepSurvEval]:
     Returns:
         Union[ClsEval, RegEval, DeepSurvEval]: class for evaluation
     """
-    if task == 'classification':
-        return ClsEval()
-    elif task == 'regression':
-        return RegEval()
-    elif task == 'deepsurv':
-        return DeepSurvEval()
+    if args.task == 'classification':
+        return ClsEval(args)
+    elif args.task == 'regression':
+        return RegEval(args)
+    elif args.task == 'deepsurv':
+        return DeepSurvEval(args)
     else:
-        raise ValueError(f"Invalid task: {task}.")
+        raise ValueError(f"Invalid task: {args.task}.")
