@@ -189,7 +189,7 @@
                 "sha256:e1cee4a79e4af22881164f218d4311f60074197fb707e082e803b61f6d137018"
             ],
             "index": "pypi",
-            "version": "===1.2.0"
+            "version": "==1.2.0"
         },
         "kiwisolver": {
             "hashes": [
