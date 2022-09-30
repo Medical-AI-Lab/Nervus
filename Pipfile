@@ -4,7 +4,7 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-numpy ="*"
+numpy = "*"
 pandas = "*"
 torch = "==1.12.0"
 torchvision = "==0.13.0"
@@ -16,6 +16,7 @@ torchinfo = "*"
 seaborn = "*"
 pillow = "*"
 lifelines = "*"
+joblib = "*"
 
 [dev-packages]
 black = "*"
