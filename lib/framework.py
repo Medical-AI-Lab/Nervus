@@ -232,8 +232,7 @@ class SaveLoadMixin:
             as_best (bool): True if weight is saved as best, otherise False. Defaults to None.
         """
         assert isinstance(as_best, bool), 'Argument as_best should be bool.'
-
-        save_dir = Path(self.args.trainset_dir, 'results/sets', date_name, 'weights')
+        save_dir = Path(self.args.baseset_dir, 'results', self.args.csv_name.stem, 'sets', date_name, 'weights')
         save_dir.mkdir(parents=True, exist_ok=True)
         save_name = 'weight_epoch-' + str(self.acting_best_epoch).zfill(3) + '.pt'
         save_path = Path(save_dir, save_name)
@@ -271,7 +270,7 @@ class SaveLoadMixin:
         Args:
             date_name (str): save name for learning curve
         """
-        save_dir = Path(self.args.trainset_dir, 'results/sets', date_name, 'learning_curves')
+        save_dir = Path(self.args.baseset_dir, 'results', self.args.csv_name.stem, 'sets', date_name, 'learning_curves')
         save_dir.mkdir(parents=True, exist_ok=True)
         epoch_loss = self.loss_reg.epoch_loss
         for internal_label_name in self.internal_label_list + ['total']:

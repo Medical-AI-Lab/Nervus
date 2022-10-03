@@ -292,8 +292,10 @@ class ImageMixin:
             return image
 
         assert (self.args.image_dir is not None), 'Specify image_dir.'
+        institution = self.df_split.iat[idx, self.col_index_dict['Institution']]
         filepath = self.df_split.iat[idx, self.col_index_dict['filepath']]
-        image_path = Path(self.args.image_dir, filepath)
+        # eg. image_path = baseset/images/[Instituion]/png256/[filepath]
+        image_path = Path(self.args.baseset_dir, 'images', institution, self.args.image_dir, filepath)
 
         assert (self.args.in_channel is not None), 'Speficy in_channel by 1 or 3.'
         if self.args.in_channel == 1:
