@@ -9,10 +9,10 @@
 # SAMPLER = yes | no   # should be no when regression or multi-label
 # IN_CHANNEL = 1 | 3
 # SAVE_WEIGHT = best | each
-# GPU_IDS = -1 | 0,1,2
+# GPU_IDS = -1 | 0-1-2
 
 CSV_NAME := trial.csv
-IMAGE_DIR := 8bit/128
+IMAGE_DIR := 128
 TASK := classification
 MODEL := ResNet18
 CRITERION := CEL
