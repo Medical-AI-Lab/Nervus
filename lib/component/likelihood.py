@@ -86,14 +86,15 @@ class BaseLikelihood:
 
         self.df_likelihood = pd.concat([self.df_likelihood, _df_new], ignore_index=True)
 
-    def save_likelihood(self, save_name: str) -> None:
+    def save_likelihood(self, test_datetime: Path, save_name: str) -> None:
         """
         Save likelihoood.
 
         Args:
+            test_datetime (Path): directory named datetime to save likelihood
             save_name (str): save name of likelihood
         """
-        save_dir = Path(self.test_datetime_dirpath, 'likelihoods')
+        save_dir = Path(test_datetime, 'likelihoods')
         save_dir.mkdir(parents=True, exist_ok=True)
         save_path = Path(save_dir, 'likelihood_' + save_name).with_suffix('.csv')
         self.df_likelihood.to_csv(save_path, index=False)

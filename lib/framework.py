@@ -294,7 +294,7 @@ class SaveLoadMixin:
         Args:
             save_name (str): save name for likelihood. Defaults to None.
         """
-        self.likelihood.save_likelihood(save_name)
+        self.likelihood.save_likelihood(self.args.test_datetime, save_name)
 
 
 class ModelWidget(BaseModel, SaveLoadMixin):

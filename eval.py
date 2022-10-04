@@ -3,23 +3,10 @@
 
 import argparse
 from pathlib import Path
-import re
 import pandas as pd
 from lib import set_eval, set_logger
 from lib import Logger as logger
 from typing import List
-
-
-def _get_latest_eval_datetime(eval_dir: str) -> str:
-    """
-        Return the latest directory to be evaluated.
-
-        Returns:
-            str: directory name indicating date name, eg. 2022-01-02-13-30-20
-        """
-    date_names = [path for path in Path(eval_dir, 'results/sets').glob('*') if re.search(r'\d+', str(path))]
-    latest = max(date_names, key=lambda date_name: date_name.stat().st_mtime).name
-    return latest
 
 
 def check_eval_options() -> argparse.Namespace:
@@ -30,17 +17,50 @@ def check_eval_options() -> argparse.Namespace:
         argparse.Namespace: oprions
     """
     parser = argparse.ArgumentParser(description='Options for evaluation')
-    parser.add_argument('--task',          type=str, default=None, help='task at training. (Default: None)')
     parser.add_argument('--eval_dir',      type=str, default='baseset', help='directory contaning likekihood (Default: baseset)')
+    parser.add_argument('--eval_csv_name', type=str, default=None,      help='csv name likekihood (Default: None)')
     parser.add_argument('--eval_datetime', type=str, default=None,      help='date time for evaluation(Default: None)')
     args = parser.parse_args()
 
-    if args.eval_datetime is None:
-        setattr(args, 'eval_datetime', _get_latest_eval_datetime(args.eval_dir))
+    # Parse eval_datetime
+    setattr(args, 'eval_datetime', _get_path_eval_datetime(args.eval_dir, args.eval_datetime))
     return args
 
 
-def _collect_likelihood(likelihood_dirpath: Path) -> List[Path]:
+def _get_path_eval_datetime(eval_dir: str, eval_datetime: str = None) -> Path:
+    if eval_datetime is None:
+        _pattern = '*/sets/' + '*' + '/likelihoods'
+    else:
+        _pattern = '*/sets/' + eval_datetime + '/likelihoods'
+    _paths = list(path for path in Path(eval_dir, 'results').glob(_pattern))
+    assert (_paths != []), f"No likelihood in eval_datetime(={eval_datetime}) below in {eval_dir}."
+    eval_datetime_path = max(_paths, key=lambda datename: datename.stat().st_mtime).parent
+    return eval_datetime_path
+
+
+def _check_task(eval_datetime_dirpath: Path) -> str:
+    """
+    Return task, ie. classification, regression, or deepsurv
+    after finding parameter.csv in eval_datetime_dirpath.
+
+    Args:
+        eval_datetime (Path): date time to be evaluated
+
+    Returns:
+        str: task
+    """
+    # eval_datetime_dirpath =
+    # PosixPath('baseset/results/int_cla_multi_output_multi_class/sets/2022-10-04-10-16-27')
+    _baseset_dirpath = eval_datetime_dirpath.parents[3]  # Path('baseset')
+    _datetime = eval_datetime_dirpath.name               # '2022-10-04-10-16-27'
+    _parameter_paths = Path(_baseset_dirpath, 'results').glob('*/sets/' + _datetime + '/parameter.csv')
+    parameter_path = list(_parameter_paths)[0]  # should be one
+    df_args = pd.read_csv(parameter_path, index_col=0)
+    task = df_args.loc['task', 'parameter']
+    return task
+
+
+def _collect_likelihood(eval_datetime_dirpath: Path) -> List[Path]:
     """
     Return list of likelihood paths.
 
@@ -50,39 +70,21 @@ def _collect_likelihood(likelihood_dirpath: Path) -> List[Path]:
     Returns:
         List[Path]: list of likelihood paths
     """
-    likelihood_paths = list(likelihood_dirpath.glob('*.csv'))
-    assert likelihood_paths != [], f"No likelihood in {likelihood_paths}."
+    _likelihood_dirpath = Path(eval_datetime_dirpath, 'likelihoods')
+    likelihood_paths = list(_likelihood_dirpath.glob('*.csv'))
+    assert likelihood_paths != [], f"No likelihood in {eval_datetime_dirpath}."
     likelihood_paths.sort(key=lambda path: path.stat().st_mtime)
     return likelihood_paths
 
 
-def _check_task(eval_datetime) -> str:
-    """
-    Return task, ie. classificatio, regression, or deepsurv.
-
-    Args:
-        eval_datetime (str): date time to be evaluated
-
-    Returns:
-        str: task
-    """
-    parameter_path = Path(args.weight_dir, 'results/sets', eval_datetime, 'parameter.csv')
-    df_args = pd.read_csv(parameter_path, index_col=0)
-    task = df_args.loc['task', 'parameter']
-    return task
-
-
 def main(args):
-    _likelihood_dirpath = Path(args.eval_dir, 'results/sets', args.eval_datetime, 'likelihoods')
-    likelihood_paths = _collect_likelihood(_likelihood_dirpath)
-
-    # task = _check_task(args.eval_datetime)
-    task_eval = set_eval(args)
-
-    logger.logger.info(f"Calculating metrics of {args.task} for {args.eval_datetime}.\n")
+    likelihood_paths = _collect_likelihood(args.eval_datetime)
+    task = _check_task(args.eval_datetime)
+    task_eval = set_eval(task)
+    logger.logger.info(f"Calculating metrics of {task} for {args.eval_datetime}.\n")
     for likelihood_path in likelihood_paths:
         logger.logger.info(likelihood_path.name)
-        task_eval.make_metrics(args.eval_datetime, likelihood_path)
+        task_eval.make_metrics(likelihood_path)
         logger.logger.info('')
     logger.logger.info('\nUpdated summary.')
 

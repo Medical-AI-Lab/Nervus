@@ -133,19 +133,18 @@ class Options:
             _gpu_ids = '-'.join(_gpu_ids)
             return _gpu_ids
 
-    def _get_path_test_datetime(self, test_datetime: str = None) -> Path:
+    def _get_weight_path(self, test_datetime: str = None) -> Path:
         """
-        Return path to directory of test datetime, which is made at training, and
-        in which weight directory should exists, in addition parameter.csv, too.
-        If test_datetime is None, the latest test_datetime is returned.
-        eg. basesset/result/[csv_name]/sets/test_datetime
+        Return path to directory of weight of test datetime, which is made at training.
+        If test_datetime is None, the latest weight path is returned.
+        eg. [baseset_di]r/result/[csv_name]/sets/test_datetime/weight
 
         Args:
             test_datetime (str, optional): test datetime. Defaults to None.
 
         Returns:
             Path: path to directory of test datetime.
-            eg. PosixPath('baseset/results/int_csv_name_1/sets/2022-09-30-15-56-60')
+            eg. Path('[testset_dir]/results/[csv_name]/sets/2022-09-30-15-56-60')
         """
         if test_datetime is None:
             _pattern = '*/sets/' + '*' + '/weights'
@@ -153,8 +152,8 @@ class Options:
             _pattern = '*/sets/' + test_datetime + '/weights'
         _paths = list(path for path in Path(self.args.weight_dir, 'results').glob(_pattern))
         assert (_paths != []), f"No weight in test_datetime(={test_datetime}) below in {self.args.weight_dir}."
-        test_datetime_path = max(_paths, key=lambda datename: datename.stat().st_mtime).parent
-        return test_datetime_path
+        weight_path = max(_paths, key=lambda datename: datename.stat().st_mtime)
+        return weight_path
 
     def parse(self) -> None:
         """
@@ -166,7 +165,7 @@ class Options:
             setattr(self.args, 'csv_name', _csv_name)
 
             # image_path will be made in dataloader with
-            #  self.args.baseset_dir,
+            # self.args.baseset_dir,
             # 'images',
             # institution,
             # self.args.image_dir, and
@@ -179,12 +178,14 @@ class Options:
             _gpu_ids = self._parse_gpu_ids(self.args.gpu_ids)
             setattr(self.args, 'gpu_ids', _gpu_ids)
         else:
-            # This should contain weight and parameter.
-            _test_datetime = self._get_path_test_datetime(self.args.test_datetime)
-            setattr(self.args, 'test_datetime', _test_datetime)
+            _weight_path = self._get_weight_path(self.args.test_datetime)
+            setattr(self.args, 'weight_dir',  _weight_path)
 
-            _weight_dir = Path(self.args.test_datetime, 'weights')
-            setattr(self.args, 'weight_dir',  _weight_dir)
+            # self.args.test_datetime is parsed in setup_parameter_for_test().
+
+            # Path('baseset/results/int_cla_multi_output_multi_class/sets/2022-10-04-10-16-27/weight')
+            # _test_datetime = self.args.test_datetime
+            # setattr(self.args, 'test_datetime', _test_datetime)
 
     def _get_args(self) -> Dict[str, Union[str, float, int, None]]:
         """
@@ -215,7 +216,11 @@ class Options:
                 comment = ''
                 default = self.parser.get_default(k)
                 if isinstance(v, Path):
-                    str_v = Path(v).name
+                    if k == 'weight_dir':
+                        # v = [testset_dir]/results/[csv_name]/sets/[test_datetime]/weighs/
+                        str_v = str(Path(v).parents[4])  # ie. baseset
+                    else:
+                        str_v = Path(v).name
                 elif isinstance(v, list):
                     # k == 'gpu_ids'
                     if v == []:
@@ -247,7 +252,6 @@ class Options:
                 if isinstance(parameter, Path):
                     saved_args[option] = parameter.name
                 elif isinstance(parameter, list):
-                    # option == 'gpu_ids'
                     saved_args['gpu_ids'] = self._unparse_gpu_ids(parameter)
                 elif parameter is not None:
                     saved_args[option] = parameter
@@ -260,20 +264,6 @@ class Options:
         save_path = Path(save_dir, 'parameter.csv')
         df_parameter.to_csv(save_path, index=False)
 
-    def _get_train_paramater(self, df_args: pd.DataFrame, option: str) -> str:
-        """
-        Return parameter speficied by option.
-
-        Args:
-            df_args (pd.DataFrame): options and parameters
-            option (str): option
-
-        Returns:
-            str: parameter speficied by option
-        """
-        _parameter = df_args.loc[option, 'parameter']
-        return _parameter
-
     def setup_parameter_for_test(self) -> None:
         """
         Set up paramters for test by aligning parameters at trainig.
@@ -281,9 +271,11 @@ class Options:
         Note: self.args.weight_dir is directory not only
             in which weights are store but also parameter.csv at training.
         """
-        paramater_path = Path(self.args.test_datetime, 'parameter.csv')
-        df_args = pd.read_csv(paramater_path, index_col=0)
+        # self.args.weight_dir = Path('baseset/results/int_cla_multi_output_multi_class/sets/2022-10-04-10-16-27/weights')
+        _paramater_path = Path(self.args.weight_dir.parents[0], 'parameter.csv')
+        df_args = pd.read_csv(_paramater_path, index_col=0)
         no_need_at_test = [
+                            'baseset_dir',
                             'criterion',
                             'optimizer',
                             'lr',
@@ -294,12 +286,12 @@ class Options:
         df_args = df_args.drop(no_need_at_test)
 
         # Set up just options required for test
-        for option, parameter in df_args.iterrows():
+        for option, s_parameter in df_args.iterrows():
+            _parameter = s_parameter['parameter']
             if option == 'csv_name':
                 if self.args.csv_name is None:
                     # csv_name at the latest training is used,
-                    _train_csv_name = self._get_train_paramater(df_args, 'csv_name')
-                    _csv_name = Path(self.args.testset_dir, 'splits', _train_csv_name)
+                    _csv_name = Path(self.args.testset_dir, 'splits', _parameter)
                 else:
                     _csv_name = Path(self.args.testset_dir, 'splits', self.args.csv_name)
                 assert _csv_name.exists(), f"No such csv: {_csv_name}."
@@ -308,50 +300,53 @@ class Options:
             elif option == 'image_dir':
                 if self.args.image_dir is None:
                     # image_dir at the latest training is used.
-                    _train_image_dir = self._get_train_paramater(df_args, 'image_dir')
-                    _image_dir = _train_image_dir
-                    setattr(self.args, 'image_dir', _image_dir)
+                    setattr(self.args, 'image_dir',  _parameter)
                 else:
                     pass
-                    # image_path will be made in dataloader.
+                # image_path will be made in dataloader.
 
             elif option == 'model':
-                _model_name = self._get_train_paramater(df_args, 'model')
-                _mlp, _net = self._parse_model(_model_name)
-                setattr(self.args, 'model', _model_name)
+                _mlp, _net = self._parse_model(_parameter)
+                setattr(self.args, 'model', _parameter)
                 setattr(self.args, 'mlp', _mlp)
                 setattr(self.args, 'net', _net)
 
             elif option == 'task':
-                _task = self._get_train_paramater(df_args, 'task')
-                setattr(self.args, 'task', _task)
+                setattr(self.args, 'task', _parameter)
 
             elif option == 'in_channel':
-                _in_channel = self._get_train_paramater(df_args, 'in_channel')
-                setattr(self.args, 'in_channel', int(_in_channel))
+                setattr(self.args, 'in_channel', int(_parameter))
 
             elif option == 'vit_image_size':
-                _vit_image_size = self._get_train_paramater(df_args, 'vit_image_size')
-                setattr(self.args, 'vit_image_size', int(_vit_image_size))
+                setattr(self.args, 'vit_image_size', int(_parameter))
 
             elif option == 'gpu_ids':
-                _train_gpu_ids = self._get_train_paramater(df_args, 'gpu_ids')
-                _train_gpu_ids = self._parse_gpu_ids(_train_gpu_ids)
+                _train_gpu_ids = self._parse_gpu_ids(_parameter)
                 setattr(self.args, 'gpu_ids', _train_gpu_ids)
 
             elif option == 'normalize_image':
-                _normalize_image = self._get_train_paramater(df_args, 'normalize_image')
-                setattr(self.args, 'normalize_image', _normalize_image)
+                setattr(self.args, 'normalize_image', _parameter)
 
             else:
-                if parameter == 'None':
+                _parameter
+                if _parameter == 'None':
                     setattr(self.args, option, None)
                 else:
-                    setattr(self.args, option, parameter)
+                    setattr(self.args, option, _parameter)
 
             # The below should be 'no' when test.
             setattr(self.args, 'augmentation', 'no')
             setattr(self.args, 'sampler', 'no')
+
+        # self.args.weight_dir = Path('baseset/results/int_cla_multi_output_multi_class/sets/2022-10-04-10-16-27/weights')
+        _csv_name = self.args.csv_name.stem
+        if self.args.test_datetime is None:
+            _datetime = self.args.weight_dir.parents[0].name
+        else:
+            _datetime = self.args.test_datetime
+
+        _test_datetime = Path(self.args.testset_dir, 'results', _csv_name, 'sets', _datetime)
+        setattr(self.args, 'test_datetime', _test_datetime)
 
 
 def check_train_options() -> Options:

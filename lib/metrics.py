@@ -11,7 +11,6 @@ from matplotlib import colors as mcolors
 from lifelines.utils import concordance_index
 from .logger import Logger as logger
 from typing import Dict, Union
-import argparse
 
 
 class MetricsData:
@@ -329,7 +328,6 @@ class MetricsMixin:
     def make_summary(
                     self,
                     whole_metrics: Dict[str, Dict[str, LabelMetrics]],
-                    datetime: str,
                     likelihood_path: Path,
                     metrics_kind: str
                     ) -> pd.DataFrame:
@@ -338,17 +336,20 @@ class MetricsMixin:
 
         Args:
             whole_metrics (Dict[str, Dict[str, LabelMetrics]]): metrics for all institutions
-            datetime (str): date time
             likelihood_path (Path): path to likelihood
             metrics_kind (str): kind of metrics, ie, 'auc', 'r2', or 'c_index'
 
         Returns:
             pd.DataFrame: summary
         """
+        # likelihood_path =
+        # PosixPath('baseset/results/int_cla_multi_output_multi_class/sets/2022-10-04-10-16-27/likelihoods/likelihood_weight_epoch-003_best.csv')
+        _datetime_dirpath = likelihood_path.parents[1]  # Path('baseset/results/int_cla_multi_output_multi_class/sets/2022-10-04-10-16-27')
+
         df_summary = pd.DataFrame()
         for inst, inst_metrics in whole_metrics.items():
             _new = dict()
-            _new['datetime'] = [datetime]
+            _new['datetime'] = [_datetime_dirpath.name]  # '2022-10-04-10-16-27'
             _new['weight'] = [likelihood_path.stem.replace('likelihood_', '') + '.pt']
             _new['Institution'] = [inst]
             for raw_label_name, label_metrics in inst_metrics.items():
@@ -380,14 +381,18 @@ class MetricsMixin:
                 _label_name_test = _column_val_test[1]
                 logger.logger.info(f"{_label_name:<25} val_{metrics_kind}: {row[_label_name_val]:>7}, test_{metrics_kind}: {row[_label_name_test]:>7}")
 
-    def update_summary(self, df_summary: pd.DataFrame) -> None:
+    def update_summary(self, df_summary: pd.DataFrame, likelihood_path: Path) -> None:
         """
         Update summary.
 
         Args:
             df_summary (pd.DataFrame): summary to be added to the previous summary
+            likelihood_path (Path): path to likelihood
         """
-        summary_dir = Path(self.args.eval_dir, 'results/summary')
+        # likelihood_path =
+        # PosixPath('baseset/results/int_cla_multi_output_multi_class/sets/2022-10-04-10-16-27/likelihoods/likelihood_weight_epoch-003_best.csv')
+        _csv_name_dirpath = likelihood_path.parents[3]  # Path('baseset/results/int_cla_multi_output_multi_class')
+        summary_dir = Path(_csv_name_dirpath, 'summary')
         summary_path = Path(summary_dir, 'summary.csv')
         if summary_path.exists():
             df_prev = pd.read_csv(summary_path)
@@ -397,19 +402,18 @@ class MetricsMixin:
             df_updated = df_summary
         df_updated.to_csv(summary_path, index=False)
 
-    def make_metrics(self, eval_datetime: str, likelihood_path: Path) -> None:
+    def make_metrics(self, likelihood_path: Path) -> None:
         """
         Make metrics, substantially this method handles everthing all.
 
         Args:
-            eval_datetime (str): date time
             likelihood_path (Path): path to likelihood
         """
         whole_metrics = self.cal_whole_metrics(likelihood_path)
-        self.make_save_fig(whole_metrics, eval_datetime, likelihood_path, self.fig_kind)
-        df_summary = self.make_summary(whole_metrics, eval_datetime, likelihood_path, self.metrics_kind)
+        self.make_save_fig(whole_metrics, likelihood_path, self.fig_kind)
+        df_summary = self.make_summary(whole_metrics, likelihood_path, self.metrics_kind)
         self.print_metrics(df_summary, self.metrics_kind)
-        self.update_summary(df_summary)
+        self.update_summary(df_summary, likelihood_path)
 
 
 class FigROCMixin:
@@ -540,21 +544,24 @@ class FigMixin:
     Class for make and save figure
     This class is for ROC and YY-graph.
     """
-    def make_save_fig(self, whole_metrics: Dict[str, Dict[str, LabelMetrics]], datetime: str, likelihood_path: Path, fig_kind: str) -> None:
+    def make_save_fig(self, whole_metrics: Dict[str, Dict[str, LabelMetrics]], likelihood_path: Path, fig_kind: str) -> None:
         """
         Make and save figure.
 
         Args:
             whole_metrics (Dict[str, Dict[str, LabelMetrics]]): metrics for all institutions
-            datetime (str): date time
             likelihood_path (Path): path to likelihood
             fig_kind (str): kind of figure, ie. 'roc' or 'yy'
         """
+        # likelihood_path =
+        # PosixPath('baseset/results/int_cla_multi_output_multi_class/sets/2022-10-04-10-16-27/likelihoods/likelihood_weight_epoch-003_best.csv')
         for inst, inst_metrics in whole_metrics.items():
             fig = self._plot_fig_inst_metrics(inst, inst_metrics)
-            save_dir = Path(self.args.eval_dir, 'results/sets', datetime, fig_kind)
+            _datetime_dirpath = likelihood_path.parents[1]  # Path('baseset/results/int_cla_multi_output_multi_class/sets/2022-10-04-10-16-27')
+            save_dir = Path(_datetime_dirpath, fig_kind)
             save_dir.mkdir(parents=True, exist_ok=True)
-            save_path = Path(save_dir, inst + '_' + fig_kind + '_' + likelihood_path.stem.replace('likelihood_', '') + '.png')  # 'likelihood_weight_epoch-010_best.csv'  -> inst_roc_weight_epoch-010_best.png
+            # 'likelihood_weight_epoch-010_best.csv'  -> inst_roc_weight_epoch-010_best.png
+            save_path = Path(save_dir, inst + '_' + fig_kind + '_' + likelihood_path.stem.replace('likelihood_', '') + '.png')
             fig.savefig(save_path)
             plt.close()
 
@@ -563,12 +570,11 @@ class ClsEval(ROCMixin, MetricsMixin, FigROCMixin, FigMixin):
     """
     Class for calculation metrics for classification.
     """
-    def __init__(self, args: argparse.Namespace) -> None:
+    def __init__(self) -> None:
         """
         Args:
             args (argparse.Namespace): options
         """
-        self.args = args
         self.fig_kind = 'roc'
         self.metrics_kind = 'auc'
 
@@ -577,12 +583,11 @@ class RegEval(YYMixin, MetricsMixin, FigYYMixin, FigMixin):
     """
     Class for calculation metrics for regression.
     """
-    def __init__(self, args: argparse.Namespace) -> None:
+    def __init__(self) -> None:
         """
         Args:
             args (argparse.Namespace): options
         """
-        self.args = args
         self.fig_kind = 'yy'
         self.metrics_kind = 'r2'
 
@@ -591,33 +596,31 @@ class DeepSurvEval(C_IndexMixin, MetricsMixin):
     """
     Class for calculation metrics for DeepSurv.
     """
-    def __init__(self, args: argparse.Namespace) -> None:
+    def __init__(self) -> None:
         """
         Args:
             args (argparse.Namespace): options
         """
-        self.args = args
         self.fig_kind = None
         self.metrics_kind = 'c_index'
 
-    def make_metrics(self, eval_datetime: str, likelihood_path: Path) -> None:
+    def make_metrics(self, likelihood_path: Path) -> None:
         """
         Make metrics, substantially this method handles everthing all.
 
         Args:
-            eval_datetime (str): date time
             likelihood_path (Path): path to likelihood
 
         Orverwrite def make_metrics() in class MetricsMixin by deleteing self.make_save_fig(),
         ie. no need to plot and save figure.
         """
         whole_metrics = self.cal_whole_metrics(likelihood_path)
-        df_summary = self.make_summary(whole_metrics, eval_datetime, likelihood_path, self.metrics_kind)
+        df_summary = self.make_summary(whole_metrics, likelihood_path, self.metrics_kind)
         self.print_metrics(df_summary, self.metrics_kind)
-        self.update_summary(df_summary)
+        self.update_summary(df_summary, likelihood_path)
 
 
-def set_eval(args: argparse.Namespace) -> Union[ClsEval, RegEval, DeepSurvEval]:
+def set_eval(task: str) -> Union[ClsEval, RegEval, DeepSurvEval]:
     """
     Set class for evaluation depending on task depending on task.
 
@@ -627,11 +630,11 @@ def set_eval(args: argparse.Namespace) -> Union[ClsEval, RegEval, DeepSurvEval]:
     Returns:
         Union[ClsEval, RegEval, DeepSurvEval]: class for evaluation
     """
-    if args.task == 'classification':
-        return ClsEval(args)
-    elif args.task == 'regression':
-        return RegEval(args)
-    elif args.task == 'deepsurv':
-        return DeepSurvEval(args)
+    if task == 'classification':
+        return ClsEval()
+    elif task == 'regression':
+        return RegEval()
+    elif task == 'deepsurv':
+        return DeepSurvEval()
     else:
-        raise ValueError(f"Invalid task: {args.task}.")
+        raise ValueError(f"Invalid task: {task}.")
