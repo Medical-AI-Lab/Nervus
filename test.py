@@ -33,9 +33,7 @@ def main(opt):
     model = create_model(args)
     model.print_dataset_info()
 
-    _weight_dirpath = Path(args.weight_dir, 'results/sets', args.test_datetime, 'weights')
-    weight_paths = _collect_weight(_weight_dirpath)
-
+    weight_paths = _collect_weight(args.weight_dir)
     for weight_path in weight_paths:
         logger.logger.info(f"Inference with {weight_path.name}.")
 
@@ -52,7 +50,7 @@ def main(opt):
                     model.forward()
                     model.make_likelihood(data)
 
-        model.save_likelihood(weight_path.stem)  # weight_002
+        model.save_likelihood(weight_path.stem)  # eg. weight_002
 
 
 if __name__ == '__main__':

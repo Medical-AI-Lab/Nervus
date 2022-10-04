@@ -294,7 +294,7 @@ class Options:
         df_args = df_args.drop(no_need_at_test)
 
         # Set up just options required for test
-        for option, parameter in args_dict.items():
+        for option, parameter in df_args.iterrows():
             if option == 'csv_name':
                 if self.args.csv_name is None:
                     # csv_name at the latest training is used,
