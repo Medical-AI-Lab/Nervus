@@ -50,7 +50,7 @@ def main(opt):
                     model.forward()
                     model.make_likelihood(data)
 
-        model.save_likelihood(weight_path.stem)  # eg. weight_002
+        model.save_likelihood(weight_path.stem)
 
 
 if __name__ == '__main__':
