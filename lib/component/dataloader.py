@@ -66,7 +66,13 @@ class SplitProvider:
         _raw_label_list = list(_df_tmp.columns[_df_tmp.columns.str.startswith('label')])
         _class_name_in_raw_label = {}
         for raw_label_name in _raw_label_list:
-            class_list = _df_tmp[raw_label_name].value_counts().index.tolist()  # {'A', 'B', ... } DECENDING ORDER
+            _value_counts = _df_tmp[raw_label_name].value_counts()  # DECENDING ORDER
+            if _value_counts.dtype == 'int':
+                # If a label are assigned as integers,
+                # be sure to assign its internal label in ascending order to follow intuition.
+                class_list = sorted(_value_counts.index.tolist()) # if [1, 0] -> [0, 1]
+            else:
+                class_list = _value_counts.index.tolist()
             _class_name_in_raw_label[raw_label_name] = {}
             if (task == 'classification') or (task == 'deepsurv'):
                 for i, ith_class in enumerate(class_list):
