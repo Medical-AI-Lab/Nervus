@@ -32,7 +32,7 @@ done
 #11 in_channel,
 #12 save_weight,
 #13 gpu_ids
-total=$(tail -n +2 "$parameter_csv" | wc -l)
+total=$(tail -n +1 "$parameter_csv" | wc -l)
 i=1
 for row in $(tail -n +2 "$parameter_csv"); do
   task=$(echo "$row" | cut -d "," -f1)
