@@ -59,26 +59,26 @@ class SplitProvider:
         """
         # Make dict for labeling
         # _class_name_in_raw_label =
-        # {'label_1':{'A':0, 'B':1}, 'label_2':{'C':0, 'D':1, 'E':2}, ...}   classification
-        # {'label_1':{}, 'label_2':{}, ...}                                  regression
-        # {'label_1':{'A':0, 'B':1}}                                         deepsurv, should be 2 classes only
+        # {'label_1':{'A':0, 'B':1}, 'label_2':{'C':0, 'D':1, 'E':2}, 'label_3':{0: 0, 1: 1 ,,,}...}  classification
+        # {'label_1':{}, 'label_2':{}, ...}                                                           regression
+        # {'label_1':{'A':0, 'B':1}}                                                                  deepsurv, should be 2 classes only
         _df_tmp = df_source_excluded.copy()
         _raw_label_list = list(_df_tmp.columns[_df_tmp.columns.str.startswith('label')])
-        _class_name_in_raw_label = {}
+        _class_name_in_raw_label = dict()
         for raw_label_name in _raw_label_list:
-            _value_counts = _df_tmp[raw_label_name].value_counts()  # DECENDING ORDER
-            if _value_counts.dtype == 'int':
-                # If a label are assigned as integers,
-                # be sure to assign its internal label in ascending order to follow intuition.
-                class_list = sorted(_value_counts.index.tolist()) # if [1, 0] -> [0, 1]
-            else:
-                class_list = _value_counts.index.tolist()
-            _class_name_in_raw_label[raw_label_name] = {}
+            class_list = _df_tmp[raw_label_name].value_counts().index.tolist()  # DECENDING ORDER
+            _class_name_in_raw_label[raw_label_name] = dict()
             if (task == 'classification') or (task == 'deepsurv'):
                 for i, ith_class in enumerate(class_list):
-                    _class_name_in_raw_label[raw_label_name][ith_class] = i
+                    if isinstance(ith_class, int):
+                        # If a label are assigned as integers,
+                        # be sure to assign its internal label as itself to follow intuition.
+                        _class_name_in_raw_label[raw_label_name][ith_class] = ith_class
+                    else:
+                        _class_name_in_raw_label[raw_label_name][ith_class] = i
             else:
-                _class_name_in_raw_label[raw_label_name] = {}  # No need of labeling
+                # No need of labeling when regression
+                pass
 
         # Labeling
         for raw_label_name, class_name_in_raw_label in _class_name_in_raw_label.items():
