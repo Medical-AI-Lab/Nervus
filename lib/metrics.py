@@ -119,7 +119,7 @@ class ROCMixin:
             df_split = df_label.query('split == @split')
             y_true = df_split[raw_label_name]
             y_score = df_split[pred_positive_name]
-            _fpr, _tpr, _ = metrics.roc_curve(y_true, y_score, pos_label=positive_class)
+            _fpr, _tpr, _ = metrics.roc_curve(y_true.astype('str'), y_score, pos_label=positive_class)
             self._set_roc(label_metrics, split, _fpr, _tpr)
         return label_metrics
 

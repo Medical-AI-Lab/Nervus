@@ -48,7 +48,7 @@ class BaseLikelihood:
         pred_names = []
         class_names = self.class_name_in_raw_label[raw_label_name]
         for class_name in class_names.keys():
-            pred_name = 'pred_' + raw_label_name + '_' + class_name
+            pred_name = 'pred_' + raw_label_name + '_' + str(class_name)
             pred_names.append(pred_name)
         return pred_names
 
