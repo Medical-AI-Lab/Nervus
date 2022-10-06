@@ -296,6 +296,19 @@ class SaveLoadMixin:
         """
         self.likelihood.save_likelihood(self.args.test_datetime, save_name)
 
+    def save_split_provider(self):
+        # sefl.sp -> json.dump
+        sp = vars(self.sp)
+        sp.raw_label_list
+        sp.internal_label_list
+        sp.class_name_in_raw_label
+        sp.num_classes_in_internal_label
+        sp.input_list
+        sp.self.period_column
+
+    def load_split_provider(self):
+        pass
+
 
 class ModelWidget(BaseModel, SaveLoadMixin):
     """
