@@ -70,12 +70,7 @@ class SplitProvider:
             _class_name_in_raw_label[raw_label_name] = dict()
             if (task == 'classification') or (task == 'deepsurv'):
                 for i, ith_class in enumerate(class_list):
-                    if isinstance(ith_class, int):
-                        # If a label are assigned as integers,
-                        # be sure to assign its internal label as itself to follow intuition.
-                        _class_name_in_raw_label[raw_label_name][ith_class] = ith_class
-                    else:
-                        _class_name_in_raw_label[raw_label_name][ith_class] = i
+                    _class_name_in_raw_label[raw_label_name][ith_class] = i
             else:
                 # No need of labeling when regression
                 pass
