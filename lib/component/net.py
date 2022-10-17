@@ -78,37 +78,6 @@ class BaseNet:
                 'ViTH14': _classifier['ViT']
                 }
 
-    # attribute of input layer
-    _in_layrer = {
-            'ResNet': ['conv1'],                     # ._module.conv1
-            'DenseNet': ['features', 'conv0'],       # ._module.features.conv0
-            'EfficientNet': ['features', '0', '0'],  # ._module.features[0][0]
-            'ConvNeXt': ['features', '0', '0'],      # ._module.features[0][0]
-            'ViT': ['conv_proj']                     # ._module.conv_proj
-    }
-
-    in_layer = {
-                'ResNet18': _in_layrer['ResNet'],
-                'ResNet': _in_layrer['ResNet'],
-                'DenseNet': _in_layrer['DenseNet'],
-                'EfficientNetB0': _in_layrer['EfficientNet'],
-                'EfficientNetB2': _in_layrer['EfficientNet'],
-                'EfficientNetB4': _in_layrer['EfficientNet'],
-                'EfficientNetB6': _in_layrer['EfficientNet'],
-                'EfficientNetV2s': _in_layrer['EfficientNet'],
-                'EfficientNetV2m': _in_layrer['EfficientNet'],
-                'EfficientNetV2l': _in_layrer['EfficientNet'],
-                'ConvNeXtTiny': _in_layrer['ConvNeXt'],
-                'ConvNeXtSmall': _in_layrer['ConvNeXt'],
-                'ConvNeXtBase': _in_layrer['ConvNeXt'],
-                'ConvNeXtLarge': _in_layrer['ConvNeXt'],
-                'ViTb16': _in_layrer['ViT'],
-                'ViTb32': _in_layrer['ViT'],
-                'ViTl16': _in_layrer['ViT'],
-                'ViTl32': _in_layrer['ViT'],
-                'ViTH14': _in_layrer['ViT']
-                }
-
     mlp_config = {
                 'hidden_channels': [256, 256, 256],
                 'dropout': 0.2
@@ -177,6 +146,7 @@ class BaseNet:
             net_name (str): network name
             in_channel (int, optional): image channel(any of 1ch or 3ch). Defaults to None.
             vit_image_size (int, optional): image size which ViT handles if ViT is used. Defaults to None.
+                                            vit_image_size should be power of patch size.
 
         Returns:
             nn.Module: modified network
@@ -390,6 +360,39 @@ class BaseNet:
                                 )
         return aux_module
 
+    @classmethod
+    def get_last_extractor(cls, net: nn.Module, mlp: str, net_name: str) -> nn.Module:
+        """
+        Return the last extractor of network.
+        This is for Grad-CAM.
+        net should be one loaded weight.
+
+        Args:
+            net (nn.Module): network itself
+            mlp (str): 'MLP', otherwise None
+            net_name (str): network name
+
+        Returns:
+            nn.Module: last extractor of network
+        """
+        assert (net_name is not None), f"Network does not cotain CNN or ViT: mlp={mlp}, net={net_name}."
+
+        _extractor = net.extractor_net
+
+        if net_name.startswith('ResNet'):
+            last_extractor = _extractor.layer4[-1]
+        elif net_name.startswith('DenseNet'):
+            last_extractor = _extractor.features.denseblock4.denselayer24
+        elif net_name.startswith('EfficientNet'):
+            last_extractor = _extractor.features[-1]
+        elif net_name.startswith('ConvNeXt'):
+            last_extractor = _extractor.features[-1][-1].block
+        elif net_name.startswith('ViT'):
+            last_extractor = _extractor.encoder.layers[-1]
+        else:
+            raise ValueError(f"Cannot get last extractor of net: {net_name}.")
+        return last_extractor
+
 
 class MultiMixin:
     """
@@ -400,10 +403,10 @@ class MultiMixin:
         Forword out_features to classifier for each label.
 
         Args:
-            out_features (int): _description_
+            out_features (int): output from extractor
 
         Returns:
-            Dict[str, float]: _description_
+            Dict[str, float]: output of classifier of each label
         """
         output = dict()
         for internal_label_name, classifier in self.multi_classifier.items():
@@ -439,7 +442,8 @@ class MultiNet(MultiWidget):
         self.in_channel = in_channel
         self.vit_image_size = vit_image_size
 
-        self.extractor = self.constuct_extractor(self.net_name, mlp_num_inputs=self.mlp_num_inputs, in_channel=self.in_channel, vit_image_size=self.vit_image_size)
+        # self.extractor_net = MLP or CVmodel
+        self.extractor_net = self.constuct_extractor(self.net_name, mlp_num_inputs=self.mlp_num_inputs, in_channel=self.in_channel, vit_image_size=self.vit_image_size)
         self.multi_classifier = self.construct_multi_classifier(self.net_name, self.num_classes_in_internal_label)
 
     def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
@@ -452,7 +456,7 @@ class MultiNet(MultiWidget):
         Returns:
             Dict[str, torch.Tensor]: output
         """
-        out_features = self.extractor(x)
+        out_features = self.extractor_net(x)
         output = self.multi_forward(out_features)
         return output
 
