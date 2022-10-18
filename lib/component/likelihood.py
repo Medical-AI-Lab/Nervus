@@ -8,81 +8,82 @@ import torch
 import numpy
 
 
+# Alias of typing of return value of dataloader
+LabelDict = Dict[str, torch.Tensor]
+DataDict = Dict[str, Union[Path, torch.Tensor, torch.Tensor, LabelDict, int]]
+
+
 class BaseLikelihood:
     """
-    Class for making likelihood
+    Class for making likelihood.
+    Substantialy, this is for making likelihood for classification.
     """
-    def __init__(self, class_name_in_raw_label: Dict[str, Dict[str, int]], test_datetime_dirpath: Path) -> None:
+    def __init__(self, num_outputs_for_label: Dict[str, int], test_datetime_dirpath: Path) -> None:
         """
         Args:
-            class_name_in_raw_label (Dict[str, Dict[str, int]]): class names in each label
+            num_outputs_for_label (Dict[str, int]): number of classes for each label
             test_datetime_dirpath (Path): save path to save likelihood
         """
-        self.class_name_in_raw_label = class_name_in_raw_label
+
+        self.num_outputs_for_label = num_outputs_for_label
         self.test_datetime_dirpath = test_datetime_dirpath
         self.df_likelihood = pd.DataFrame()
 
-    def _convert_to_numpy(self, raw_data: torch.Tensor) -> numpy.ndarray:
+    def _convert_to_numpy(self, output: torch.Tensor) -> numpy.ndarray:
         """"
         Convert Tensor of output of model to numpy
 
         Args:
-            raw_data (torch.Tensor): output of model
+            output (torch.Tensor): output of model
 
         Returns:
-            numpy.ndarray: numpy of output of model to numpy
+            numpy.ndarray: numpy of output of model
         """
-        converted_data = raw_data.to('cpu').detach().numpy().copy()
+        converted_data = output.to('cpu').detach().numpy().copy()
         return converted_data
 
-    def _make_pred_names(self, raw_label_name: str) -> List[str]:
+    def _make_pred_names(self, label_name: str) -> List[str]:
         """
-        Create column names of predictions with raw label name and class name as suffix.
+        Create column names of predictions with label name and class name.
 
         Args:
-            raw_label_name (str): raw label name
+            label_name (str): label name
 
         Returns:
             List[str]: List column names with class name suffix.
         """
         pred_names = []
-        class_names = self.class_name_in_raw_label[raw_label_name]
-        for class_name in class_names.keys():
-            pred_name = 'pred_' + raw_label_name + '_' + str(class_name)
+        _num_outputs = self.num_outputs_for_label[label_name]
+        for ith_class in range(_num_outputs):
+            pred_name = 'pred_' + label_name + '_' + str(ith_class)
             pred_names.append(pred_name)
+
         return pred_names
 
     def make_likehood(
                     self,
-                    data: Dict[str, Union[str, int, Dict[str, int], float]],
+                    data: DataDict,
                     output: Dict[str, torch.Tensor]
                     ) -> None:
         """
         Make DataFrame of likelihood every batch
 
         Args:
-            data (Dict[str, Union[str, int, Dict[str, int], float]]): batch data from dataloader
+            data (DataDict): batch data from dataloader
             output (Dict[str, torch.Tensor]): output of model
         """
         _df_new = pd.DataFrame({
-                            'Filename': data['Filename'],
-                            'Institution': data['Institution'],
-                            'ExamID': data['ExamID'],
-                            'split': data['split']
+                            'imgpath': [str(imgpath) for imgpath in data['imgpath']]
                             })
 
-        for internal_label_name, output in output.items():
-            # raw_label
-            raw_label_name = internal_label_name.replace('internal_', '')
-            _df_raw_label = pd.DataFrame({
-                                    raw_label_name: data['raw_labels'][raw_label_name]
-                                    })
-            _df_new = pd.concat([_df_new, _df_raw_label], axis=1)
-
+        for label_name, output in output.items():
+            # label
+            _label_list = [int(label) for label in data['labels'][label_name]]
+            _df_label = pd.DataFrame({label_name: _label_list})
             # output
-            pred_names = self._make_pred_names(raw_label_name)
+            pred_names = self._make_pred_names(label_name)
             _df_output = pd.DataFrame(self._convert_to_numpy(output), columns=pred_names)
-            _df_new = pd.concat([_df_new, _df_output], axis=1)
+            _df_new = pd.concat([_df_new, _df_label, _df_output], axis=1)
 
         self.df_likelihood = pd.concat([self.df_likelihood, _df_new], ignore_index=True)
 
@@ -104,94 +105,82 @@ class ClsLikelihood(BaseLikelihood):
     """
     Class for likelihood of classification
     """
-    def __init__(self, class_name_in_raw_label: Dict[str, Dict[str, int]], test_datetime_dirpath: Path) -> None:
+    def __init__(self, num_outputs_for_label: Dict[str, int], test_datetime_dirpath: Path) -> None:
         """
         Args:
-            class_name_in_raw_label (Dict[str, Dict[str, int]]): class names in each label
+            num_outputs_for_label (Dict[str, int]): number of classes for each label
             test_datetime_dirpath (Path): save path to save likelihood
         """
-        super().__init__(class_name_in_raw_label, test_datetime_dirpath)
+        super().__init__(num_outputs_for_label, test_datetime_dirpath)
 
 
 class RegLikelihood(BaseLikelihood):
     """
     Class for likelihood of regression
     """
-    def __init__(self, class_name_in_raw_label: Dict[str, Dict[str, int]], test_datetime_dirpath: Path) -> None:
+    def __init__(self, num_outputs_for_label: Dict[str, int], test_datetime_dirpath: Path) -> None:
         """
         Args:
-            class_name_in_raw_label (Dict[str, Dict[str, int]]): class names in each label
+            num_outputs_for_label (Dict[str, int]): number of classes for each label
             test_datetime_dirpath (Path): save path to save likelihood
         """
-        super().__init__(class_name_in_raw_label, test_datetime_dirpath)
+        super().__init__(num_outputs_for_label, test_datetime_dirpath)
 
     # Orverwrite
-    def _make_pred_names(self, raw_label_name: str) -> List[str]:
+    def _make_pred_names(self, label_name: str) -> List[str]:
         """
-        Create column names of predictions with raw label name as suffix.
+        Create column names of predictions with label name.
 
         Args:
-            raw_label_name (str): raw label name
+            label_name (str): label name
 
         Returns:
             List[str]: List column names with class name suffix.
         """
         pred_names = []
-        pred_names.append('pred_' + raw_label_name)
+        pred_names.append('pred_' + label_name)
         return pred_names
-
-
-class DeepSurvLikelihood(RegLikelihood):
-    """
-    Class for likelihood of DeepSurv
-    """
-    def __init__(self, class_name_in_raw_label: Dict[str, Dict[str, int]], test_datetime_dirpath: Path) -> None:
-        """
-        Args:
-            class_name_in_raw_label (Dict[str, Dict[str, int]]): class names in each label
-            test_datetime_dirpath (Path): save path to save likelihood
-        """
-        super().__init__(class_name_in_raw_label, test_datetime_dirpath)
 
     # Orverwrite
     def make_likehood(
                     self,
-                    data: Dict[str, Dict[str, int]],
+                    data: DataDict,
                     output: Dict[str, torch.Tensor]
                     ) -> None:
         """
         Make DataFrame of likelihood every batch
 
         Args:
-            data (Dict[str, Dict[str, int]]): _description_
-            output (Dict[str, torch.Tensor]): _description_
+            data (DataDict): batch data from dataloader
+            output (Dict[str, torch.Tensor]): output of model
         """
-        _period_list = self._convert_to_numpy(data['period'])
         _df_new = pd.DataFrame({
-                            'Filename': data['Filename'],
-                            'Institution': data['Institution'],
-                            'ExamID': data['ExamID'],
-                            'split': data['split'],
-                            'period': [int(period) for period in _period_list]
+                            'imgpath': [str(imgpath) for imgpath in data['imgpath']]
                             })
 
-        for internal_label_name, output in output.items():
-            # raw_label, internal_label
-            raw_label_name = internal_label_name.replace('internal_', '')
-            _internal_label_list = self._convert_to_numpy(data['internal_labels'][internal_label_name])
-            internal_label_list = [int(internal_label) for internal_label in _internal_label_list]
-            _df_raw_label = pd.DataFrame({
-                                    raw_label_name: data['raw_labels'][raw_label_name],
-                                    internal_label_name: internal_label_list
-                                    })
-            _df_new = pd.concat([_df_new, _df_raw_label], axis=1)
-
+        for label_name, output in output.items():
+            # label
+            _label_list = [float(label) for label in data['labels'][label_name]]
+            _df_label = pd.DataFrame({label_name: _label_list})
             # output
-            pred_names = self._make_pred_names(raw_label_name)
+            pred_names = self._make_pred_names(label_name)
             _df_output = pd.DataFrame(self._convert_to_numpy(output), columns=pred_names)
-            _df_new = pd.concat([_df_new, _df_output], axis=1)
+            _df_new = pd.concat([_df_new, _df_label, _df_output], axis=1)
 
         self.df_likelihood = pd.concat([self.df_likelihood, _df_new], ignore_index=True)
+
+
+class DeepSurvLikelihood(RegLikelihood):
+    """
+    Class for likelihood of DeepSurv
+    """
+    def __init__(self, num_outputs_for_label: Dict[str, int], test_datetime_dirpath: Path) -> None:
+        """
+        Args:
+            num_outputs_for_label (Dict[str, int]): number of classes for each label
+            test_datetime_dirpath (Path): save path to save likelihood
+        """
+        super().__init__(num_outputs_for_label, test_datetime_dirpath)
 
 
 def set_likelihood(

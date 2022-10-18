@@ -29,34 +29,32 @@ class BaseModel(ABC):
             args (argparse.Namespace): options
         """
         self.args = args
-        self.sp = make_split_provider(args.csv_name, args.task)
+        self.sp = make_split_provider(self.args.csv_name, self.args.task)
+        _mlp_num_inputs = len(self.sp.input_list)
+        self.device = torch.device(f"cuda:{self.args.gpu_ids[0]}") if self.args.gpu_ids != [] else torch.device('cpu')
 
-        self.task = args.task
-        self.mlp = self.args.mlp
-        self.net = self.args.net
-        self.internal_label_list = self.sp.internal_label_list
-        self.num_classes_in_internal_label = self.sp.num_classes_in_internal_label
-        self.mlp_num_inputs = len(self.sp.input_list)
-        self.in_channel = self.args.in_channel
-        self.vit_image_size = self.args.vit_image_size
-        self.gpu_ids = self.args.gpu_ids
+        self.network = create_net(
+                                self.args.mlp,
+                                self.args.net,
+                                self.sp.num_outputs_for_label,
+                                _mlp_num_inputs,
+                                self.args.in_channel,
+                                self.args.vit_image_size
+                                )
 
-        self.device = torch.device(f"cuda:{self.gpu_ids[0]}") if self.gpu_ids != [] else torch.device('cpu')
-        self.network = create_net(self.mlp, self.net, self.num_classes_in_internal_label, self.mlp_num_inputs, self.in_channel, self.vit_image_size)
-
-        self.isTrain = self.args.isTrain
         self._init_config_on_phase()
 
     def _init_config_on_phase(self):
-        if self.isTrain:
+        if self.args.isTrain:
             from .component import set_criterion, set_optimizer, create_loss_reg
             self.criterion = set_criterion(self.args.criterion, self.device)
             self.optimizer = set_optimizer(self.args.optimizer, self.network, self.args.lr)
-            self.loss_reg = create_loss_reg(self.task, self.criterion, self.internal_label_list, self.device)
+            self.loss_reg = create_loss_reg(self.args.task, self.criterion, self.sp.label_list, self.device)
             self.dataloaders = {split: create_dataloader(self.args, self.sp, split=split) for split in ['train', 'val']}
+
         else:
             from .component import set_likelihood
-            self.likelihood = set_likelihood(self.task, self.sp.class_name_in_raw_label, self.args.test_datetime)
+            self.likelihood = set_likelihood(self.args.task, self.sp.num_outputs_for_label, self.args.test_datetime)
             self.dataloaders = {split: create_dataloader(self.args, self.sp, split=split) for split in ['train', 'val', 'test']}
 
     def print_dataset_info(self) -> None:
@@ -84,10 +82,10 @@ class BaseModel(ABC):
         """
         Make model compute on the GPU.
         """
-        if self.gpu_ids != []:
+        if self.args.gpu_ids != []:
             assert torch.cuda.is_available(), 'No avalibale GPU on this machine.'
             self.network.to(self.device)
-            self.network = nn.DataParallel(self.network, device_ids=self.gpu_ids)
+            self.network = nn.DataParallel(self.network, device_ids=self.args.gpu_ids)
         else:
             pass
 
@@ -95,15 +93,12 @@ class BaseModel(ABC):
     def set_data(self, data):
         pass
         # data = {
-        #        'Filename': filename,
-        #        'ExamID': examid,
-        #        'Institution': institution,
-        #        'raw_labels': raw_label_dict,
-        #        'internal_labels': internal_label_dict,
-        #        'inputs': inputs_value,
-        #        'image': image,
-        #        'period': period,
-        #        'split': split
+        #         'imgpath': imgpath,
+        #         'inputs': inputs_value,
+        #         'image': image,
+        #         'labels': label_dict,
+        #         'periods': periods,
+        #         'split': split
         #        }
 
     def multi_label_to_device(self, multi_label: Dict[str, Union[int, float]]) -> Dict[str, Union[int, float]]:
@@ -296,6 +291,7 @@ class SaveLoadMixin:
         """
         self.likelihood.save_likelihood(self.args.test_datetime, save_name)
 
+    """
     def save_split_provider(self):
         # sefl.sp -> json.dump
         sp = vars(self.sp)
@@ -308,6 +304,7 @@ class SaveLoadMixin:
 
     def load_split_provider(self):
         pass
+    """
 
 
 class ModelWidget(BaseModel, SaveLoadMixin):
@@ -336,7 +333,7 @@ class MLPModel(ModelWidget):
             data (Dict[str, Union[str, int, Dict[str, int], float]]): dictionary of data
         """
         self.inputs = data['inputs'].to(self.device)
-        self.multi_label = self.multi_label_to_device(data['internal_labels'])
+        self.multi_label = self.multi_label_to_device(data['labels'])
 
     def forward(self) -> None:
         """
@@ -440,7 +437,7 @@ class MLPDeepSurv(ModelWidget):
         """
         self.inputs = data['inputs'].to(self.device)
         self.multi_label = self.multi_label_to_device(data['internal_labels'])
-        self.period = data['period'].float().to(self.device)
+        self.periods = data['periods'].float().to(self.device)
 
     def forward(self) -> None:
         """
@@ -452,7 +449,7 @@ class MLPDeepSurv(ModelWidget):
         """
         Calculate loss for each bach.
         """
-        self.loss_reg.cal_batch_loss(self.multi_output, self.multi_label, self.period, self.network)
+        self.loss_reg.cal_batch_loss(self.multi_output, self.multi_label, self.periods, self.network)
 
 
 class CVDeepSurv(ModelWidget):
@@ -475,7 +472,7 @@ class CVDeepSurv(ModelWidget):
         """
         self.image = data['image'].to(self.device)
         self.multi_label = self.multi_label_to_device(data['internal_labels'])
-        self.period = data['period'].float().to(self.device)
+        self.periods = data['periods'].float().to(self.device)
 
     def forward(self) -> None:
         """
@@ -487,7 +484,7 @@ class CVDeepSurv(ModelWidget):
         """
         Calculate loss for each bach.
         """
-        self.loss_reg.cal_batch_loss(self.multi_output, self.multi_label, self.period, self.network)
+        self.loss_reg.cal_batch_loss(self.multi_output, self.multi_label, self.periods, self.network)
 
 
 class FusionDeepSurv(ModelWidget):
@@ -511,7 +508,7 @@ class FusionDeepSurv(ModelWidget):
         self.inputs = data['inputs'].to(self.device)
         self.image = data['image'].to(self.device)
         self.multi_label = self.multi_label_to_device(data['internal_labels'])
-        self.period = data['period'].float().to(self.device)
+        self.periods = data['periods'].float().to(self.device)
 
     def forward(self) -> None:
         """
@@ -523,7 +520,7 @@ class FusionDeepSurv(ModelWidget):
         """
         Calculate loss for bach bach.
         """
-        self.loss_reg.cal_batch_loss(self.multi_output, self.multi_label, self.period, self.network)
+        self.loss_reg.cal_batch_loss(self.multi_output, self.multi_label, self.periods, self.network)
 
 
 def create_model(args: argparse.Namespace) -> nn.Module:

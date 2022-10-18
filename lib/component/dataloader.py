@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from pathlib import Path
+from abc import ABC, abstractmethod
 import pandas as pd
 import numpy as np
 import torch
@@ -11,155 +12,188 @@ from torch.utils.data.dataloader import DataLoader
 from torch.utils.data.sampler import WeightedRandomSampler
 from PIL import Image
 from sklearn.preprocessing import MinMaxScaler
-from typing import List, Dict, Tuple, Union
+from typing import List, Dict, Union
 import argparse
 
 
-class SplitProvider:
+class BaseSplitProvider(ABC):
     """
-    Class to make label for each class and cast tabular data
+    Class to cast label and tabular data.
     """
-    def __init__(self, split_path: str, task: str) -> None:
+    def __init__(self, df_source) -> None:
         """
         Args:
-            split_path (Path): path to csv
-            task (str): task
+            df_source (DataFrame): DataFrame of csv
         """
-        self.split_path = Path(split_path)
-        self.task = task
+        self.label_list = list(df_source.columns[df_source.columns.str.startswith('label')])
+        self.input_list = list(df_source.columns[df_source.columns.str.startswith('input')])
 
-        _df_source = pd.read_csv(self.split_path)
-        _df_source_excluded = _df_source[_df_source['split'] != 'exclude'].copy()
-        _df_source_labeled, _class_name_in_raw_label = self._make_labelling(_df_source_excluded, self.task)
-        self.df_source = self._cast_csv(_df_source_labeled, self.task)
+    @abstractmethod
+    def _cast_csv(self) -> pd.DataFrame:
+        raise NotImplementedError
 
-        self.raw_label_list = list(self.df_source.columns[self.df_source.columns.str.startswith('label')])
-        self.internal_label_list = list(self.df_source.columns[self.df_source.columns.str.startswith('internal_label')])
-        self.class_name_in_raw_label = _class_name_in_raw_label
-        self.num_classes_in_internal_label = self._define_num_classes_in_internal_label(self.df_source, self.task)
-        self.input_list = list(self.df_source.columns[self.df_source.columns.str.startswith('input')])
+    @abstractmethod
+    def _define_num_outputs_for_label(self) -> Dict[str, int]:
+        raise NotImplementedError
 
-        if self.task == 'deepsurv':
-            self.period_column = list(self.df_source.columns[self.df_source.columns.str.startswith('period')])[0]
-        else:
-            self.period_column = None
 
-    # Labeling
-    def _make_labelling(self, df_source_excluded: pd.DataFrame, task: str) -> Tuple[pd.DataFrame, Dict[str, Dict[str, int]]]:
+class ClsSplitProvider(BaseSplitProvider):
+    """
+    Class to cast label and tabular data for classification.
+    """
+    def __init__(self, df_source: pd.DataFrame) -> None:
         """
-        Assign a number to the class name within each label
+        Args:
+            df_source (DataFrame): DataFrame of csv
+        """
+        super().__init__(df_source)
+
+        self.df_source = self._cast_csv(df_source)
+        self.num_outputs_for_label = self._define_num_outputs_for_label(self.df_source)
+
+    def _cast_csv(self, df_source: pd.DataFrame) -> pd.DataFrame:
+        """
+        Cast columns for classification.
 
         Args:
-            df_source_excluded (DataFrame): DataFrame of csv without 'exlucde'
-            task (str): task
+            df_source (DataFrame): DataFrame of csv
 
         Returns:
-            pd.DataFrame: DataFrame with columns assigned a number to the class name within each label,
-            Dict[str, int]: Dictionary with numbers assigned to class names within each label
+            pd.DataFrame: cast DataFrame of csv
         """
-        # Make dict for labeling
-        # _class_name_in_raw_label =
-        # {'label_1':{'A':0, 'B':1}, 'label_2':{'C':0, 'D':1, 'E':2}, 'label_3':{0: 0, 1: 1 ,,,}...}  classification
-        # {'label_1':{}, 'label_2':{}, ...}                                                           regression
-        # {'label_1':{'A':0, 'B':1}}                                                                  deepsurv, should be 2 classes only
-        _df_tmp = df_source_excluded.copy()
-        _raw_label_list = list(_df_tmp.columns[_df_tmp.columns.str.startswith('label')])
-        _class_name_in_raw_label = dict()
-        for raw_label_name in _raw_label_list:
-            class_list = _df_tmp[raw_label_name].value_counts().index.tolist()  # DECENDING ORDER
-            _class_name_in_raw_label[raw_label_name] = dict()
-            if (task == 'classification') or (task == 'deepsurv'):
-                for i, ith_class in enumerate(class_list):
-                    _class_name_in_raw_label[raw_label_name][ith_class] = i
-            else:
-                # No need of labeling when regression
-                pass
+        _cast_input = {input_name: float for input_name in self.input_list}
+        _cast_label = {label_name: int for label_name in self.label_list}
+        _cast = {**_cast_input, **_cast_label}
+        df_source_cast = df_source.astype(_cast)
+        return df_source_cast
 
-        # Labeling
-        for raw_label_name, class_name_in_raw_label in _class_name_in_raw_label.items():
-            _internal_label = raw_label_name.replace('label', 'internal_label')  # label_XXX -> internal_label_XXX
-            if (task == 'classification') or (task == 'deepsurv'):
-                for class_name, ground_truth in class_name_in_raw_label.items():
-                    _df_tmp.loc[_df_tmp[raw_label_name] == class_name, _internal_label] = ground_truth
-            else:
-                # When regression
-                _df_tmp[_internal_label] = _df_tmp[raw_label_name].copy()    # Just copy. Needed because internal_label_XXX will be cast later.
-
-        _df_source_labeled = _df_tmp.copy()
-        return _df_source_labeled, _class_name_in_raw_label
-
-    def _define_num_classes_in_internal_label(self, df_source: pd.DataFrame, task: str) -> Dict[str, int]:
+    def _define_num_outputs_for_label(self, df_source: pd.DataFrame) -> Dict[str, int]:
         """
-        Find the number of classes for each internal label
+        Define the number of outputs for each label.
 
         Args:
-            df_source (pd.DataFrame): DataFrame of csv
-            task (str): task
+            df_source (DataFrame): DataFrame of csv
 
         Returns:
-            Dict[str, int]: Number of classes for each internal label
+            Dict[str, int]: dictionary of the number of outputs for each label
+            eg. _num_outputs_for_label = {label_A: 2, label_B: 3, ...}
         """
-        # _num_classes_in_internal_label =
-        # {internal_label_output_1: 2, internal_label_output_2: 3, ...}   classification
-        # {internal_label_output_1: 1, internal_label_output_2: 1, ...}   regression,  should be 1
-        # {internal_label_output_1: 1}                                    deepsurv,    should be 1
-        _num_classes_in_internal_label = {}
-        _internal_label_list = list(df_source.columns[df_source.columns.str.startswith('internal_label')])
-        for internal_label_name in _internal_label_list:
-            if task == 'classification':
-                # Actually _num_classes_in_internal_label can be made from self.class_name_in_raw_label, however
-                # it might be natural to count the number of classes in each internal label.
-                _num_classes_in_internal_label[internal_label_name] = df_source[internal_label_name].nunique()
-            else:
-                # When regression or deepsurv
-                _num_classes_in_internal_label[internal_label_name] = 1
+        num_outputs_for_label = dict()
+        for label_name in self.label_list:
+            num_outputs_for_label[label_name] = df_source[label_name].nunique()
 
-        return _num_classes_in_internal_label
-
-    # Cast
-    def _cast_csv(self, df_source_labeled: pd.DataFrame, task: str) -> pd.DataFrame:
-        """
-        Cast columns as required by the task.
-
-        Args:
-            df_source_labeled (pd.DataFrame): DataFrame of labeled csv
-            task (str): task
-
-        Returns:
-            pd.DataFrame: cast DataFrame of cvs with labeling
-        """
-        # label_* : int
-        # input_* : float
-        _df_tmp = df_source_labeled.copy()
-        _input_list = list(_df_tmp.columns[_df_tmp.columns.str.startswith('input')])
-        _internal_label_list = list(_df_tmp.columns[_df_tmp.columns.str.startswith('internal_label')])
-
-        _cast_input_dict = {input: float for input in _input_list}
-
-        if task == 'classification':
-            _cast_internal_label_dict = {internal_label: int for internal_label in _internal_label_list}
-        else:
-            # When regression or deepsurv
-            _cast_internal_label_dict = {internal_label: float for internal_label in _internal_label_list}
-
-        _df_tmp = _df_tmp.astype(_cast_input_dict)
-        _df_tmp = _df_tmp.astype(_cast_internal_label_dict)
-        _df_casted = _df_tmp.copy()
-        return _df_casted
+        return num_outputs_for_label
 
 
-def make_split_provider(split_path: Path, task: str) -> SplitProvider:
+class RegSplitProvider(BaseSplitProvider):
     """
-    Format csv by making label dependinf on task.
+    Class to cast label and tabular data for regression.
+    """
+    def __init__(self, df_source: pd.DataFrame) -> None:
+        """
+        Args:
+            df_source (DataFrame): DataFrame of csv
+        """
+        super().__init__(df_source)
+
+        self.df_source = self._cast_csv(df_source)
+        self.num_outputs_for_label = self._define_num_outputs_for_label(self.df_source)
+
+    def _cast_csv(self, df_source: pd.DataFrame) -> pd.DataFrame:
+        """
+        Cast columns for regression.
+
+        Args:
+            df_source (DataFrame): DataFrame of csv
+
+        Returns:
+            pd.DataFrame: cast DataFrame of csv
+        """
+        _cast_input = {input_name: float for input_name in self.input_list}
+        _cast_label = {label_name: float for label_name in self.label_list}
+        _cast = {**_cast_input, **_cast_label}
+        df_source_cast = df_source.astype(_cast)
+        return df_source_cast
+
+    def _define_num_outputs_for_label(self) -> Dict[str, int]:
+        """
+        Define the number of outputs for each label.
+
+        Returns:
+            Dict[str, int]: dictionary of the number of outputs for each label
+            eg. _num_outputs_for_label = {label_A: 1, label_B: 1, ...}
+        """
+        num_outputs_in_label = {label_name: 1 for label_name in self.label_list}
+        return num_outputs_in_label
+
+
+class DeepSurvSplitProvider(BaseSplitProvider):
+    """
+    Class to cast label and tabular data for deepsurv.
+    """
+    def __init__(self, df_source: pd.DataFrame) -> None:
+        """
+        Args:
+            df_source (DataFrame): DataFrame of csv
+        """
+        super().__init__(df_source)
+
+        self.period_name = list(df_source.columns[df_source.columns.str.startswith('period')])[0]
+        self.df_source = self._cast_csv(df_source)
+        self.num_outputs_for_label = self._define_num_outputs_for_label(self.df_source)
+
+    def _cast_csv(self, df_source: pd.DataFrame) -> pd.DataFrame:
+        """
+        Cast columns for deepsurv.
+
+        Args:
+            df_source (DataFrame): DataFrame of csv
+
+        Returns:
+            pd.DataFrame: cast DataFrame of csv
+        """
+        _cast_input = {input_name: float for input_name in self.input_list}
+        _cast_label = {label_name: int for label_name in self.label_list}
+        _cast_period = {self.period_name: int}
+        _cast = {**_cast_input, **_cast_label, **_cast_period}
+        df_source_cast = df_source.astype(_cast)
+        return df_source_cast
+
+    def _define_num_outputs_for_label(self) -> Dict[str, int]:
+        """
+        Count the number of outputs for each label.
+
+        Returns:
+            Dict[str, int]: dictionalry of the number of outputs for each label
+            eg. _num_outputs_in_label = {label_A: 1}, where the number of label should be one.
+        """
+        num_outputs_for_label = {label_name: 1 for label_name in self.label_list}
+        return num_outputs_for_label
+
+
+def make_split_provider(csv_path: Path, task: str) -> Union[ClsSplitProvider, RegSplitProvider, DeepSurvSplitProvider]:
+    """
+    Parse csv by depending on task.
 
     Args:
-        split_path (Path): path to csv
+        csv_path (Path): path to csv
         task (str): task
 
     Returns:
-        SplitProvider: Object to DataFrame of labeled csv
+        Union[ClsSplitProvider, RegSplitProvider, DeepSurvSplitProvider]: SplitProvide for task
     """
-    sp = SplitProvider(split_path, task)
+
+    _df_source = pd.read_csv(csv_path)
+    _df_excluded = _df_source[_df_source['split'] != 'exclude'].copy()
+
+    if task == 'classification':
+        sp = ClsSplitProvider(_df_excluded)
+    elif task == 'regression':
+        sp = RegSplitProvider(_df_excluded)
+    elif task == 'deepsurv':
+        sp = DeepSurvSplitProvider(_df_excluded)
+    else:
+        raise ValueError(f"Invalid task: {task}.")
     return sp
 
 
@@ -190,10 +224,10 @@ class InputDataMixin:
         Returns:
             MinMaxScaler: scaler
         """
-        _scaler = MinMaxScaler()
+        scaler = MinMaxScaler()
         _df_train = self.df_source[self.df_source['split'] == 'train']  # should be normalized with min and max of training data
-        _ = _scaler.fit(_df_train[self.input_list])                     # fit only
-        return _scaler
+        _ = scaler.fit(_df_train[self.input_list])                      # fit only
+        return scaler
 
     def _load_input_value_if_mlp(self, idx: int) -> Union[torch.Tensor, str]:
         """
@@ -210,14 +244,13 @@ class InputDataMixin:
         if self.args.mlp is None:
             return inputs_value
 
-        index_input_list = [self.col_index_dict[input] for input in self.input_list]
-
         # When specifying iloc[[idx], index_input_list], pd.DataFrame is obtained,
         # it fits the input type of self.scaler.transform.
         # However, after normalizing, the shape of inputs_value is (1, N), where N is the number of input value.
-        # so, convert (1, N) -> (N,) by squeeze() so that calculating loss would work.
+        # tehrefore, convert (1, N) -> (N,) by squeeze() so that calculating loss would work.
+        index_input_list = [self.col_index_dict[input] for input in self.input_list]
         _df_inputs_value = self.df_split.iloc[[idx], index_input_list]
-        inputs_value = self.scaler.transform(_df_inputs_value).squeeze()  # normalize and squeeze() cenverts (1, 46) -> (46,)
+        inputs_value = self.scaler.transform(_df_inputs_value).squeeze()          # normalize and squeeze() converts (1, 46) -> (46,)
         inputs_value = np.array(inputs_value, dtype=np.float64)
         inputs_value = torch.from_numpy(inputs_value.astype(np.float32)).clone()  # numpy -> Tensor
         return inputs_value
@@ -225,7 +258,7 @@ class InputDataMixin:
 
 class ImageMixin:
     """
-    Class to normalizes and transforms image
+    Class to normalizes and transforms image.
     """
     def _make_augmentations(self) -> List:
         """
@@ -292,21 +325,13 @@ class ImageMixin:
         if self.args.net is None:
             return image
 
-        assert (self.args.image_dir is not None), 'Specify image_dir.'
-        institution = self.df_split.iat[idx, self.col_index_dict['Institution']]
-        filepath = self.df_split.iat[idx, self.col_index_dict['filepath']]
-        # eg. image_path = baseset/images/[Instituion]/png256/[filepath]
-        if self.args.isTrain:
-            image_path = Path(self.args.baseset_dir, 'images', institution, self.args.image_dir, filepath)
-        else:
-            image_path = Path(self.args.testset_dir, 'images', institution, self.args.image_dir, filepath)
-
         assert (self.args.in_channel is not None), 'Speficy in_channel by 1 or 3.'
+        imgpath = self.df_split.iat[idx, self.col_index_dict['imgpath']]
         if self.args.in_channel == 1:
-            image = Image.open(image_path).convert('L')
+            image = Image.open(imgpath).convert('L')
         else:
             # ie. self.args.in_channel == 3
-            image = Image.open(image_path).convert('RGB')
+            image = Image.open(imgpath).convert('RGB')
 
         image = self.augmentation(image)
         image = self.transform(image)
@@ -315,7 +340,7 @@ class ImageMixin:
 
 class DeepSurvMixin:
     """
-    Class to handle required data for deepsurv
+    Class to handle required data for deepsurv.
     """
     def _load_periods_if_deepsurv(self, idx: int) -> Union[int, str]:
         """
@@ -327,17 +352,16 @@ class DeepSurvMixin:
         Returns:
             Union[int, str]: period, or empty string
         """
-        period = ''
+        periods = ''
 
         if self.args.task != 'deepsurv':
-            return period
+            return periods
 
-        assert (self.args.task == 'deepsurv') and (len(self.internal_label_list)==1), 'Deepsurv cannot work in multi-label.'
-        period_key = [key for key in self.col_index_dict if key.startswith('period')][0]
-        period = self.df_split.iat[idx, self.col_index_dict[period_key]]
-        period = np.array(period, dtype=np.float64)
-        period = torch.from_numpy(period.astype(np.float32)).clone()
-        return period
+        assert (self.args.task == 'deepsurv') and (len(self.label_list) == 1), 'Deepsurv cannot work in multi-label.'
+        periods = self.df_split.iat[idx, self.col_index_dict[self.period_name]]
+        periods = np.array(periods, dtype=np.float64)
+        periods = torch.from_numpy(periods.astype(np.float32)).clone()
+        return periods
 
 
 class DataSetWidget(InputDataMixin, ImageMixin, DeepSurvMixin):
@@ -351,29 +375,30 @@ class LoadDataSet(Dataset, DataSetWidget):
     """
     Dataset for split.
     """
-    def __init__(self, args: argparse.Namespace, sp: SplitProvider, split: str) -> None:
+    def __init__(
+                self,
+                args: argparse.Namespace,
+                sp: Union[ClsSplitProvider, RegSplitProvider, DeepSurvSplitProvider],
+                split: str
+                ) -> None:
         """
         Args:
             args (argparse.Namespace): options
-            sp (SplitProvider): Object of Splitprovider
+            sp (Union[ClsSplitProvider, RegSplitProvider, DeepSurvSplitProvider]): Object of Splitprovider
             split (str): split
         """
-        super().__init__()
-
         self.args = args
-        self.sp = sp
         self.split = split
 
-        self.df_source = self.sp.df_source
-        self.df_split = self.df_source[self.df_source['split'] == self.split]
-
-        self.raw_label_list = self.sp.raw_label_list
-        self.internal_label_list = self.sp.internal_label_list
-        self.input_list = self.sp.input_list
+        self.input_list = sp.input_list
+        self.label_list = sp.label_list
+        self.df_source = sp.df_source
+        self.df_split = sp.df_source[sp.df_source['split'] == self.split]
 
         self.col_index_dict = {col_name: self.df_split.columns.get_loc(col_name) for col_name in self.df_split.columns}
 
         if (self.args.mlp is not None):
+            assert (self.input_list != []), 'No tabular data.'
             self.scaler = self._make_scaler()
 
         if (self.args.net is not None):
@@ -389,7 +414,11 @@ class LoadDataSet(Dataset, DataSetWidget):
         """
         return len(self.df_split)
 
-    def __getitem__(self, idx: int) -> Dict[str, Union[str, int, Dict[str, int], float]]:
+    # Alias of typing of return value of dataloader
+    LabelDict = Dict[str, torch.Tensor]
+    DataDict = Dict[str, Union[Path, torch.Tensor, torch.Tensor, LabelDict, int]]
+
+    def __getitem__(self, idx: int) -> DataDict:
         """
         Return data row specified by index.
 
@@ -397,27 +426,20 @@ class LoadDataSet(Dataset, DataSetWidget):
             idx (int): index
 
         Returns:
-            Dict[str, Union[str, int, Dict[str, int], float]]: dictionary of data
+            DataDict: dictionary of data
         """
-        filename = Path(self.df_split.iat[idx, self.col_index_dict['filepath']]).name
-        examid = self.df_split.iat[idx, self.col_index_dict['ExamID']]
-        institution = self.df_split.iat[idx, self.col_index_dict['Institution']]
-        raw_label_dict = {raw_label_name: self.df_split.iat[idx, self.col_index_dict[raw_label_name]] for raw_label_name in self.raw_label_list}
-        internal_label_dict = {internal_label_name: self.df_split.iat[idx, self.col_index_dict[internal_label_name]] for internal_label_name in self.internal_label_list}
+        imgpath = Path(self.df_split.iat[idx, self.col_index_dict['imgpath']])
         inputs_value = self._load_input_value_if_mlp(idx)
         image = self._load_image_if_cnn(idx)
-        period = self._load_periods_if_deepsurv(idx)
-        split = self.df_split.iat[idx, self.col_index_dict['split']]
+        label_dict = {label_name: self.df_split.iat[idx, self.col_index_dict[label_name]] for label_name in self.label_list}
+        periods = self._load_periods_if_deepsurv(idx)
+
         return {
-                'Filename': filename,
-                'ExamID': examid,
-                'Institution': institution,
-                'raw_labels': raw_label_dict,
-                'internal_labels': internal_label_dict,
+                'imgpath': imgpath,
                 'inputs': inputs_value,
                 'image': image,
-                'period': period,
-                'split': split
+                'labels': label_dict,
+                'periods': periods,
                 }
 
 
@@ -433,7 +455,7 @@ def _make_sampler(split_data: LoadDataSet) -> WeightedRandomSampler:
     """
     _target = []
     for _, data in enumerate(split_data):
-        _target.append(list(data['internal_labels'].values())[0])
+        _target.append(list(data['labels'].values())[0])
 
     class_sample_count = np.array([len(np.where(_target == t)[0]) for t in np.unique(_target)])
     weight = 1. / class_sample_count
@@ -442,14 +464,18 @@ def _make_sampler(split_data: LoadDataSet) -> WeightedRandomSampler:
     return sampler
 
 
-def create_dataloader(args: argparse.Namespace, sp: SplitProvider, split: str = None) -> DataLoader:
+def create_dataloader(
+                    args: argparse.Namespace,
+                    sp: Union[ClsSplitProvider, RegSplitProvider, DeepSurvSplitProvider],
+                    split: str = None
+                    ) -> DataLoader:
     """
     Creeate data loader ofr split.
 
     Args:
         args (argparse.Namespace): options
-        sp (SplitProvider): Object of SplitProvider
-        split (str, optional): split. Defaults to None.
+        sp (Union[ClsSplitProvider, RegSplitProvider, DeepSurvSplitProvider]): SplitProvider
+        split (str): split. Defaults to None.
 
     Returns:
         DataLoader: data loader
@@ -465,7 +491,7 @@ def create_dataloader(args: argparse.Namespace, sp: SplitProvider, split: str = 
     assert (args.sampler is not None), 'Specify sampler by yes or no.'
     if args.sampler == 'yes':
         assert ((args.task == 'classification') or (args.task == 'deepsurv')), 'Cannot make sampler in regression.'
-        assert (len(sp.raw_label_list) == 1), 'Cannot make sampler for multi-label.'
+        assert (len(sp.label_list) == 1), 'Cannot make sampler for multi-label.'
         shuffle = False
         sampler = _make_sampler(split_data)
     else:

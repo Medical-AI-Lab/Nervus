@@ -21,7 +21,6 @@ class Options:
 
         self.parser = argparse.ArgumentParser(description='Options for training or test')
         self.parser.add_argument('--csv_name',  type=str, default=None, help='csv name for training or external test (Default: None)')
-        self.parser.add_argument('--image_dir', type=str, default=None, help='directory of images for training or external test(Default: None)')
 
         if isTrain:
             # Dataset to make weight
@@ -161,16 +160,8 @@ class Options:
         """
         if self.args.isTrain:
             assert (self.args.csv_name is not None), 'Specify csv_name.'
-            _csv_name = Path(self.args.baseset_dir, 'splits', self.args.csv_name)
+            _csv_name = Path(self.args.baseset_dir, 'docs', self.args.csv_name)
             setattr(self.args, 'csv_name', _csv_name)
-
-            # image_path will be made in dataloader with
-            # self.args.baseset_dir,
-            # 'images',
-            # institution,
-            # self.args.image_dir, and
-            # filepathx
-
             _mlp, _net = self._parse_model(self.args.model)
             setattr(self.args, 'mlp', _mlp)
             setattr(self.args, 'net', _net)
@@ -180,12 +171,6 @@ class Options:
         else:
             _weight_path = self._get_weight_path(self.args.test_datetime)
             setattr(self.args, 'weight_dir',  _weight_path)
-
-            # self.args.test_datetime is parsed in setup_parameter_for_test().
-
-            # Path('baseset/results/int_cla_multi_output_multi_class/sets/2022-10-04-10-16-27/weight')
-            # _test_datetime = self.args.test_datetime
-            # setattr(self.args, 'test_datetime', _test_datetime)
 
     def _get_args(self) -> Dict[str, Union[str, float, int, None]]:
         """
@@ -297,14 +282,6 @@ class Options:
                 assert _csv_name.exists(), f"No such csv: {_csv_name}."
                 setattr(self.args, 'csv_name', _csv_name)
 
-            elif option == 'image_dir':
-                if self.args.image_dir is None:
-                    # image_dir at the latest training is used.
-                    setattr(self.args, 'image_dir',  _parameter)
-                else:
-                    pass
-                # image_path will be made in dataloader.
-
             elif option == 'model':
                 _mlp, _net = self._parse_model(_parameter)
                 setattr(self.args, 'model', _parameter)
@@ -338,13 +315,8 @@ class Options:
             setattr(self.args, 'augmentation', 'no')
             setattr(self.args, 'sampler', 'no')
 
-        # self.args.weight_dir = Path('baseset/results/int_cla_multi_output_multi_class/sets/2022-10-04-10-16-27/weights')
         _csv_name = self.args.csv_name.stem
-        if self.args.test_datetime is None:
-            _datetime = self.args.weight_dir.parents[0].name
-        else:
-            _datetime = self.args.test_datetime
-
+        _datetime = self.args.weight_dir.parents[0].name  # -> '2022-10-04-10-16-27'
         _test_datetime = Path(self.args.testset_dir, 'results', _csv_name, 'sets', _datetime)
         setattr(self.args, 'test_datetime', _test_datetime)
 
