@@ -40,7 +40,7 @@ def main(opt, date_name):
                         model.backward()
                         model.optimize_parameters()
 
-                model.cal_running_loss(batch_size=len(data['Filename']))
+                model.cal_running_loss(batch_size=len(data['imgpath']))
 
             model.cal_epoch_loss(epoch, phase, dataset_size=dataset_size)
 

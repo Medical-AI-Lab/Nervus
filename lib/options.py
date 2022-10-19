@@ -33,10 +33,10 @@ class Options:
             self.parser.add_argument('--model',           type=str,   default=None, help='model: MLP, CNN, ViT, or MLP+(CNN or ViT) (Default: None)')
 
             # Training and Internal validation
-            self.parser.add_argument('--criterion',       type=str,   default=None, help='criterion: CEL, MSE, RMSE, MAE, NLL (Default: None)')
-            self.parser.add_argument('--optimizer',       type=str,   default=None, help='optimzer: SGD, Adadelta, RMSprop, Adam, RAdam (Default: None)')
-            self.parser.add_argument('--lr',              type=float, default=0.001,metavar='N', help='learning rate: (Default: 0.001)')
-            self.parser.add_argument('--epochs',          type=int,   default=10,   metavar='N', help='number of epochs (Default: 10)')
+            self.parser.add_argument('--criterion',       type=str,   default=None,  help='criterion: CEL, MSE, RMSE, MAE, NLL (Default: None)')
+            self.parser.add_argument('--optimizer',       type=str,   default=None,  help='optimzer: SGD, Adadelta, RMSprop, Adam, RAdam (Default: None)')
+            self.parser.add_argument('--lr',              type=float, default=0.001, metavar='N', help='learning rate: (Default: 0.001)')
+            self.parser.add_argument('--epochs',          type=int,   default=10,    metavar='N', help='number of epochs (Default: 10)')
 
             # Batch size
             self.parser.add_argument('--batch_size',      type=int,   default=None, metavar='N', help='batch size in training (Default: None)')
@@ -149,6 +149,7 @@ class Options:
             _pattern = '*/sets/' + '*' + '/weights'
         else:
             _pattern = '*/sets/' + test_datetime + '/weights'
+
         _paths = list(path for path in Path(self.args.weight_dir, 'results').glob(_pattern))
         assert (_paths != []), f"No weight in test_datetime(={test_datetime}) below in {self.args.weight_dir}."
         weight_path = max(_paths, key=lambda datename: datename.stat().st_mtime)
@@ -276,9 +277,9 @@ class Options:
             if option == 'csv_name':
                 if self.args.csv_name is None:
                     # csv_name at the latest training is used,
-                    _csv_name = Path(self.args.testset_dir, 'splits', _parameter)
+                    _csv_name = Path(self.args.testset_dir, 'docs', _parameter)
                 else:
-                    _csv_name = Path(self.args.testset_dir, 'splits', self.args.csv_name)
+                    _csv_name = Path(self.args.testset_dir, 'docs', self.args.csv_name)
                 assert _csv_name.exists(), f"No such csv: {_csv_name}."
                 setattr(self.args, 'csv_name', _csv_name)
 

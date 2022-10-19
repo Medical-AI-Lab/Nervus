@@ -414,11 +414,7 @@ class LoadDataSet(Dataset, DataSetWidget):
         """
         return len(self.df_split)
 
-    # Alias of typing of return value of dataloader
-    LabelDict = Dict[str, torch.Tensor]
-    DataDict = Dict[str, Union[Path, torch.Tensor, torch.Tensor, LabelDict, int]]
-
-    def __getitem__(self, idx: int) -> DataDict:
+    def __getitem__(self, idx: int) -> Dict:
         """
         Return data row specified by index.
 
@@ -426,13 +422,14 @@ class LoadDataSet(Dataset, DataSetWidget):
             idx (int): index
 
         Returns:
-            DataDict: dictionary of data
+            Dict: dictionary of data to be passed model
         """
-        imgpath = Path(self.df_split.iat[idx, self.col_index_dict['imgpath']])
+        imgpath = self.df_split.iat[idx, self.col_index_dict['imgpath']]  #! If type(imgpath)==Path, error occurs.
         inputs_value = self._load_input_value_if_mlp(idx)
         image = self._load_image_if_cnn(idx)
         label_dict = {label_name: self.df_split.iat[idx, self.col_index_dict[label_name]] for label_name in self.label_list}
         periods = self._load_periods_if_deepsurv(idx)
+        split = self.df_split.iat[idx, self.col_index_dict['split']]
 
         return {
                 'imgpath': imgpath,
@@ -440,6 +437,7 @@ class LoadDataSet(Dataset, DataSetWidget):
                 'image': image,
                 'labels': label_dict,
                 'periods': periods,
+                'split': split
                 }
 
 

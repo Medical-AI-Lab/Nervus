@@ -29,17 +29,27 @@ class BaseModel(ABC):
             args (argparse.Namespace): options
         """
         self.args = args
-        self.sp = make_split_provider(self.args.csv_name, self.args.task)
+        self.csv_name = self.args.csv_name
+        self.task = self.args.task
+        self.mlp = self.args.mlp
+        self.net = self.args.net
+        self.in_channel = self.args.in_channel
+        self.vit_image_size = self.args.vit_image_size
+        self.gpu_ids = self.args.gpu_ids
+        self.device = torch.device(f"cuda:{self.gpu_ids[0]}") if self.gpu_ids != [] else torch.device('cpu')
+
+        self.sp = make_split_provider(self.csv_name, self.task)
+        self.label_list = self.sp.label_list
+        self.num_outputs_for_label = self.sp.num_outputs_for_label
         _mlp_num_inputs = len(self.sp.input_list)
-        self.device = torch.device(f"cuda:{self.args.gpu_ids[0]}") if self.args.gpu_ids != [] else torch.device('cpu')
 
         self.network = create_net(
-                                self.args.mlp,
-                                self.args.net,
-                                self.sp.num_outputs_for_label,
+                                self.mlp,
+                                self.net,
+                                self.num_outputs_for_label,
                                 _mlp_num_inputs,
-                                self.args.in_channel,
-                                self.args.vit_image_size
+                                self.in_channel,
+                                self.vit_image_size
                                 )
 
         self._init_config_on_phase()
@@ -47,14 +57,20 @@ class BaseModel(ABC):
     def _init_config_on_phase(self):
         if self.args.isTrain:
             from .component import set_criterion, set_optimizer, create_loss_reg
-            self.criterion = set_criterion(self.args.criterion, self.device)
-            self.optimizer = set_optimizer(self.args.optimizer, self.network, self.args.lr)
-            self.loss_reg = create_loss_reg(self.args.task, self.criterion, self.sp.label_list, self.device)
+            self.baseset_dir = self.args.baseset_dir
+            self.epochs = self.args.epochs
+            self.criterion = self.args.criterion
+            self.optimizer = self.args.optimizer
+            self.criterion = set_criterion(self.criterion, self.device)
+            self.optimizer = set_optimizer(self.optimizer, self.network, self.args.lr)
+            self.loss_reg = create_loss_reg(self.task, self.criterion, self.label_list, self.device)
             self.dataloaders = {split: create_dataloader(self.args, self.sp, split=split) for split in ['train', 'val']}
 
         else:
             from .component import set_likelihood
-            self.likelihood = set_likelihood(self.args.task, self.sp.num_outputs_for_label, self.args.test_datetime)
+            self.testset_dir = self.args.testset_dir
+            self.test_datetime = self.args.test_datetime
+            self.likelihood = set_likelihood(self.task, self.num_outputs_for_label, self.test_datetime)
             self.dataloaders = {split: create_dataloader(self.args, self.sp, split=split) for split in ['train', 'val', 'test']}
 
     def print_dataset_info(self) -> None:
@@ -82,10 +98,10 @@ class BaseModel(ABC):
         """
         Make model compute on the GPU.
         """
-        if self.args.gpu_ids != []:
+        if self.gpu_ids != []:
             assert torch.cuda.is_available(), 'No avalibale GPU on this machine.'
             self.network.to(self.device)
-            self.network = nn.DataParallel(self.network, device_ids=self.args.gpu_ids)
+            self.network = nn.DataParallel(self.network, device_ids=self.gpu_ids)
         else:
             pass
 
@@ -99,7 +115,7 @@ class BaseModel(ABC):
         #         'labels': label_dict,
         #         'periods': periods,
         #         'split': split
-        #        }
+        #        }: Dict[str, Union[str, torch.Tensor, torch.Tensor, Dict[str, Union[int, float]], int, str]]
 
     def multi_label_to_device(self, multi_label: Dict[str, Union[int, float]]) -> Dict[str, Union[int, float]]:
         """
@@ -111,8 +127,8 @@ class BaseModel(ABC):
         Returns:
             Dict[str, Union[int, float]]: dictionary of each label and its value which is on devide
         """
-        for internal_label_name, each_data in multi_label.items():
-            multi_label[internal_label_name] = each_data.to(self.device)
+        for label_name, each_data in multi_label.items():
+            multi_label[label_name] = each_data.to(self.device)
         return multi_label
 
     @abstractmethod
@@ -184,15 +200,15 @@ class BaseModel(ABC):
         Args:
             epoch (int): epoch number
         """
-        self.loss_reg.print_epoch_loss(self.args.epochs, epoch)
+        self.loss_reg.print_epoch_loss(self.epochs, epoch)
 
     # Lieklihood
-    def make_likelihood(self, data: Dict[str, Union[str, int, Dict[str, int], float]]) -> None:
+    def make_likelihood(self, data: Dict) -> None:
         """
         Make DataFrame of likelihood.
 
         Args:
-            data (Dict[str, Union[str, int, Dict[str, int], float]]): dictionary of each label and its value which is on devide
+            data (Dict): dictionary of each label and its value which is on devide
         """
         self.likelihood.make_likehood(data, self.get_output())
 
@@ -227,7 +243,7 @@ class SaveLoadMixin:
             as_best (bool): True if weight is saved as best, otherise False. Defaults to None.
         """
         assert isinstance(as_best, bool), 'Argument as_best should be bool.'
-        save_dir = Path(self.args.baseset_dir, 'results', self.args.csv_name.stem, 'sets', date_name, 'weights')
+        save_dir = Path(self.baseset_dir, 'results', self.csv_name.stem, 'sets', date_name, 'weights')
         save_dir.mkdir(parents=True, exist_ok=True)
         save_name = 'weight_epoch-' + str(self.acting_best_epoch).zfill(3) + '.pt'
         save_path = Path(save_dir, save_name)
@@ -265,16 +281,15 @@ class SaveLoadMixin:
         Args:
             date_name (str): save name for learning curve
         """
-        save_dir = Path(self.args.baseset_dir, 'results', self.args.csv_name.stem, 'sets', date_name, 'learning_curves')
+        save_dir = Path(self.baseset_dir, 'results', self.csv_name.stem, 'sets', date_name, 'learning_curves')
         save_dir.mkdir(parents=True, exist_ok=True)
         epoch_loss = self.loss_reg.epoch_loss
-        for internal_label_name in self.internal_label_list + ['total']:
-            each_epoch_loss = epoch_loss[internal_label_name]
+        for label_name in self.label_list + ['total']:
+            each_epoch_loss = epoch_loss[label_name]
             df_each_epoch_loss = pd.DataFrame({
                                                 'train_loss': each_epoch_loss.train,
                                                 'val_loss': each_epoch_loss.val
                                             })
-            label_name = internal_label_name.replace('internal_', '') if internal_label_name.startswith('internal') else 'total'
             best_epoch = str(each_epoch_loss.get_best_epoch()).zfill(3)
             best_val_loss = f"{each_epoch_loss.get_best_val_loss():.4f}"
             save_name = 'learning_curve_' + label_name + '_val-best-epoch-' + best_epoch + '_val-best-loss-' + best_val_loss + '.csv'
@@ -289,16 +304,14 @@ class SaveLoadMixin:
         Args:
             save_name (str): save name for likelihood. Defaults to None.
         """
-        self.likelihood.save_likelihood(self.args.test_datetime, save_name)
+        self.likelihood.save_likelihood(self.test_datetime, save_name)
 
     """
     def save_split_provider(self):
         # sefl.sp -> json.dump
         sp = vars(self.sp)
-        sp.raw_label_list
-        sp.internal_label_list
-        sp.class_name_in_raw_label
-        sp.num_classes_in_internal_label
+        sp.label_list
+        sp.num_classes_for_label
         sp.input_list
         sp.self.period_column
 
@@ -325,12 +338,12 @@ class MLPModel(ModelWidget):
         """
         super().__init__(args)
 
-    def set_data(self, data: Dict[str, Union[str, int, Dict[str, int], float]]) -> None:
+    def set_data(self, data: Dict) -> None:
         """
         Unpack data for forwarding of MLP.
 
         Args:
-            data (Dict[str, Union[str, int, Dict[str, int], float]]): dictionary of data
+            data (Dict): dictionary of data
         """
         self.inputs = data['inputs'].to(self.device)
         self.multi_label = self.multi_label_to_device(data['labels'])
@@ -359,15 +372,15 @@ class CVModel(ModelWidget):
         """
         super().__init__(args)
 
-    def set_data(self, data: Dict[str, Union[str, int, Dict[str, int], float]]) -> None:
+    def set_data(self, data: Dict) -> None:
         """
         Unpack data for forwarding of CNN or ViT Model.
 
         Args:
-            data (Dict[str, Union[str, int, Dict[str, int], float]]): dictionary of data
+            data (Dict): dictionary of data
         """
         self.image = data['image'].to(self.device)
-        self.multi_label = self.multi_label_to_device(data['internal_labels'])
+        self.multi_label = self.multi_label_to_device(data['labels'])
 
     def forward(self) -> None:
         """
@@ -393,16 +406,16 @@ class FusionModel(ModelWidget):
         """
         super().__init__(args)
 
-    def set_data(self, data: Dict[str, Union[str, int, Dict[str, int], float]]) -> None:
+    def set_data(self, data: Dict) -> None:
         """
         Unpack data for forwarding of MLP+CNN or MLP+ViT.
 
         Args:
-            data (Dict[str, Union[str, int, Dict[str, int], float]]): dictionary of data
+            data (Dict): dictionary of data
         """
         self.inputs = data['inputs'].to(self.device)
         self.image = data['image'].to(self.device)
-        self.multi_label = self.multi_label_to_device(data['internal_labels'])
+        self.multi_label = self.multi_label_to_device(data['labels'])
 
     def forward(self) -> None:
         """
@@ -428,15 +441,15 @@ class MLPDeepSurv(ModelWidget):
         """
         super().__init__(args)
 
-    def set_data(self, data: Dict[str, Union[str, int, Dict[str, int], float]]) -> None:
+    def set_data(self, data: Dict) -> None:
         """
         Unpack data for forwarding of DeepSurv model with MLP
 
         Args:
-            data (Dict[str, Union[str, int, Dict[str, int], float]]): dictionary of data
+            data (Dict): dictionary of data
         """
         self.inputs = data['inputs'].to(self.device)
-        self.multi_label = self.multi_label_to_device(data['internal_labels'])
+        self.multi_label = self.multi_label_to_device(data['labels'])
         self.periods = data['periods'].float().to(self.device)
 
     def forward(self) -> None:
@@ -463,15 +476,15 @@ class CVDeepSurv(ModelWidget):
         """
         super().__init__(args)
 
-    def set_data(self, data: Dict[str, Union[str, int, Dict[str, int], float]]) -> None:
+    def set_data(self, data: Dict) -> None:
         """
         Unpack data for forwarding of DeepSurv model with with CNN or ViT
 
         Args:
-            data (Dict[str, Union[str, int, Dict[str, int], float]]): dictionary of data
+            data (Dict): dictionary of data
         """
         self.image = data['image'].to(self.device)
-        self.multi_label = self.multi_label_to_device(data['internal_labels'])
+        self.multi_label = self.multi_label_to_device(data['labels'])
         self.periods = data['periods'].float().to(self.device)
 
     def forward(self) -> None:
@@ -498,16 +511,16 @@ class FusionDeepSurv(ModelWidget):
         """
         super().__init__(args)
 
-    def set_data(self, data: Dict[str, Union[str, int, Dict[str, int], float]]) -> None:
+    def set_data(self, data: Dict) -> None:
         """
         Unpack data for forwarding of DeepSurv with MLP+CNN or MLP+ViT.
 
         Args:
-            data (Dict[str, Union[str, int, Dict[str, int], float]]): dictionary of data
+            data (Dict): dictionary of data
         """
         self.inputs = data['inputs'].to(self.device)
         self.image = data['image'].to(self.device)
-        self.multi_label = self.multi_label_to_device(data['internal_labels'])
+        self.multi_label = self.multi_label_to_device(data['labels'])
         self.periods = data['periods'].float().to(self.device)
 
     def forward(self) -> None:

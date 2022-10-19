@@ -21,13 +21,10 @@ def check_eval_options() -> argparse.Namespace:
     parser.add_argument('--eval_csv_name', type=str, default=None,      help='csv name likekihood (Default: None)')
     parser.add_argument('--eval_datetime', type=str, default=None,      help='date time for evaluation(Default: None)')
     args = parser.parse_args()
-
-    # Parse eval_datetime
-    setattr(args, 'eval_datetime', _get_path_eval_datetime(args.eval_dir, args.eval_datetime))
     return args
 
 
-def _get_path_eval_datetime(eval_dir: str, eval_datetime: str = None) -> Path:
+def get_eval_datetime_path(eval_dir: str, eval_datetime: str = None) -> Path:
     if eval_datetime is None:
         _pattern = '*/sets/' + '*' + '/likelihoods'
     else:
@@ -78,6 +75,8 @@ def _collect_likelihood(eval_datetime_dirpath: Path) -> List[Path]:
 
 
 def main(args):
+    # Parse eval_datetime
+    setattr(args, 'eval_datetime', get_eval_datetime_path(args.eval_dir, args.eval_datetime))
     likelihood_paths = _collect_likelihood(args.eval_datetime)
     task = _check_task(args.eval_datetime)
     task_eval = set_eval(task)
