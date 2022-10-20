@@ -97,7 +97,7 @@ class RegSplitProvider(BaseSplitProvider):
         super().__init__(df_source)
 
         self.df_source = self._cast_csv(df_source)
-        self.num_outputs_for_label = self._define_num_outputs_for_label(self.df_source)
+        self.num_outputs_for_label = self._define_num_outputs_for_label()
 
     def _cast_csv(self, df_source: pd.DataFrame) -> pd.DataFrame:
         """
@@ -140,7 +140,7 @@ class DeepSurvSplitProvider(BaseSplitProvider):
 
         self.period_name = list(df_source.columns[df_source.columns.str.startswith('period')])[0]
         self.df_source = self._cast_csv(df_source)
-        self.num_outputs_for_label = self._define_num_outputs_for_label(self.df_source)
+        self.num_outputs_for_label = self._define_num_outputs_for_label()
 
     def _cast_csv(self, df_source: pd.DataFrame) -> pd.DataFrame:
         """
@@ -392,9 +392,10 @@ class LoadDataSet(Dataset, DataSetWidget):
 
         self.input_list = sp.input_list
         self.label_list = sp.label_list
+        if self.args.task == 'deepsurv':
+            self.period_name = sp.period_name
         self.df_source = sp.df_source
         self.df_split = sp.df_source[sp.df_source['split'] == self.split]
-
         self.col_index_dict = {col_name: self.df_split.columns.get_loc(col_name) for col_name in self.df_split.columns}
 
         if (self.args.mlp is not None):

@@ -107,8 +107,6 @@ class ROCMixin:
         """
         required_columns = list(df_inst.columns[df_inst.columns.str.contains(label_name)]) + ['split']
         df_label = df_inst[required_columns]
-        # pred_name_list = list(df_label.columns[df_label.columns.str.startswith('pred')])
-        # class_list = [int(pred_name.rsplit('_', 1)[-1]) for pred_name in pred_name_list]  # [pred_label_0, pred_label_1] -> [0, 1]
         POSITIVE = 1
         positive_pred_name = 'pred_' + label_name + '_' + str(POSITIVE)
 
@@ -173,7 +171,7 @@ class ROCMixin:
         Calculate ROC and AUC for label depending on binary or multi-class.
 
         Args:
-            label_name (str): raw label name
+            label_name (str):label name
             df_inst (pd.DataFrame): likelihood for institution
 
         Returns:
@@ -208,24 +206,24 @@ class YYMixin:
         label_metrics.set_label_metrics(split, 'y_pred', y_pred.values)
         label_metrics.set_label_metrics(split, self.metrics_kind, metrics.r2_score(y_obs, y_pred))
 
-    def cal_label_metrics(self, raw_label_name: str, df_inst: pd.DataFrame) -> LabelMetrics:
+    def cal_label_metrics(self, label_name: str, df_inst: pd.DataFrame) -> LabelMetrics:
         """
-        Calculate YY and R2 for raw label.
+        Calculate YY and R2 for label.
 
         Args:
-            raw_label_name (str): raw label name
+            label_name (str): label name
             df_inst (pd.DataFrame): likelihood for institution
 
         Returns:
             LabelMetrics: metrics of 'val' and 'test'
         """
-        required_columns = list(df_inst.columns[df_inst.columns.str.contains(raw_label_name)]) + ['split']
+        required_columns = list(df_inst.columns[df_inst.columns.str.contains(label_name)]) + ['split']
         df_label = df_inst[required_columns]
         label_metrics = LabelMetrics()
         for split in ['val', 'test']:
             df_split = df_label.query('split == @split')
-            y_obs = df_split[raw_label_name]
-            y_pred = df_split['pred_' + raw_label_name]
+            y_obs = df_split[label_name]
+            y_pred = df_split['pred_' + label_name]
             self._set_yy(label_metrics, split, y_obs, y_pred)
         return label_metrics
 
@@ -240,7 +238,7 @@ class C_IndexMixin:
                     split: str,
                     periods: pd.Series,
                     preds: pd.Series,
-                    internal_labels: pd.Series
+                    labels: pd.Series
                     ) -> None:
         """
         Set C-Index.
@@ -250,33 +248,33 @@ class C_IndexMixin:
             split (str): 'val' or 'test'
             periods (pd.Series): periods
             preds (pd.Series): prediction
-            internal_labels (pd.Series): internal label
+            labels (pd.Series): label
 
         self.metrics_kind = 'c_index' is defined in class DeepSurvEval below.
         """
-        value_c_index = concordance_index(periods, (-1)*preds, internal_labels)
+        value_c_index = concordance_index(periods, (-1)*preds, labels)
         label_metrics.set_label_metrics(split, self.metrics_kind, value_c_index)
 
-    def cal_label_metrics(self, raw_label_name: str, df_inst: pd.DataFrame) -> LabelMetrics:
+    def cal_label_metrics(self, label_name: str, df_inst: pd.DataFrame) -> LabelMetrics:
         """
-        Calculate C-Index for raw label.
+        Calculate C-Index for label.
 
         Args:
-            raw_label_name (str): raw label name
+            label_name (str): label name
             df_inst (pd.DataFrame): likelihood for institution
 
         Returns:
             LabelMetrics: metrics of 'val' and 'test'
         """
-        required_columns = list(df_inst.columns[df_inst.columns.str.contains(raw_label_name)]) + ['period', 'split']
+        required_columns = list(df_inst.columns[df_inst.columns.str.contains(label_name)]) + ['periods', 'split']
         df_label = df_inst[required_columns]
         label_metrics = LabelMetrics()
         for split in ['val', 'test']:
             df_split = df_label.query('split == @split')
-            periods = df_split['period']
-            preds = df_split['pred_' + raw_label_name]
-            internal_labels = df_split['internal_' + raw_label_name]
-            self._set_c_index(label_metrics, split, periods, preds, internal_labels)
+            periods = df_split['periods']
+            preds = df_split['pred_' + label_name]
+            labels = df_split[label_name]
+            self._set_c_index(label_metrics, split, periods, preds, labels)
         return label_metrics
 
 
@@ -364,11 +362,11 @@ class MetricsMixin:
             _new['datetime'] = [_datetime_dirpath.name]  # '2022-10-04-10-16-27'
             _new['weight'] = [likelihood_path.stem.replace('likelihood_', '') + '.pt']
             _new['Institution'] = [inst]
-            for raw_label_name, label_metrics in inst_metrics.items():
+            for label_name, label_metrics in inst_metrics.items():
                 _val_metrics = label_metrics.get_label_metrics('val', metrics_kind)
                 _test_metrics = label_metrics.get_label_metrics('test', metrics_kind)
-                _new[raw_label_name + '_val_' + metrics_kind] = [f"{_val_metrics:.2f}"]
-                _new[raw_label_name + '_test_' + metrics_kind] = [f"{_test_metrics:.2f}"]
+                _new[label_name + '_val_' + metrics_kind] = [f"{_val_metrics:.2f}"]
+                _new[label_name + '_test_' + metrics_kind] = [f"{_test_metrics:.2f}"]
             df_summary = pd.concat([df_summary, pd.DataFrame(_new)], ignore_index=True)
 
         df_summary = df_summary.sort_values('Institution')
@@ -445,22 +443,22 @@ class FigROCMixin:
         Returns:
             plt: ROC
         """
-        raw_label_list = inst_metrics.keys()
+        label_list = inst_metrics.keys()
         num_rows = 1
-        num_cols = len(raw_label_list)
+        num_cols = len(label_list)
         base_size = 7
         height = num_rows * base_size
         width = num_cols * height
         fig = plt.figure(figsize=(width, height))
 
-        for i, raw_label_name in enumerate(raw_label_list):
-            label_metrics = inst_metrics[raw_label_name]
+        for i, label_name in enumerate(label_list):
+            label_metrics = inst_metrics[label_name]
             offset = i + 1
             ax_i = fig.add_subplot(
                                     num_rows,
                                     num_cols,
                                     offset,
-                                    title=inst + ': ' + raw_label_name,
+                                    title=inst + ': ' + label_name,
                                     xlabel='1 - Specificity',
                                     ylabel='Sensitivity',
                                     xmargin=0,
@@ -489,17 +487,17 @@ class FigYYMixin:
         Returns:
             plt: YY-graph
         """
-        raw_label_list = inst_metrics.keys()
+        label_list = inst_metrics.keys()
         num_splits = len(['val', 'test'])
         num_rows = 1
-        num_cols = len(raw_label_list) * num_splits
+        num_cols = len(label_list) * num_splits
         base_size = 7
         height = num_rows * base_size
         width = num_cols * height
         fig = plt.figure(figsize=(width, height))
 
-        for i, raw_label_name in enumerate(raw_label_list):
-            label_metrics = inst_metrics[raw_label_name]
+        for i, label_name in enumerate(label_list):
+            label_metrics = inst_metrics[label_name]
             val_offset = (i * num_splits) + 1
             test_offset = val_offset + 1
 
@@ -507,7 +505,7 @@ class FigYYMixin:
                                     num_rows,
                                     num_cols,
                                     val_offset,
-                                    title=inst + ': ' + raw_label_name + '\n' + 'val: Observed-Predicted Plot',
+                                    title=inst + ': ' + label_name + '\n' + 'val: Observed-Predicted Plot',
                                     xlabel='Observed',
                                     ylabel='Predicted',
                                     xmargin=0,
@@ -518,7 +516,7 @@ class FigYYMixin:
                                     num_rows,
                                     num_cols,
                                     test_offset,
-                                    title=inst + ': ' + raw_label_name + '\n' + 'test: Observed-Predicted Plot',
+                                    title=inst + ': ' + label_name + '\n' + 'test: Observed-Predicted Plot',
                                     xlabel='Observed',
                                     ylabel='Predicted',
                                     xmargin=0,
@@ -617,7 +615,7 @@ class DeepSurvEval(MetricsMixin, C_IndexMixin):
         because of no need to plot and save figure.
         """
         df_likelihood = pd.read_csv(likelihood_path)
-        _df_likelihood = self.make_format_likelihood(df_likelihood)
+        _df_likelihood = self.make_format(df_likelihood)
         whole_metrics = self.cal_whole_metrics(_df_likelihood)
         df_summary = self.make_summary(whole_metrics, likelihood_path, self.metrics_kind)
         self.print_metrics(df_summary, self.metrics_kind)
