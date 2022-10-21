@@ -217,16 +217,23 @@ class InputDataMixin:
     """
     Class to normalizes input data.
     """
-    def _make_scaler(self) -> MinMaxScaler:
+    def _make_scaler(self, load: Path = None) -> MinMaxScaler:
         """
         Normalizes inputa data by min-max normalization with train data.
+
+        Args:
+            load (Path, optional): path to dumpe slacer. Defaults to None.
 
         Returns:
             MinMaxScaler: scaler
         """
-        scaler = MinMaxScaler()
-        _df_train = self.df_source[self.df_source['split'] == 'train']  # should be normalized with min and max of training data
-        _ = scaler.fit(_df_train[self.input_list])                      # fit only
+        if load is None:
+            scaler = MinMaxScaler()
+            _df_train = self.df_source[self.df_source['split'] == 'train']  # should be normalized with min and max of training data
+            _ = scaler.fit(_df_train[self.input_list])                      # fit only
+        else:
+            # load  scalaer
+            pass
         return scaler
 
     def _load_input_value_if_mlp(self, idx: int) -> Union[torch.Tensor, str]:

@@ -18,7 +18,7 @@ def check_eval_options() -> argparse.Namespace:
     """
     parser = argparse.ArgumentParser(description='Options for evaluation')
     parser.add_argument('--eval_dir',      type=str, default='baseset', help='directory contaning likekihood (Default: baseset)')
-    parser.add_argument('--eval_csv_name', type=str, default=None,      help='csv name likekihood (Default: None)')
+    # parser.add_argument('--eval_csv_name', type=str, default=None,      help='csv name likekihood (Default: None)')
     parser.add_argument('--eval_datetime', type=str, default=None,      help='date time for evaluation(Default: None)')
     args = parser.parse_args()
     return args

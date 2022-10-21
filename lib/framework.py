@@ -7,6 +7,9 @@ from abc import ABC, abstractmethod
 import pandas as pd
 import torch
 import torch.nn as nn
+import json
+import pickle
+
 from .component import (
                 make_split_provider,
                 create_dataloader,
@@ -28,8 +31,9 @@ class BaseModel(ABC):
         Args:
             args (argparse.Namespace): options
         """
+        # self.conf = args  # !!!!!!!!!!!!!
         self.args = args
-        self.csv_name = self.args.csv_name
+        self.csv_name = Path(self.args.csv_name)
         self.task = self.args.task
         self.mlp = self.args.mlp
         self.net = self.args.net
@@ -41,7 +45,8 @@ class BaseModel(ABC):
         self.sp = make_split_provider(self.csv_name, self.task)
         self.label_list = self.sp.label_list
         self.num_outputs_for_label = self.sp.num_outputs_for_label
-        _mlp_num_inputs = len(self.sp.input_list)
+        self.input_list = self.sp.input_list
+        _mlp_num_inputs = len(self.input_list)
 
         self.network = create_net(
                                 self.mlp,
@@ -70,7 +75,7 @@ class BaseModel(ABC):
             from .component import set_likelihood
             self.testset_dir = self.args.testset_dir
             self.test_datetime = self.args.test_datetime
-            self.likelihood = set_likelihood(self.task, self.num_outputs_for_label, self.test_datetime)
+            self.likelihood = set_likelihood(self.task, self.num_outputs_for_label, self.test_datetime)  # Grad-CAMの時はいらない
             self.dataloaders = {split: create_dataloader(self.args, self.sp, split=split) for split in ['train', 'val', 'test']}
 
     def print_dataset_info(self) -> None:
@@ -229,7 +234,7 @@ class SaveLoadMixin:
         self.acting_best_epoch = self.loss_reg.epoch_loss['total'].get_best_epoch()
         _network = copy.deepcopy(self.network)
         if hasattr(_network, 'module'):
-            # When DataParallel used
+            # When DataParallel used, move weight to CPU.
             self.acting_best_weight = copy.deepcopy(_network.module.to(torch.device('cpu')).state_dict())
         else:
             self.acting_best_weight = copy.deepcopy(_network.state_dict())
@@ -273,6 +278,51 @@ class SaveLoadMixin:
         # Make model compute on GPU after loading weight.
         self._enable_on_gpu_if_available()
 
+    # For model config
+    def save_config(self, date_name):
+        """
+        mlp
+        net
+        in_channel
+        vit_image_size
+
+        num_outputs_for_label   -> label_list
+        input_list              -> mlp_num_inputs
+
+        # splits
+
+        scaler
+        """
+        conf = dict()
+        # From  args
+        for option, parameter in vars(self.args).items():
+            if isinstance(parameter, Path):
+                conf[option] = str(parameter)
+            else:
+                conf[option] = parameter
+
+        # From split_provider
+        conf['num_outputs_for_label'] = self.num_outputs_for_label
+        conf['input_list'] = self.input_list
+        save_dir = Path(self.baseset_dir, 'results', self.csv_name.stem, 'sets', date_name)
+        conf['parameter_path'] = str(Path(save_dir, 'parameters.csv'))
+        conf['weight_dir'] = str(Path(save_dir, 'weights'))
+
+        # scaler
+        conf['scaler'] = str(Path(save_dir, 'scaler.pkl'))
+        scaler = self.dataloaders['train'].dataset.scaler     # Store scaler of dataloaders['train']
+        with open(conf['scaler'], 'wb') as f:
+            pickle.dump(scaler, f)
+
+        # Save conf
+        save_name = Path(save_dir, 'conf.json')
+        with open(save_name, 'w') as f:
+            json.dump(conf, f, indent=4)
+
+    def load_config(self, config_path):
+        with open(config_path) as f:
+            df = json.load(f)
+
     # For learning curve
     def save_learning_curve(self, date_name: str) -> None:
         """
@@ -296,6 +346,17 @@ class SaveLoadMixin:
             save_path = Path(save_dir, save_name)
             df_each_epoch_loss.to_csv(save_path, index=False)
 
+    """
+    def save_all(self, datetime):
+        save_dir = Path(self.baseset_dir, 'results', self.csv_name.stem, 'sets', date_name, 'weights')
+        makdir
+        datetime = ......
+        self.save_weight()
+        self.save_conf()
+        self.save_learning_curve()
+
+    """
+
     # For likelihood
     def save_likelihood(self, save_name: str) -> None:
         """
@@ -305,19 +366,6 @@ class SaveLoadMixin:
             save_name (str): save name for likelihood. Defaults to None.
         """
         self.likelihood.save_likelihood(self.test_datetime, save_name)
-
-    """
-    def save_split_provider(self):
-        # sefl.sp -> json.dump
-        sp = vars(self.sp)
-        sp.label_list
-        sp.num_classes_for_label
-        sp.input_list
-        sp.self.period_column
-
-    def load_split_provider(self):
-        pass
-    """
 
 
 class ModelWidget(BaseModel, SaveLoadMixin):

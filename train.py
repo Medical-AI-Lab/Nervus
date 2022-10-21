@@ -13,7 +13,7 @@ from lib import Logger as logger
 
 def main(opt, date_name):
     args = opt.args
-    model = create_model(args)
+    model = create_model(args)  #! model = create_model(conf)?
     model.print_dataset_info()
 
     for epoch in range(args.epochs):
@@ -51,8 +51,10 @@ def main(opt, date_name):
             if (epoch > 0) and (args.save_weight == 'each'):
                 model.save_weight(date_name, as_best=False)
 
-    model.save_weight(date_name, as_best=True)
     model.save_learning_curve(date_name)
+    model.save_weight(date_name, as_best=True)
+    model.save_config(date_name)
+    #! model.save_all()
     opt.save_parameter(date_name)
 
 

@@ -20,6 +20,8 @@ class Options:
         assert isinstance(isTrain, bool), 'isTrain should be bool.'
 
         self.parser = argparse.ArgumentParser(description='Options for training or test')
+
+        # The blow is common argument both at training and test.
         self.parser.add_argument('--csv_name',  type=str, default=None, help='csv name for training or external test (Default: None)')
 
         if isTrain:
@@ -132,7 +134,7 @@ class Options:
             _gpu_ids = '-'.join(_gpu_ids)
             return _gpu_ids
 
-    def _get_weight_path(self, test_datetime: str = None) -> Path:
+    def _get_weight_path(self, test_datetime: str = None) -> str:
         """
         Return path to directory of weight of test datetime, which is made at training.
         If test_datetime is None, the latest weight path is returned.
@@ -143,7 +145,7 @@ class Options:
 
         Returns:
             Path: path to directory of test datetime.
-            eg. Path('[testset_dir]/results/[csv_name]/sets/2022-09-30-15-56-60')
+            eg. '[testset_dir]/results/[csv_name]/sets/2022-09-30-15-56-60'
         """
         if test_datetime is None:
             _pattern = '*/sets/' + '*' + '/weights'
@@ -163,6 +165,7 @@ class Options:
             assert (self.args.csv_name is not None), 'Specify csv_name.'
             _csv_name = Path(self.args.baseset_dir, 'docs', self.args.csv_name)
             setattr(self.args, 'csv_name', _csv_name)
+
             _mlp, _net = self._parse_model(self.args.model)
             setattr(self.args, 'mlp', _mlp)
             setattr(self.args, 'net', _net)
@@ -201,14 +204,13 @@ class Options:
             else:
                 comment = ''
                 default = self.parser.get_default(k)
-                if isinstance(v, Path):
-                    if k == 'weight_dir':
-                        # v = [testset_dir]/results/[csv_name]/sets/[test_datetime]/weighs/
-                        str_v = str(Path(v).parents[4])  # ie. baseset
-                    else:
-                        str_v = Path(v).name
-                elif isinstance(v, list):
-                    # k == 'gpu_ids'
+                if k == 'csv_name':
+                    str_v = str(Path(v).name)
+                elif k == 'weight_dir':
+                    str_v = str(Path(v).parents[4])
+                elif k == 'test_datetime':
+                    str_v = str(Path(v).name)
+                elif k == 'gpu_ids':
                     if v == []:
                         str_v = 'CPU selected'
                     else:
@@ -235,17 +237,17 @@ class Options:
             if option in no_save:
                 pass
             else:
-                if isinstance(parameter, Path):
-                    saved_args[option] = parameter.name
-                elif isinstance(parameter, list):
-                    saved_args['gpu_ids'] = self._unparse_gpu_ids(parameter)
+                if option == 'csv_name':
+                    saved_args['csv_name'] = parameter.name
+                elif option == 'gpu_ids':
+                    saved_args['gpu_ids'] = self._unparse_gpu_ids(parameter) # [] -> '-1', [0, 1, 2] -> '0-1-2'
                 elif parameter is not None:
                     saved_args[option] = parameter
                 else:
                     saved_args[option] = 'None'
 
         df_parameter = pd.DataFrame(saved_args.items(), columns=['option', 'parameter'])
-        save_dir = Path(self.args.baseset_dir, 'results', self.args.csv_name.stem, 'sets', date_name)
+        save_dir = Path(self.args.baseset_dir, 'results', saved_args['csv_name'].replace('.csv', ''), 'sets', date_name)
         save_dir.mkdir(parents=True, exist_ok=True)
         save_path = Path(save_dir, 'parameter.csv')
         df_parameter.to_csv(save_path, index=False)
@@ -258,7 +260,7 @@ class Options:
             in which weights are store but also parameter.csv at training.
         """
         # self.args.weight_dir = Path('baseset/results/int_cla_multi_output_multi_class/sets/2022-10-04-10-16-27/weights')
-        _paramater_path = Path(self.args.weight_dir.parents[0], 'parameter.csv')
+        _paramater_path = Path(Path(self.args.weight_dir).parents[0], 'parameter.csv')
         df_args = pd.read_csv(_paramater_path, index_col=0)
         no_need_at_test = [
                             'baseset_dir',
@@ -317,9 +319,9 @@ class Options:
             setattr(self.args, 'sampler', 'no')
 
         _csv_name = self.args.csv_name.stem
-        _datetime = self.args.weight_dir.parents[0].name  # -> '2022-10-04-10-16-27'
+        _datetime = Path(self.args.weight_dir).parents[0].name  # -> '2022-10-04-10-16-27'
         _test_datetime = Path(self.args.testset_dir, 'results', _csv_name, 'sets', _datetime)
-        setattr(self.args, 'test_datetime', _test_datetime)
+        setattr(self.args, 'test_datetime', str(_test_datetime))
 
 
 def check_train_options() -> Options:

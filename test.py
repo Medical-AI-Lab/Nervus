@@ -30,7 +30,7 @@ def _collect_weight(weight_dirpath: Path) -> List[Path]:
 
 def main(opt):
     args = opt.args
-    model = create_model(args)
+    model = create_model(args)  #! model = create_model(conf)?
     model.print_dataset_info()
 
     weight_paths = _collect_weight(args.weight_dir)
