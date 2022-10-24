@@ -32,5 +32,6 @@ def set_optimizer(optimizer_name: str, network: nn.Module, lr: float) -> optim:
     """
     assert (optimizer_name in Optimizer.optimizers), f"No specified optimizer: {optimizer_name}."
 
-    opritmizer = Optimizer.optimizers[optimizer_name](network.parameters(), lr=lr)
+    opritmizer = Optimizer.optimizers[optimizer_name](network.parameters())
     return opritmizer
+

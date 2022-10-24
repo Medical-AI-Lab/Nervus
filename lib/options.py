@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from pathlib import Path
+import re
 import argparse
 import pandas as pd
 from .logger import Logger as logger
@@ -22,53 +23,44 @@ class Options:
         self.parser = argparse.ArgumentParser(description='Options for training or test')
 
         # The blow is common argument both at training and test.
-        self.parser.add_argument('--csv_name',  type=str, default=None, help='csv name for training or external test (Default: None)')
+        self.parser.add_argument('--csvpath',   type=str, required=True, help='path to csv for training or test')
 
         if isTrain:
-            # Dataset to make weight
-            self.parser.add_argument('--baseset_dir',     type=str,   default='baseset', help='directory of dataset for training (Default: baseset)')
-
             # Task
-            self.parser.add_argument('--task',            type=str,   choices=['classification', 'regression', 'deepsurv'], default=None, help='Task: classification or regression (Default: None)')
+            self.parser.add_argument('--task',  type=str, required=True, choices=['classification', 'regression', 'deepsurv'], help='Task')
 
             # Model
-            self.parser.add_argument('--model',           type=str,   default=None, help='model: MLP, CNN, ViT, or MLP+(CNN or ViT) (Default: None)')
+            self.parser.add_argument('--model', type=str, required=True, help='model: MLP, CNN, ViT, or MLP+(CNN or ViT)')
 
             # Training and Internal validation
-            self.parser.add_argument('--criterion',       type=str,   default=None,  help='criterion: CEL, MSE, RMSE, MAE, NLL (Default: None)')
-            self.parser.add_argument('--optimizer',       type=str,   default=None,  help='optimzer: SGD, Adadelta, RMSprop, Adam, RAdam (Default: None)')
-            self.parser.add_argument('--lr',              type=float, default=0.001, metavar='N', help='learning rate: (Default: 0.001)')
-            self.parser.add_argument('--epochs',          type=int,   default=10,    metavar='N', help='number of epochs (Default: 10)')
+            self.parser.add_argument('--criterion',       type=str,  required=True, choises=['CEL', 'MSE', 'RMSE', 'MAE', 'NLL'], help='criterion')
+            self.parser.add_argument('--optimizer',       type=str,  required=True, choices=['SGD', 'Adadelta', 'RMSprop', 'Adam', 'RAdam'], help='optimzer')
+            self.parser.add_argument('--lr',              type=float,               metavar='N', help='learning rate')
+            self.parser.add_argument('--epochs',          type=int,  default=10,    metavar='N', help='number of epochs (Default: 10)')
 
             # Batch size
-            self.parser.add_argument('--batch_size',      type=int,   default=None, metavar='N', help='batch size in training (Default: None)')
+            self.parser.add_argument('--batch_size',      type=int,  required=True, metavar='N', help='batch size in training')
 
             # Preprocess for image
-            self.parser.add_argument('--augmentation',    type=str,   choices=['xrayaug', 'trivialaugwide', 'randaug', 'no'], default=None,  help='kind of augmentation')
-            self.parser.add_argument('--normalize_image', type=str,   choices=['yes', 'no'], default='yes', help='image nomalization: yes, no (Default: yes)')
+            self.parser.add_argument('--augmentation',    type=str,  required=True, choices=['xrayaug', 'trivialaugwide', 'randaug', 'no'], help='kind of augmentation')
+            self.parser.add_argument('--normalize_image', type=str,                 choices=['yes', 'no'], default='yes', help='image nomalization: yes, no (Default: yes)')
 
             # Sampler
-            self.parser.add_argument('--sampler',         type=str,   choices=['yes', 'no'], default=None,  help='sample data in traning or not, yes or no (Default: None)')
+            self.parser.add_argument('--sampler',         type=str,  required=True, choices=['yes', 'no'], help='sample data in traning or not, yes or no')
 
             # Input channel
-            self.parser.add_argument('--in_channel',      type=int,   choices=[1, 3], default=None,  help='channel of input image (Default: None)')
-            self.parser.add_argument('--vit_image_size',  type=int,   default=0, help='input image size for ViT. Use 0 if not used image (Default: 0)')
+            self.parser.add_argument('--in_channel',      type=int,  required=True, choices=[1, 3], help='channel of input image')
+            self.parser.add_argument('--vit_image_size',  type=int,                 default=0,      help='input image size for ViT. Set 0 if not used ViT (Default: 0)')
 
             # Weight saving strategy
-            self.parser.add_argument('--save_weight',     type=str,   choices=['best', 'each'], default='best', help='Save weight: best, or each(ie. save each time loss decreases when multi-label output) (Default: best)')
+            self.parser.add_argument('--save_weight',     type=str,  choices=['best', 'each'], default='best', help='Save weight: best, or each(ie. save each time loss decreases when multi-label output) (Default: best)')
 
             # GPU Ids
-            self.parser.add_argument('--gpu_ids',         type=str,   default='-1', help='gpu ids: e.g. 0, 0-1-2, 0-2. Use -1 for CPU (Default: -1)')
+            self.parser.add_argument('--gpu_ids',         type=str,  default='-1', help='gpu ids: e.g. 0, 0-1-2, 0-2. Use -1 for CPU (Default: -1)')
 
         else:
-            # External dataset
-            self.parser.add_argument('--testset_dir',     type=str,  default='baseset', help='diretrory of internal dataset or external dataset (Default: baseset)')
-
             # Directry of weight at traning
-            self.parser.add_argument('--weight_dir',      type=str,  default='baseset', help='directory of weight to be used when test. This is concatenated with --test_datetime. (Default: baseset)')
-
-            # Test datatime
-            self.parser.add_argument('--test_datetime',   type=str,  default=None, help='date time when trained(Default: None)')
+            self.parser.add_argument('--weight_dir',      type=str,  default=None, help='directory of weight to be used when test. If None, the latest one is selected')
 
             # Test bash size
             self.parser.add_argument('--test_batch_size', type=int,  default=64, metavar='N', help='batch size for test (Default: 64)')
@@ -101,7 +93,7 @@ class Options:
         eg. '0-1-2' -> [0, 1, 2], '-1' -> []
 
         Args:
-            gpu_ids (str): comma-separated GPU Ids
+            gpu_ids (str): GPU Ids
 
         Returns:
             List[int]: list of GPU ids
@@ -134,38 +126,35 @@ class Options:
             _gpu_ids = '-'.join(_gpu_ids)
             return _gpu_ids
 
-    def _get_weight_path(self, test_datetime: str = None) -> str:
+    def _get_latest_weightdir(self, base_dir: str) -> str:
         """
-        Return path to directory of weight of test datetime, which is made at training.
-        If test_datetime is None, the latest weight path is returned.
-        eg. [baseset_di]r/result/[csv_name]/sets/test_datetime/weight
+        Return the latest path to directory of weight made at training.
 
         Args:
-            test_datetime (str, optional): test datetime. Defaults to None.
+            dase_dir (str): directory below in which imgs/ and docs/ are included.
 
         Returns:
-            Path: path to directory of test datetime.
-            eg. '[testset_dir]/results/[csv_name]/sets/2022-09-30-15-56-60'
-        """
-        if test_datetime is None:
-            _pattern = '*/sets/' + '*' + '/weights'
-        else:
-            _pattern = '*/sets/' + test_datetime + '/weights'
+            str: the latest path to directory of weight
+            eg. 'materials/results/[csv_name]/sets/2022-09-30-15-56-60/weights'
 
-        _paths = list(path for path in Path(self.args.weight_dir, 'results').glob(_pattern))
-        assert (_paths != []), f"No weight in test_datetime(={test_datetime}) below in {self.args.weight_dir}."
-        weight_path = max(_paths, key=lambda datename: datename.stat().st_mtime)
-        return weight_path
+        Note that parameter.json is in the same directory with the diretory of weight.
+        """
+        _pattern = 'results/*/sets/*/weights'
+        _dirs = list(path for path in Path(base_dir).glob(_pattern))
+        assert (_dirs != []), f"No weight in below in {base_dir}."
+        weight_dir = max(_dirs, key=lambda datename: datename.stat().st_mtime)
+        return str(weight_dir)
 
     def parse(self) -> None:
         """
         Parse options.
         """
-        if self.args.isTrain:
-            assert (self.args.csv_name is not None), 'Specify csv_name.'
-            _csv_name = Path(self.args.baseset_dir, 'docs', self.args.csv_name)
-            setattr(self.args, 'csv_name', _csv_name)
+        # eg. 'materials/docs/[csv_name].csv' -> 'materials'
+        #     'materials/covid/docs/[csv_name].csv' -> 'materials/covid'
+        _base_dir = re.findall('(.*)/docs', )[0]
+        setattr(self.args, 'base_dir', _base_dir)
 
+        if self.args.isTrain:
             _mlp, _net = self._parse_model(self.args.model)
             setattr(self.args, 'mlp', _mlp)
             setattr(self.args, 'net', _net)
@@ -173,8 +162,9 @@ class Options:
             _gpu_ids = self._parse_gpu_ids(self.args.gpu_ids)
             setattr(self.args, 'gpu_ids', _gpu_ids)
         else:
-            _weight_path = self._get_weight_path(self.args.test_datetime)
-            setattr(self.args, 'weight_dir',  _weight_path)
+            if self.args.weight_dir is None:
+                _weight_dir = self._get_latest_weight_dir(self.args.dase_dir)
+                setattr(self.args, 'weight_dir',  _weight_dir)
 
     def _get_args(self) -> Dict[str, Union[str, float, int, None]]:
         """
@@ -252,6 +242,7 @@ class Options:
         save_path = Path(save_dir, 'parameter.csv')
         df_parameter.to_csv(save_path, index=False)
 
+    #! train時のparameterとの整合整合性を取るのは、framework.py でする。
     def setup_parameter_for_test(self) -> None:
         """
         Set up paramters for test by aligning parameters at trainig.
@@ -346,6 +337,6 @@ def check_test_options() -> Options:
     """
     opt = Options(isTrain=False)
     opt.parse()
-    opt.setup_parameter_for_test()
+    # opt.setup_parameter_for_test()
     opt.print_options()
     return opt
