@@ -17,13 +17,17 @@ def check_eval_options() -> argparse.Namespace:
         argparse.Namespace: oprions
     """
     parser = argparse.ArgumentParser(description='Options for evaluation')
-    parser.add_argument('--eval_dir',      type=str, default='baseset', help='directory contaning likekihood (Default: baseset)')
-    # parser.add_argument('--eval_csv_name', type=str, default=None,      help='csv name likekihood (Default: None)')
-    parser.add_argument('--eval_datetime', type=str, default=None,      help='date time for evaluation(Default: None)')
+    parser.add_argument('--likelihood_path', type=str, default=None, help='Path likekihood (Default: None)')
     args = parser.parse_args()
     return args
 
 
+def _get_latest_eval_datetime():
+    date_names = [path for path in Path('./results/sets/').glob('*') if re.search(r'\d+', str(path))]
+    latest = max(date_names, key=lambda date_name: date_name.stat().st_mtime).name
+    return latest
+
+"""
 def get_eval_datetime_path(eval_dir: str, eval_datetime: str = None) -> Path:
     if eval_datetime is None:
         _pattern = '*/sets/' + '*' + '/likelihoods'
@@ -33,7 +37,7 @@ def get_eval_datetime_path(eval_dir: str, eval_datetime: str = None) -> Path:
     assert (_paths != []), f"No likelihood in eval_datetime(={eval_datetime}) below in {eval_dir}."
     eval_datetime_path = max(_paths, key=lambda datename: datename.stat().st_mtime).parent
     return eval_datetime_path
-
+"""
 
 def _check_task(eval_datetime_dirpath: Path) -> str:
     """

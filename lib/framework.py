@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from pathlib import Path
+import re
 import copy
 from abc import ABC, abstractmethod
 import pandas as pd
@@ -9,78 +10,159 @@ import torch
 import torch.nn as nn
 import json
 import pickle
-
 from .component import (
                 make_split_provider,
                 create_dataloader,
                 create_net
                 )
 from .logger import Logger as logger
-from typing import Dict, Union
+from typing import List, Dict, Union
 import argparse
 
 
-class ModelConf:
+"""
+#! testの時は、paramater.jsonの情報だけを使う
+#!
+# self.conf = args  # !!!!!!!!!!!!!
+self.args = args
+self.csv_name = Path(self.args.csv_name)
+self.task = self.args.task
+self.mlp = self.args.mlp
+self.net = self.args.net
+self.in_channel = self.args.in_channel
+self.vit_image_size = self.args.vit_image_size
+self.gpu_ids = self.args.gpu_ids
+self.device = torch.device(f"cuda:{self.gpu_ids[0]}") if self.gpu_ids != [] else torch.device('cpu')
+
+csvpath = self.args.csvpath
+task = self.args.task
+model = self.args.model
+criterion
+optimizer
+epochs
+batch_size
+augmentation
+normalize_image
+sampler
+in_channel
+vit_imgae_size
+save_weight
+gpu_ids
+self.mlp = self.args.mlp
+self.net = self.args.net
+
+
+#! testの時(internalもexternalも)、input_listも、label_listも args.csv_nameで指定されるcsvの情報は使わないから
+self.sp = make_split_provider(self.csv_name, self.task)  #! cast だけする
+self.df_source = self.sp.df_source
+self.label_list = list(self.df_source.columns[self.df_source.columns.str.startswith('label')])
+self.input_list = list(self.df_source.columns[self.df_source.columns.str.startswith('input')])
+self.mlp_num_inputs = len(self.input_list)
+self.num_outputs_for_label = self._define_num_outputs_for_label()
+if self.task == 'deepsurv':
+    self.period_name = list(self.df_source.columns[self.df_source.columns.str.startswith('period')])[0]
+
+#! testの時、ここで、sp とconfの整合性を合わす
+#! self.setup_config(.....)
+! testの時は、paramater.jsonの情報だけを使う
+# materials/covid/results/int_cla_single_output_bin_class_128/sets/2022-10-21-17-18-27/weights ->
+# materials/covid/results/int_cla_single_output_bin_class_128/sets/2022-10-21-17-18-27
+_parameter_path = (Path(self.args.weight_dir).parents[0] / 'parameters').with_suffix('.json')
+#! testの時、ここで、sp とconfの整合性を合わす
+#! self.setup_config(.....)
+#! testの時(internalもexternalも)、input_listも、label_listも args.csv_nameで指定されるcsvの情報は使わないから
+# base_dir
+# augmentation
+# ampler
+_paramater = self.load_paramater(_parameter_path)
+"""
+
+
+class ModelParam:
     """
     Set up configure for traning or test.
     Integrate args and parameters.
     """
     def __init__(self, args: argparse.Namespace) -> None:
-        self.args = args
-        self.setup_conf()
+        self._setup_parameters(args)
 
-    def setup_conf(self) -> None:
-        if self.args.isTrain:
-            """
-            self.csvpath = self.args.csvpath
-            self.task = self.args.task
-            self.model = self.args.model
-            criterion
-            optimizer
-            epochs
-            batch_size
-            augmentation
-            normalize_image
-            sampler
-            in_channel
-            vit_imgae_size
-            save_weight
-            gpu_ids
-            self.mlp = self.args.mlp
-            self.net = self.args.net
-            """
-            for param, args in vars(self.args):
-                setattr(self, param, args)
+    def _setup_parameters(self, args) -> None:
+        # Copy from args to param
+        # No overlap between options for training and test
+        for _param, _arg in vars(args).items():
+            setattr(self, _param, _arg)
 
-            self.device = torch.device(f"cuda:{self.gpu_ids[0]}") if self.gpu_ids != [] else torch.device('cpu')
-
-            # About csv
-            self.sp = make_split_provider(Path(self.csvpath), self.task)  #! cast だけ
-            self.df_source = self.sp.df_source
-            self.label_list = list(self.df_source.columns[self.df_source.columns.str.startswith('label')])
-            self.input_list = list(self.df_source.columns[self.df_source.columns.str.startswith('input')])
+        if self.isTrain:
+            sp = make_split_provider(self.csvpath, self.task)
+            self.input_list = list(sp.df_source.columns[sp.df_source.columns.str.startswith('input')])
+            self.label_list = list(sp.df_source.columns[sp.df_source.columns.str.startswith('label')])
             self.mlp_num_inputs = len(self.input_list)
-            self.num_outputs_for_label = self._define_num_outputs_for_label()
+            self.num_outputs_for_label = self._define_num_outputs_for_label(sp.df_source, self.label_list)
             if self.task == 'deepsurv':
-                self.period_name = list(self.df_source.columns[self.df_source.columns.str.startswith('period')])[0]
+                self.period_name = list(sp.df_source.columns[sp.df_source.columns.str.startswith('period')])[0]
 
+            self.dataloaders = {split: create_dataloader(self, sp.df_source, split=split) for split in ['train', 'val']}
         else:
-            #! testの時は、paramater.jsonの情報だけを使う
-            # materials/covid/results/int_cla_single_output_bin_class_128/sets/2022-10-21-17-18-27/weights ->
-            # materials/covid/results/int_cla_single_output_bin_class_128/sets/2022-10-21-17-18-27
-            _parameter_path = (Path(self.args.weight_dir).parents[0] / 'parameters').with_suffix('.json')
-            #! testの時、ここで、sp とconfの整合性を合わす
-            #! self.setup_config(.....)
-            #! testの時(internalもexternalも)、input_listも、label_listも　args.csv_nameで指定されるcsvの情報は使わないから
-            # base_dir
-            # augmentation
-            # ampler
-            _paramater = self.load_paramater(_parameter_path)
-            pass
+            # Load paramaters
+            # self.weight_dir = 'materials/covid/results/int_cla_single_output_bin_class_128/sets/2022-10-21-17-18-27/weights'
+            # -> 'materials/covid/results/int_cla_single_output_bin_class_128/sets/2022-10-21-17-18-27'
+            _save_datetime_dir = Path(self.weight_dir).parents[0]
+            parameter_path = Path(_save_datetime_dir, 'parameters.json')
+            parameters = self.load_parameter(parameter_path)
+            no_need_for_test = [
+                                'csvpath',
+                                'criterion',
+                                'optimizer',
+                                'lr',
+                                'epochs',
+                                'batch_size',
+                                'save_weight_policy',
+                                ]
 
-    def _define_num_outputs_for_label(self) -> Dict[str, int]:
+            # for _param, _arg in parameters.items():
+            #    if _param not in no_need_for_test:
+            #        setattr(self, _param, _arg)
+
+            # Align because of no need to apply the below at test
+            self.augmentation = 'no'
+            self.sampler = 'no'
+
+
+            # ! ここから整合性取る
+            # ! internalの情報とexternalの情報で
+
+            # Split_provider
+            # csvpathはオプションから、taskはparameterから取ってきたもの
+            sp = make_split_provider(self.csvpath, self.task)
+
+            # dataloaderへはtestのcsvの情報が優先?????
+            self.input_list = self.params.input_list  # ! testの時は、load_parameterから取ったものになる
+            self.label_list = self.params.label_list
+
+            self.dataloaders = {split: create_dataloader(self.params, split=split) for split in self.test_splits}
+
+        # --- Common ---
+        # dataset_dir
+        # csvpath is specified train.py or test.py
+        # eg. csvpath = 'materials/docs/[csv_name].csv' -> 'materials'
+        # csvpath exists both at training and test.
+        _dataset_dir = re.findall('(.*)/docs', self.csvpath)[0]
+        # self.dataset_dir = _dataset_dir
+        _csv_name = Path(self.csvpath).stem
+
+        # save_datetime_dir for saveing paramaters, weights, learning_curve, or likelihood
+        _save_datetime_dir = str(Path(_dataset_dir, 'results', _csv_name, 'sets', self.datetime))
+        self.save_datetime_dir = _save_datetime_dir
+
+        self.device = torch.device(f"cuda:{self.gpu_ids[0]}") if self.gpu_ids != [] else torch.device('cpu')
+
+    def _define_num_outputs_for_label(self, df_source: pd.DataFrame, label_list: List[str]) -> Dict[str, int]:
         """
         Define the number of outputs for each label.
+
+        Args:
+            df_source (pd.DataFrame): DataFrame of csv
+            label_list (List[str]): label list
 
         Returns:
             Dict[str, int]: dictionary of the number of outputs for each label
@@ -89,56 +171,92 @@ class ModelConf:
                 regression, deepsurv: _num_outputs_for_label = {label_A: 1, label_B: 1, ...}
         """
         if self.task == 'classification':
-            _num_outputs_for_label = {label_name: self.df_source[label_name].nunique() for label_name in self.label_list}
-
+            _num_outputs_for_label = {label_name: df_source[label_name].nunique() for label_name in label_list}
         elif (self.task == 'regression') or (self.task == 'deepsurv'):
-            _num_outputs_for_label = {label_name: 1 for label_name in self.label_list}
+            _num_outputs_for_label = {label_name: 1 for label_name in label_list}
         else:
             raise ValueError(f"Invalid task: {self.task}.")
         return _num_outputs_for_label
 
-    # For model config
-    def save_paramater(self, date_name):
+    def print_parameter(self):
         """
-        mlp
-        net
-        in_channel
-        vit_image_size
-
-        num_outputs_for_label   -> label_list
-        input_list              -> mlp_num_inputs
-
-        # splits
-
-        scaler
+        csvpath materials/covid/docs/int_cla_single_output_bin_class_128.csv
+        task classification
+        model MLP+ResNet18
+        criterion CEL
+        optimizer Adam
+        lr None
+        epochs 3
+        batch_size 64
+        augmentation xrayaug
+        normalize_image yes
+        sampler no
+        in_channel 1
+        vit_image_size 0
+        save_weight each
+        gpu_ids []
+        datetime 2022-10-26-14-04-56
+        isTrain True
+        mlp MLP
+        net ResNet18
+        input_list ['input_HR', 'input_sBP', 'input_RR', 'input_Sat', 'input_Leukocytes', 'input_CRP', 'input_Sodium', 'input_Potassium', 'input_AST', 'input_ALT', 'input_BUN', 'input_Cre', 'input_Lac', 'input_BNP', 'input_d-dimer', 'input_BMI', 'input_htn_v', 'input_dm_v', 'input_ckd_v', 'input_malignancies_v', 'input_age_splits_1', 'input_age_splits_2', 'input_lung_disease', 'input_heart_disease']
+        label_list ['label_last_status_1']
+        mlp_num_inputs 24
+        num_outputs_for_label {'label_last_status_1': 2}
+        dataloaders {'train': <torch.utils.data.dataloader.DataLoader object at 0x117cfcb10>, 'val': <torch.utils.data.dataloader.DataLoader object at 0x1625bfdd0>}
+        dataset_dir materials/covid
+        save_datetime_dir materials/covid/results/int_cla_single_output_bin_class_128/sets/2022-10-26-14-04-56
+        # device cpu
         """
-        conf = dict()
-        # From  args
-        for option, parameter in vars(self.args).items():
-            if isinstance(parameter, Path):
-                conf[option] = str(parameter)
-            else:
-                conf[option] = parameter
+        no_print = ['device']
+        for _param, _arg in vars(self).items():
+            print(_param, _arg)
 
-        # From split_provider
-        conf['num_outputs_for_label'] = self.num_outputs_for_label
-        conf['input_list'] = self.input_list
-        save_dir = Path(self.baseset_dir, 'results', self.csv_name.stem, 'sets', date_name)
-        conf['parameter_path'] = str(Path(save_dir, 'parameters.csv'))
-        conf['weight_dir'] = str(Path(save_dir, 'weights'))
+    def print_dataset_info(self) -> None:
+        """
+        Print dataset size for each split.
+        """
+        for split, dataloader in self.dataloaders.items():
+            total = len(dataloader.dataset)
+            logger.logger.info(f"{split:>5}_data = {total}")
+        logger.logger.info('')
 
-        # scaler
-        conf['scaler'] = str(Path(save_dir, 'scaler.pkl'))
-        scaler = self.dataloaders['train'].dataset.scaler     # Store scaler of dataloaders['train']
-        with open(conf['scaler'], 'wb') as f:
-            pickle.dump(scaler, f)
+    def save_parameter(self) -> None:
+        """
+        Save parameters.
+        """
+        # Delete params not to be saved.
+        # str(self.device) if saved.
+        no_save_params = [
+                        'dataloaders',
+                        'device',
+                        'save_datetime_dir',
+                        'datetime',
+                        'isTrain'
+                        ]
+        saved = dict()
+        for _param, _arg in vars(self).items():
+            if _param not in no_save_params:
+                saved[_param] = _arg
 
-        # Save conf
-        save_name = Path(save_dir, 'conf.json')
-        with open(save_name, 'w') as f:
-            json.dump(conf, f, indent=4)
+        # weight_dir
+        saved['weight_dir'] = str(Path(self.save_datetime_dir, 'weights'))
 
-    def load_paramater(self, parameter_path: Path) -> Dict:
+        # Save scaler
+        if hasattr(self.dataloaders['train'].dataset, 'scaler'):
+            scaler = self.dataloaders['train'].dataset.scaler
+            saved['scaler_path'] = str(Path(self.save_datetime_dir, 'scaler.pkl'))
+            with open(saved['scaler_path'], 'wb') as f:
+                pickle.dump(scaler, f)
+
+        # Save
+        save_dir = Path(self.save_datetime_dir)
+        save_dir.mkdir(parents=True, exist_ok=True)
+        save_path = str(Path(save_dir, 'parameters.json'))
+        with open(save_path, 'w') as f:
+            json.dump(saved, f, indent=4)
+
+    def load_parameter(self, parameter_path: Path) -> Dict:
         """
         Return dictionalry of parameters at training.
 
@@ -152,129 +270,67 @@ class ModelConf:
             parameters = json.load(f)
         return parameters
 
+    def align_paramaters_after_loading(self):
+        pass
+
 
 class BaseModel(ABC):
     """
     Class to construct model. This class is the base class to construct model.
     """
-    def __init__(self, args: argparse.Namespace) -> None:
+    def __init__(self, params: ModelParam) -> None:
         """
         Class to define Model
 
         Args:
-            args (argparse.Namespace): options
+            param (ModelParam): parameters for model
         """
-
-        self.conf = ModelConf(args)  # initialize
-        self.task = self.conf
-
-        """
-        #! testの時は、paramater.jsonの情報だけを使う
-        #!
-        # self.conf = args  # !!!!!!!!!!!!!
-        self.args = args
-        self.csv_name = Path(self.args.csv_name)
-        self.task = self.args.task
-        self.mlp = self.args.mlp
-        self.net = self.args.net
-        self.in_channel = self.args.in_channel
-        self.vit_image_size = self.args.vit_image_size
-        self.gpu_ids = self.args.gpu_ids
-        self.device = torch.device(f"cuda:{self.gpu_ids[0]}") if self.gpu_ids != [] else torch.device('cpu')
-
-        #! testの時(internalもexternalも)、input_listも、label_listも args.csv_nameで指定されるcsvの情報は使わないから
-        self.sp = make_split_provider(self.csv_name, self.task)  #! cast だけする
-        self.df_source = self.sp.df_source
-        self.label_list = list(self.df_source.columns[self.df_source.columns.str.startswith('label')])
-        self.input_list = list(self.df_source.columns[self.df_source.columns.str.startswith('input')])
-        self.mlp_num_inputs = len(self.input_list)
-        self.num_outputs_for_label = self._define_num_outputs_for_label()
-        if self.task == 'deepsurv':
-            self.period_name = list(self.df_source.columns[self.df_source.columns.str.startswith('period')])[0]
-
-        #! testの時、ここで、sp とconfの整合性を合わす
-        #! self.setup_config(.....)
-        """
+        self.params = params
 
         self.network = create_net(
-                                self.mlp,
-                                self.net,
-                                self.num_outputs_for_label,
-                                self.mlp_num_inputs,
-                                self.in_channel,
-                                self.vit_image_size
+                                self.params.mlp,
+                                self.params.net,
+                                self.params.num_outputs_for_label,
+                                self.params.mlp_num_inputs,
+                                self.params.in_channel,
+                                self.params.vit_image_size
                                 )
 
-        self._init_config_on_phase()
-
-    def _define_num_outputs_for_label(self) -> Dict[str, int]:
-        """
-        Define the number of outputs for each label.
-
-        Returns:
-            Dict[str, int]: dictionary of the number of outputs for each label
-            eg.
-                classification:       _num_outputs_for_label = {label_A: 2, label_B: 3, ...}
-                regression, deepsurv: _num_outputs_for_label = {label_A: 1, label_B: 1, ...}
-        """
-        if self.task == 'classification':
-            _num_outputs_for_label = {label_name: self.df_source[label_name].nunique() for label_name in self.label_list}
-
-        elif (self.task == 'regression') or (self.task == 'deepsurv'):
-            _num_outputs_for_label = {label_name: 1 for label_name in self.label_list}
-        else:
-            raise ValueError(f"Invalid task: {self.task}.")
-        return _num_outputs_for_label
-
-    def setup_config(self):
-        pass
-
-    def _init_config_on_phase(self):
-        if self.args.isTrain:
+        if self.params.isTrain:
             from .component import set_criterion, set_optimizer, create_loss_reg
-            self.baseset_dir = self.args.baseset_dir
-            self.epochs = self.args.epochs
-            self.criterion = self.args.criterion
-            self.optimizer = self.args.optimizer
-            self.criterion = set_criterion(self.criterion, self.device)
-            self.optimizer = set_optimizer(self.optimizer, self.network, self.args.lr)
-            self.loss_reg = create_loss_reg(self.task, self.criterion, self.label_list, self.device)
-            self.dataloaders = {split: create_dataloader(self.args, self.sp, split=split) for split in ['train', 'val']}
-
+            self.criterion = set_criterion(self.params.criterion, self.params.device)
+            self.optimizer = set_optimizer(self.params.optimizer, self.network, self.params.lr)
+            self.loss_reg = create_loss_reg(self.params.task, self.criterion, self.params.label_list, self.params.device)
         else:
             from .component import set_likelihood
-            self.testset_dir = self.args.testset_dir
-            self.test_datetime = self.args.test_datetime
-            self.likelihood = set_likelihood(self.task, self.num_outputs_for_label, self.test_datetime)  # Grad-CAMの時はいらない
-            self.dataloaders = {split: create_dataloader(self.args, self.sp, split=split) for split in ['train', 'val', 'test']}
+            self.likelihood = set_likelihood(self.params.task, self.params.num_outputs_for_label, self.params.save_datetime_dir)  # Grad-CAMの時はいらない
 
-    def _define_num_outputs_for_label(self) -> Dict[str, int]:
+
+        # Copy class varialbles refered below or outside.
+        self.label_list = self.params.label_list
+        self.epochs = self.params.epochs
+        self.device = self.params.device
+        self.gpu_ids = self.params.gpu_ids
+        self.dataloaders = self.params.dataloaders
+        self.save_datetime_dir = self.params.save_datetime_dir
+        self.save_weight_policy = self.params.save_weight_policy
+
+        # Only when test
+        if hasattr(self.params, 'weight_dir'):
+            self.weight_dir = self.params.weight_dir
+
+
+    def print_parameter(self) -> None:
         """
-        Define the number of outputs for each label.
-
-        Returns:
-            Dict[str, int]: dictionary of the number of outputs for each label
-            eg.
-                classification:       _num_outputs_for_label = {label_A: 2, label_B: 3, ...}
-                regression, deepsurv: _num_outputs_for_label = {label_A: 1, label_B: 1, ...}
+        Print parameters.
         """
-        if self.task == 'classification':
-            _num_outputs_for_label = {label_name: self.df_source[label_name].nunique() for label_name in self.label_list}
-
-        elif (self.task == 'regression') or (self.task == 'deepsurv'):
-            _num_outputs_for_label = {label_name: 1 for label_name in self.label_list}
-        else:
-            raise ValueError(f"Invalid task: {self.task}.")
-        return _num_outputs_for_label
+        self.params.print_parameter()
 
     def print_dataset_info(self) -> None:
         """
         Print dataset size for each split.
         """
-        for split, dataloader in self.dataloaders.items():
-            total = len(dataloader.dataset)
-            logger.logger.info(f"{split:>5}_data = {total}")
-        logger.logger.info('')
+        self.params.print_dataset_info()
 
     def train(self) -> None:
         """
@@ -392,8 +448,9 @@ class BaseModel(ABC):
         Print loss for each epoch.
 
         Args:
-            epoch (int): epoch number
+            epoch (int): current epoch number
         """
+        # self.epochs is total number pf epochs
         self.loss_reg.print_epoch_loss(self.epochs, epoch)
 
     # Lieklihood
@@ -428,16 +485,15 @@ class SaveLoadMixin:
         else:
             self.acting_best_weight = copy.deepcopy(_network.state_dict())
 
-    def save_weight(self, date_name: str, as_best: bool = None) -> None:
+    def save_weight(self, as_best: bool = None) -> None:
         """
         Save weight.
 
         Args:
-            date_name (str): save name for weight
             as_best (bool): True if weight is saved as best, otherise False. Defaults to None.
         """
         assert isinstance(as_best, bool), 'Argument as_best should be bool.'
-        save_dir = Path(self.baseset_dir, 'results', self.csv_name.stem, 'sets', date_name, 'weights')
+        save_dir = Path(self.save_datetime_dir, 'weights')
         save_dir.mkdir(parents=True, exist_ok=True)
         save_name = 'weight_epoch-' + str(self.acting_best_epoch).zfill(3) + '.pt'
         save_path = Path(save_dir, save_name)
@@ -467,16 +523,15 @@ class SaveLoadMixin:
         # Make model compute on GPU after loading weight.
         self._enable_on_gpu_if_available()
 
-
     # For learning curve
-    def save_learning_curve(self, date_name: str) -> None:
+    def save_learning_curve(self) -> None:
         """
         Save leraning curve.
 
         Args:
             date_name (str): save name for learning curve
         """
-        save_dir = Path(self.baseset_dir, 'results', self.csv_name.stem, 'sets', date_name, 'learning_curves')
+        save_dir = Path(self.save_datetime_dir, 'learning_curve')
         save_dir.mkdir(parents=True, exist_ok=True)
         epoch_loss = self.loss_reg.epoch_loss
         for label_name in self.label_list + ['total']:
@@ -491,26 +546,22 @@ class SaveLoadMixin:
             save_path = Path(save_dir, save_name)
             df_each_epoch_loss.to_csv(save_path, index=False)
 
-    """
-    def save_all(self, datetime):
-        save_dir = Path(self.baseset_dir, 'results', self.csv_name.stem, 'sets', date_name, 'weights')
-        makdir
-        datetime = ......
-        self.save_weight()
-        self.save_conf()
-        self.save_learning_curve()
-
-    """
+    # For save parameters
+    def save_parameter(self) -> None:
+        """
+        Save parameters.
+        """
+        self.params.save_parameter()
 
     # For likelihood
-    def save_likelihood(self, save_name: str) -> None:
+    def save_likelihood(self, save_name: str = None) -> None:
         """
         Save likelihood.
 
         Args:
             save_name (str): save name for likelihood. Defaults to None.
         """
-        self.likelihood.save_likelihood(self.test_datetime, save_name)
+        self.likelihood.save_likelihood(save_name=save_name)
 
 
 class ModelWidget(BaseModel, SaveLoadMixin):
@@ -739,36 +790,37 @@ def create_model(args: argparse.Namespace) -> nn.Module:
     Returns:
         nn.Module: model
     """
-    task = args.task
-    mlp = args.mlp
-    net = args.net
+    params = ModelParam(args)
+    task = params.task
+    _isMLPModel = (params.mlp is not None) and (params.mlp is None)
+    _isCVModel = (params.mlp is None) and (params.mlp is not None)
+    _isFusion = (params.mlp is not None) and (params.mlp is not None)
 
     if (task == 'classification') or (task == 'regression'):
-        if (mlp is not None) and (net is None):
-            model = MLPModel(args)
-        elif (mlp is None) and (net is not None):
-            model = CVModel(args)
-        elif (mlp is not None) and (net is not None):
-            model = FusionModel(args)
+        if _isMLPModel:
+            model = MLPModel(params)
+        elif _isCVModel:
+            model = CVModel(params)
+        elif _isFusion:
+            model = FusionModel(params)
         else:
             raise ValueError(f"Invalid model type: mlp={mlp}, net={net}.")
 
     elif task == 'deepsurv':
-        if (mlp is not None) and (net is None):
-            model = MLPDeepSurv(args)
-        elif (mlp is None) and (net is not None):
-            model = CVDeepSurv(args)
-        elif (mlp is not None) and (net is not None):
-            model = FusionDeepSurv(args)
+        if _isMLPModel:
+            model = MLPDeepSurv(params)
+        elif _isCVModel:
+            model = CVDeepSurv(params)
+        elif _isFusion:
+            model = FusionDeepSurv(params)
         else:
             raise ValueError(f"Invalid model type: mlp={mlp}, net={net}.")
 
     else:
         raise ValueError(f"Invalid task: {task}.")
 
-    if args.isTrain:
+    if params.isTrain:
         model._enable_on_gpu_if_available()
     # When test, execute model._enable_on_gpu_if_available() in load_weight(),
     # ie. after loadding weight.
-
     return model

@@ -12,6 +12,7 @@ from torch.utils.data.dataloader import DataLoader
 from torch.utils.data.sampler import WeightedRandomSampler
 from PIL import Image
 from sklearn.preprocessing import MinMaxScaler
+import pickle
 from typing import List, Dict, Union
 import argparse
 
@@ -20,8 +21,13 @@ class BaseSplitProvider(ABC):
     """
     Class to cast label and tabular data.
     """
-    def __init__(self) -> None:
-        pass
+    def __init__(self, df_source: pd.DataFrame) -> None:
+        """
+        Args:
+            df_source (DataFrame): DataFrame of csv
+        """
+        self.input_list = list(df_source.columns[df_source.columns.str.startswith('input')])
+        self.label_list = list(df_source.columns[df_source.columns.str.startswith('label')])  #! externalの時、label_から始まらない時ある
 
     @abstractmethod
     def _cast_csv(self) -> pd.DataFrame:
@@ -37,6 +43,7 @@ class ClsSplitProvider(BaseSplitProvider):
         Args:
             df_source (DataFrame): DataFrame of csv
         """
+        super().__init__(df_source)
         self.df_source = self._cast_csv(df_source)
 
     def _cast_csv(self, df_source: pd.DataFrame) -> pd.DataFrame:
@@ -52,8 +59,8 @@ class ClsSplitProvider(BaseSplitProvider):
         _cast_input = {input_name: float for input_name in self.input_list}
         _cast_label = {label_name: int for label_name in self.label_list}
         _cast = {**_cast_input, **_cast_label}
-        df_source_cast = df_source.astype(_cast)
-        return df_source_cast
+        _df_source = df_source.astype(_cast)
+        return _df_source
 
 
 class RegSplitProvider(BaseSplitProvider):
@@ -65,6 +72,7 @@ class RegSplitProvider(BaseSplitProvider):
         Args:
             df_source (DataFrame): DataFrame of csv
         """
+        super().__init__(df_source)
         self.df_source = self._cast_csv(df_source)
 
     def _cast_csv(self, df_source: pd.DataFrame) -> pd.DataFrame:
@@ -80,8 +88,8 @@ class RegSplitProvider(BaseSplitProvider):
         _cast_input = {input_name: float for input_name in self.input_list}
         _cast_label = {label_name: float for label_name in self.label_list}
         _cast = {**_cast_input, **_cast_label}
-        df_source_cast = df_source.astype(_cast)
-        return df_source_cast
+        _df_source = df_source.astype(_cast)
+        return _df_source
 
 
 class DeepSurvSplitProvider(BaseSplitProvider):
@@ -93,6 +101,7 @@ class DeepSurvSplitProvider(BaseSplitProvider):
         Args:
             df_source (DataFrame): DataFrame of csv
         """
+        super().__init__(df_source)
         self.df_source = self._cast_csv(df_source)
 
     def _cast_csv(self, df_source: pd.DataFrame) -> pd.DataFrame:
@@ -109,16 +118,16 @@ class DeepSurvSplitProvider(BaseSplitProvider):
         _cast_label = {label_name: int for label_name in self.label_list}
         _cast_period = {self.period_name: int}
         _cast = {**_cast_input, **_cast_label, **_cast_period}
-        df_source_cast = df_source.astype(_cast)
-        return df_source_cast
+        _df_source = df_source.astype(_cast)
+        return _df_source
 
 
-def make_split_provider(csv_path: Path, task: str) -> Union[ClsSplitProvider, RegSplitProvider, DeepSurvSplitProvider]:
+def make_split_provider(csv_path: str, task: str) -> Union[ClsSplitProvider, RegSplitProvider, DeepSurvSplitProvider]:
     """
     Parse csv by depending on task.
 
     Args:
-        csv_path (Path): path to csv
+        csv_path (str): path to csv
         task (str): task
 
     Returns:
@@ -159,23 +168,23 @@ class InputDataMixin:
     """
     Class to normalizes input data.
     """
-    def _make_scaler(self, load: Path = None) -> MinMaxScaler:
+    def _make_scaler(self, scaler_path: Path = None) -> MinMaxScaler:
         """
         Normalizes inputa data by min-max normalization with train data.
 
         Args:
-            load (Path, optional): path to dumpe slacer. Defaults to None.
+            scaler_path (Path, optional): path to dumpe slacer. Defaults to None.
 
         Returns:
             MinMaxScaler: scaler
         """
-        if load is None:
+        if scaler_path is None:
             scaler = MinMaxScaler()
             _df_train = self.df_source[self.df_source['split'] == 'train']  # should be normalized with min and max of training data
             _ = scaler.fit(_df_train[self.input_list])                      # fit only
         else:
-            # load  scalaer
-            pass
+            # load scalaer
+            scaler = pickle.load(scaler_path)
         return scaler
 
     def _load_input_value_if_mlp(self, idx: int) -> Union[torch.Tensor, str]:
@@ -190,7 +199,7 @@ class InputDataMixin:
         """
         inputs_value = ''
 
-        if self.args.mlp is None:
+        if self.params.mlp is None:
             return inputs_value
 
         # When specifying iloc[[idx], index_input_list], pd.DataFrame is obtained,
@@ -207,7 +216,7 @@ class InputDataMixin:
 
 class ImageMixin:
     """
-    Class to normalizes and transforms image.
+    Class to normalize and transform image.
     """
     def _make_augmentations(self) -> List:
         """
@@ -216,18 +225,16 @@ class ImageMixin:
         When traning, augmentation is needed for train data only.
         When test, no need of augmentation.
         """
-        assert (self.args.augmentation is not None), 'Specify augmentation.'
-
         _augmentation = []
-        if (self.args.isTrain) and (self.split == 'train'):
-            if self.args.augmentation == 'xrayaug':
+        if (self.params.isTrain) and (self.split == 'train'):
+            if self.params.augmentation == 'xrayaug':
                 _augmentation = PrivateAugment.xray_augs_list
-            elif self.args.augmentation == 'trivialaugwide':
+            elif self.params.augmentation == 'trivialaugwide':
                 _augmentation.append(transforms.TrivialAugmentWide())
-            elif self.args.augmentation == 'randaug':
+            elif self.params.augmentation == 'randaug':
                 _augmentation.append(transforms.RandAugment())
             else:
-                # ie. self.args.augmentation == 'no':
+                # ie. self.params.augmentation == 'no':
                 pass
 
         _augmentation = transforms.Compose(_augmentation)
@@ -243,17 +250,17 @@ class ImageMixin:
         _transforms = []
         _transforms.append(transforms.ToTensor())
 
-        assert (self.args.normalize_image is not None), 'Specify normalize_image by yes or no.'
-        assert (self.args.in_channel is not None), 'Speficy in_channel by 1 or 3.'
-        if self.args.normalize_image == 'yes':
+        assert (self.params.normalize_image is not None), 'Specify normalize_image by yes or no.'
+        assert (self.params.in_channel is not None), 'Speficy in_channel by 1 or 3.'
+        if self.params.normalize_image == 'yes':
             # transforms.Normalize accepts only Tensor.
-            if self.args.in_channel == 1:
+            if self.params.in_channel == 1:
                 _transforms.append(transforms.Normalize(mean=(0.5, ), std=(0.5, )))
             else:
-                # ie. self.args.in_channel == 3
+                # ie. self.params.in_channel == 3
                 _transforms.append(transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]))
         else:
-            # ie. self.args.normalize_image == 'no'
+            # ie. self.params.normalize_image == 'no'
             pass
 
         _transforms = transforms.Compose(_transforms)
@@ -271,15 +278,15 @@ class ImageMixin:
         """
         image = ''
 
-        if self.args.net is None:
+        if self.params.net is None:
             return image
 
-        assert (self.args.in_channel is not None), 'Speficy in_channel by 1 or 3.'
+        assert (self.params.in_channel is not None), 'Speficy in_channel by 1 or 3.'
         imgpath = self.df_split.iat[idx, self.col_index_dict['imgpath']]
-        if self.args.in_channel == 1:
+        if self.params.in_channel == 1:
             image = Image.open(imgpath).convert('L')
         else:
-            # ie. self.args.in_channel == 3
+            # ie. self.params.in_channel == 3
             image = Image.open(imgpath).convert('RGB')
 
         image = self.augmentation(image)
@@ -303,10 +310,10 @@ class DeepSurvMixin:
         """
         periods = ''
 
-        if self.args.task != 'deepsurv':
+        if self.params.task != 'deepsurv':
             return periods
 
-        assert (self.args.task == 'deepsurv') and (len(self.label_list) == 1), 'Deepsurv cannot work in multi-label.'
+        assert (self.params.task == 'deepsurv') and (len(self.label_list) == 1), 'Deepsurv cannot work in multi-label.'
         periods = self.df_split.iat[idx, self.col_index_dict[self.period_name]]
         periods = np.array(periods, dtype=np.float64)
         periods = torch.from_numpy(periods.astype(np.float32)).clone()
@@ -326,32 +333,38 @@ class LoadDataSet(Dataset, DataSetWidget):
     """
     def __init__(
                 self,
-                args: argparse.Namespace,
-                sp: Union[ClsSplitProvider, RegSplitProvider, DeepSurvSplitProvider],
+                params,
+                df_source: pd.DataFrame,
                 split: str
                 ) -> None:
         """
         Args:
-            args (argparse.Namespace): options
-            sp (Union[ClsSplitProvider, RegSplitProvider, DeepSurvSplitProvider]): Object of Splitprovider
+            params (ModelParam): paramater for model
+            df_source (DataFrame): DataFrame of csv
             split (str): split
         """
-        self.args = args
+        self.params = params
+        self.df_source = df_source
         self.split = split
 
-        self.input_list = sp.input_list
-        self.label_list = sp.label_list
-        if self.args.task == 'deepsurv':
-            self.period_name = sp.period_name
-        self.df_source = sp.df_source
-        self.df_split = sp.df_source[sp.df_source['split'] == self.split]
+        self.input_list = self.params.input_list
+        self.label_list = self.params.label_list
+
+        if self.params.task == 'deepsurv':
+            self.period_name = self.params.period_name
+
+        self.df_split = self.df_source[self.df_source['split'] == self.split]
         self.col_index_dict = {col_name: self.df_split.columns.get_loc(col_name) for col_name in self.df_split.columns}
 
-        if (self.args.mlp is not None):
+        if (self.params.mlp is not None):
             assert (self.input_list != []), 'No tabular data.'
-            self.scaler = self._make_scaler()
+            if hasattr(self.params, 'scaler_path'):
+                scaler_path = self.params.scaler
+            else:
+                scaler_path = None
+            self.scaler = self._make_scaler(scaler_path)
 
-        if (self.args.net is not None):
+        if (self.params.net is not None):
             self.augmentation = self._make_augmentations()
             self.transform = self._make_transforms()
 
@@ -413,37 +426,37 @@ def _make_sampler(split_data: LoadDataSet) -> WeightedRandomSampler:
 
 
 def create_dataloader(
-                    args: argparse.Namespace,
-                    sp: Union[ClsSplitProvider, RegSplitProvider, DeepSurvSplitProvider],
+                    params,
+                    df_source: pd.DataFrame,
                     split: str = None
                     ) -> DataLoader:
     """
     Creeate data loader ofr split.
 
     Args:
-        args (argparse.Namespace): options
-        sp (Union[ClsSplitProvider, RegSplitProvider, DeepSurvSplitProvider]): SplitProvider
+        params (ModelParam): paramater for model
+        df_source (DataFrame): DataFrame of csv
         split (str): split. Defaults to None.
 
     Returns:
         DataLoader: data loader
     """
-    split_data = LoadDataSet(args, sp, split)
+    split_data = LoadDataSet(params, df_source, split)
 
     # args never has both 'batch_size' and 'test_batch_size'.
-    if args.isTrain:
-        batch_size = args.batch_size
+    if params.isTrain:
+        batch_size = params.batch_size
     else:
-        batch_size = args.test_batch_size
+        batch_size = params.test_batch_size
 
-    assert (args.sampler is not None), 'Specify sampler by yes or no.'
-    if args.sampler == 'yes':
-        assert ((args.task == 'classification') or (args.task == 'deepsurv')), 'Cannot make sampler in regression.'
-        assert (len(sp.label_list) == 1), 'Cannot make sampler for multi-label.'
+    assert (params.sampler is not None), 'Specify sampler by yes or no.'
+    if params.sampler == 'yes':
+        assert ((params.task == 'classification') or (params.task == 'deepsurv')), 'Cannot make sampler in regression.'
+        assert (len(params.label_list) == 1), 'Cannot make sampler for multi-label.'
         shuffle = False
         sampler = _make_sampler(split_data)
     else:
-        # ie. args.sampler == 'no'
+        # ie. pramas.sampler == 'no'
         shuffle = True
         sampler = None
 
@@ -455,3 +468,4 @@ def create_dataloader(
                             sampler=sampler
                             )
     return split_loader
+

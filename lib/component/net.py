@@ -542,28 +542,51 @@ def create_net(
             num_outputs_for_label: Dict[str, int],
             mlp_num_inputs: int,
             in_channel: int,
-            vit_image_size: Optional[int]
+            vit_image_size: int
             ) -> nn.Module:
     """
     Create network.
 
     Args:
-        mlp (Optional[str]): 'mlp' or None
-        net (Optional[str]):  CNN or ViT name
+        mlp (Optional[str]): 'MLP' or None
+        net (Optional[str]):  CNN, ViT name or None
         num_outputs_for_label (Dict[str, int]): number of outputs for each label
         mlp_num_inputs (int): number of input of MLP.
-        in_channel (int): number of image channel, ie gray scale(=1) or color image(=3). Defaults to None.
-        vit_image_size (Optional[int]): imaghe size to be input to ViT. Defaults to None.
+        in_channel (int): number of image channel, ie gray scale(=1) or color image(=3).
+        vit_image_size (int): imaghe size to be input to ViT.
 
     Returns:
         nn.Module: network
     """
-    if (mlp is not None) and (net is None):
-        multi_net = MultiNet('MLP', num_outputs_for_label, mlp_num_inputs=mlp_num_inputs, in_channel=in_channel, vit_image_size=vit_image_size)
-    elif (mlp is None) and (net is not None):
-        multi_net = MultiNet(net, num_outputs_for_label, mlp_num_inputs=mlp_num_inputs, in_channel=in_channel, vit_image_size=vit_image_size)
-    elif (mlp is not None) and (net is not None):
-        multi_net = MultiNetFusion(net, num_outputs_for_label, mlp_num_inputs=mlp_num_inputs, in_channel=in_channel, vit_image_size=vit_image_size)
+
+    _isMLPModel = (mlp is not None) and (mlp is None)
+    _isCVModel = (mlp is None) and (mlp is not None)
+    _isFusion = (mlp is not None) and (mlp is not None)
+
+    if _isMLPModel:
+        multi_net = MultiNet(
+                            'MLP',
+                            num_outputs_for_label,
+                            mlp_num_inputs=mlp_num_inputs,
+                            in_channel=in_channel,
+                            vit_image_size=vit_image_size
+                            )
+    elif _isCVModel:
+        multi_net = MultiNet(
+                            net,
+                            num_outputs_for_label,
+                            mlp_num_inputs=mlp_num_inputs,
+                            in_channel=in_channel,
+                            vit_image_size=vit_image_size
+                            )
+    elif _isFusion:
+        multi_net = MultiNetFusion(
+                                net,
+                                num_outputs_for_label,
+                                mlp_num_inputs=mlp_num_inputs,
+                                in_channel=in_channel,
+                                vit_image_size=vit_image_size
+                                )
     else:
         raise ValueError(f"Invalid net type: mlp={mlp}, net={net}.")
 

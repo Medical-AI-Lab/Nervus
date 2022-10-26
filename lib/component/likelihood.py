@@ -13,15 +13,15 @@ class BaseLikelihood:
     Class for making likelihood.
     Substantialy, this is for making likelihood for classification.
     """
-    def __init__(self, num_outputs_for_label: Dict[str, int], test_datetime_dirpath: Path) -> None:
+    def __init__(self, num_outputs_for_label: Dict[str, int], save_datetime_dir: str) -> None:
         """
         Args:
             num_outputs_for_label (Dict[str, int]): number of classes for each label
-            test_datetime_dirpath (Path): save path to save likelihood
+            save_datetime_dir (str): save path to save likelihood
         """
 
         self.num_outputs_for_label = num_outputs_for_label
-        self.test_datetime_dirpath = test_datetime_dirpath
+        self.save_datetime_dir = save_datetime_dir
         self.df_likelihood = pd.DataFrame()
 
     def _convert_to_numpy(self, output: torch.Tensor) -> numpy.ndarray:
@@ -43,15 +43,15 @@ class BaseLikelihood:
     def make_likehood_type(self) -> None:
         raise NotImplementedError
 
-    def save_likelihood(self, test_datetime: Path, save_name: str) -> None:
+    def save_likelihood(self, save_name: str) -> None:
         """
         Save likelihoood.
 
         Args:
-            test_datetime (Path): directory named datetime to save likelihood
+            save_datetime_dir (str): directory for saving likelihood
             save_name (str): save name of likelihood
         """
-        save_dir = Path(test_datetime, 'likelihoods')
+        save_dir = Path(self.save_datetime_dir, 'likelihoods')
         save_dir.mkdir(parents=True, exist_ok=True)
         save_path = Path(save_dir, 'likelihood_' + save_name).with_suffix('.csv')
         self.df_likelihood.to_csv(save_path, index=False)
@@ -61,13 +61,13 @@ class ClsLikelihood(BaseLikelihood):
     """
     Class for likelihood of classification
     """
-    def __init__(self, num_outputs_for_label: Dict[str, int], test_datetime_dirpath: Path) -> None:
+    def __init__(self, num_outputs_for_label: Dict[str, int], save_datetime_dir: str) -> None:
         """
         Args:
             num_outputs_for_label (Dict[str, int]): number of classes for each label
-            test_datetime_dirpath (Path): save path to save likelihood
+            save_datetime_dir (str): directory for saving likelihood
         """
-        super().__init__(num_outputs_for_label, test_datetime_dirpath)
+        super().__init__(num_outputs_for_label, save_datetime_dir)
 
     def _make_pred_names(self, label_name: str) -> List[str]:
         """
@@ -116,13 +116,13 @@ class RegLikelihood(BaseLikelihood):
     """
     Class for likelihood of regression
     """
-    def __init__(self, num_outputs_for_label: Dict[str, int], test_datetime_dirpath: Path) -> None:
+    def __init__(self, num_outputs_for_label: Dict[str, int], save_datetime_dir: str) -> None:
         """
         Args:
             num_outputs_for_label (Dict[str, int]): number of classes for each label
-            test_datetime_dirpath (Path): save path to save likelihood
+            save_datetime_dir (str): directory for saving likelihood
         """
-        super().__init__(num_outputs_for_label, test_datetime_dirpath)
+        super().__init__(num_outputs_for_label, save_datetime_dir)
 
     def _make_pred_names(self, label_name: str) -> List[str]:
         """
@@ -167,13 +167,13 @@ class DeepSurvLikelihood(RegLikelihood):
     """
     Class for likelihood of DeepSurv
     """
-    def __init__(self, num_outputs_for_label: Dict[str, int], test_datetime_dirpath: Path) -> None:
+    def __init__(self, num_outputs_for_label: Dict[str, int], save_datetime_dir: str) -> None:
         """
         Args:
             num_outputs_for_label (Dict[str, int]): number of classes for each label
-            test_datetime_dirpath (Path): save path to save likelihood
+            save_datetime_dir (str): directory for saving likelihood
         """
-        super().__init__(num_outputs_for_label, test_datetime_dirpath)
+        super().__init__(num_outputs_for_label, save_datetime_dir)
 
     def make_likehood(self, data: Dict, output: Dict[str, torch.Tensor]) -> None:
         """
@@ -204,7 +204,7 @@ class DeepSurvLikelihood(RegLikelihood):
 def set_likelihood(
                 task: str,
                 num_outputs_for_label: Dict[str, int],
-                test_datetime_dirpath: Path
+                save_datetime_dir: str
                 ) -> Union[ClsLikelihood, RegLikelihood, DeepSurvLikelihood]:
     """
     Set likelihood object depending task.
@@ -212,16 +212,16 @@ def set_likelihood(
     Args:
         task (str): task
         num_outputs_for_label (Dict[str, int]): number of classes for each label
-        test_datetime_dirpath (Path): save path to save likelihood
+        save_datetime_dir (str): directory for saving likelihood
 
     Returns:
         Union[ClsLikelihood, RegLikelihood, DeepSurvLikelihood]: class of likelihood
     """
     if task == 'classification':
-        return ClsLikelihood(num_outputs_for_label, test_datetime_dirpath)
+        return ClsLikelihood(num_outputs_for_label, save_datetime_dir)
     elif task == 'regression':
-        return RegLikelihood(num_outputs_for_label, test_datetime_dirpath)
+        return RegLikelihood(num_outputs_for_label, save_datetime_dir)
     elif task == 'deepsurv':
-        return DeepSurvLikelihood(num_outputs_for_label, test_datetime_dirpath)
+        return DeepSurvLikelihood(num_outputs_for_label, save_datetime_dir)
     else:
         raise ValueError(f"Invalid task: {task}.")
