@@ -12,18 +12,18 @@ from lib import Logger as logger
 from typing import List
 
 
-def _collect_weight(weight_dirpath: Path) -> List[Path]:
+def _collect_weight(weight_dir: str) -> List[Path]:
     """
     Return list of weight paths.
 
     Args:
-        weight_dirpath (Path): path to directory of weights
+        weight_dir (st): path to directory of weights
 
     Returns:
         List[Path]: list of weight paths
     """
-    weight_paths = list(weight_dirpath.glob('*.pt'))
-    assert weight_paths != [], f"No weight in {weight_dirpath}."
+    weight_paths = list(Path(weight_dir).glob('*.pt'))
+    assert weight_paths != [], f"No weight in {weight_dir}."
     weight_paths.sort(key=lambda path: path.stat().st_mtime)
     return weight_paths
 
@@ -41,7 +41,7 @@ def main(opt):
         model.load_weight(weight_path)
         model.eval()
 
-        for split in ['train', 'val', 'test']:
+        for split in model.test_splits:
             split_dataloader = model.dataloaders[split]
 
             for i, data in enumerate(split_dataloader):

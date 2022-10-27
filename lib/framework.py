@@ -20,62 +20,9 @@ from typing import List, Dict, Union
 import argparse
 
 
-"""
-#! testの時は、paramater.jsonの情報だけを使う
-#!
-# self.conf = args  # !!!!!!!!!!!!!
-self.args = args
-self.csv_name = Path(self.args.csv_name)
-self.task = self.args.task
-self.mlp = self.args.mlp
-self.net = self.args.net
-self.in_channel = self.args.in_channel
-self.vit_image_size = self.args.vit_image_size
-self.gpu_ids = self.args.gpu_ids
-self.device = torch.device(f"cuda:{self.gpu_ids[0]}") if self.gpu_ids != [] else torch.device('cpu')
-
-csvpath = self.args.csvpath
-task = self.args.task
-model = self.args.model
-criterion
-optimizer
-epochs
-batch_size
-augmentation
-normalize_image
-sampler
-in_channel
-vit_imgae_size
-save_weight
-gpu_ids
-self.mlp = self.args.mlp
-self.net = self.args.net
-
-
-#! testの時(internalもexternalも)、input_listも、label_listも args.csv_nameで指定されるcsvの情報は使わないから
-self.sp = make_split_provider(self.csv_name, self.task)  #! cast だけする
-self.df_source = self.sp.df_source
-self.label_list = list(self.df_source.columns[self.df_source.columns.str.startswith('label')])
-self.input_list = list(self.df_source.columns[self.df_source.columns.str.startswith('input')])
-self.mlp_num_inputs = len(self.input_list)
-self.num_outputs_for_label = self._define_num_outputs_for_label()
-if self.task == 'deepsurv':
-    self.period_name = list(self.df_source.columns[self.df_source.columns.str.startswith('period')])[0]
-
-#! testの時、ここで、sp とconfの整合性を合わす
-#! self.setup_config(.....)
-! testの時は、paramater.jsonの情報だけを使う
-# materials/covid/results/int_cla_single_output_bin_class_128/sets/2022-10-21-17-18-27/weights ->
-# materials/covid/results/int_cla_single_output_bin_class_128/sets/2022-10-21-17-18-27
-_parameter_path = (Path(self.args.weight_dir).parents[0] / 'parameters').with_suffix('.json')
-#! testの時、ここで、sp とconfの整合性を合わす
-#! self.setup_config(.....)
-#! testの時(internalもexternalも)、input_listも、label_listも args.csv_nameで指定されるcsvの情報は使わないから
-# base_dir
-# augmentation
-# ampler
-_paramater = self.load_paramater(_parameter_path)
-"""
+class _Param:
+    def __init__(self) -> None:
+        pass
 
 
 class ModelParam:
@@ -84,13 +31,15 @@ class ModelParam:
     Integrate args and parameters.
     """
     def __init__(self, args: argparse.Namespace) -> None:
+        # self.params = _Param()
         self._setup_parameters(args)
 
     def _setup_parameters(self, args) -> None:
-        # Copy from args to param
-        # No overlap between options for training and test
         for _param, _arg in vars(args).items():
             setattr(self, _param, _arg)
+
+        _dataset_dir = re.findall('(.*)/docs', self.csvpath)[0]
+        _csv_name = Path(self.csvpath).stem
 
         if self.isTrain:
             sp = make_split_provider(self.csvpath, self.task)
@@ -101,60 +50,54 @@ class ModelParam:
             if self.task == 'deepsurv':
                 self.period_name = list(sp.df_source.columns[sp.df_source.columns.str.startswith('period')])[0]
 
-            self.dataloaders = {split: create_dataloader(self, sp.df_source, split=split) for split in ['train', 'val']}
+            self.device = torch.device(f"cuda:{self.gpu_ids[0]}") if self.gpu_ids != [] else torch.device('cpu')
+
+            # Directory for saveing paramaters, weights, or learning_curve
+            _datetime = self.datetime
+            _save_datetime_dir = str(Path(_dataset_dir, 'results', _csv_name, 'sets', _datetime))
+            self.save_datetime_dir = _save_datetime_dir
+
+            # Dataloader
+            self.dataloaders = {split: create_dataloader(self, sp.df_source, split=split) for split in ['train', 'val']}  # self
+
         else:
             # Load paramaters
-            # self.weight_dir = 'materials/covid/results/int_cla_single_output_bin_class_128/sets/2022-10-21-17-18-27/weights'
-            # -> 'materials/covid/results/int_cla_single_output_bin_class_128/sets/2022-10-21-17-18-27'
             _save_datetime_dir = Path(self.weight_dir).parents[0]
             parameter_path = Path(_save_datetime_dir, 'parameters.json')
-            parameters = self.load_parameter(parameter_path)
-            no_need_for_test = [
-                                'csvpath',
-                                'criterion',
-                                'optimizer',
-                                'lr',
-                                'epochs',
-                                'batch_size',
-                                'save_weight_policy',
+            parameters = self.load_parameter(parameter_path)  # Dict
+            required_for_test = [
+                                'task',
+                                'model',
+                                'normalize_image',
+                                'in_channel',
+                                'vit_image_size',
+                                'gpu_ids',
+                                'mlp',
+                                'net',
+                                'input_list',
+                                'label_list',
+                                'mlp_num_inputs',
+                                'num_outputs_for_label',
+                                'period_name',
+                                'scaler_path'
                                 ]
+            for _param in required_for_test:
+                setattr(self, _param, parameters.get(_param))  # If no exists, set None
 
-            # for _param, _arg in parameters.items():
-            #    if _param not in no_need_for_test:
-            #        setattr(self, _param, _arg)
-
-            # Align because of no need to apply the below at test
+            # No need to apply the below at test
             self.augmentation = 'no'
             self.sampler = 'no'
 
-
-            # ! ここから整合性取る
-            # ! internalの情報とexternalの情報で
-
-            # Split_provider
-            # csvpathはオプションから、taskはparameterから取ってきたもの
             sp = make_split_provider(self.csvpath, self.task)
+            self.device = torch.device(f"cuda:{self.gpu_ids[0]}") if self.gpu_ids != [] else torch.device('cpu')
 
-            # dataloaderへはtestのcsvの情報が優先?????
-            self.input_list = self.params.input_list  # ! testの時は、load_parameterから取ったものになる
-            self.label_list = self.params.label_list
+            # Directory for saving ikelihood
+            _datetime = _save_datetime_dir.name
+            _save_datetime_dir = str(Path(_dataset_dir, 'results', _csv_name, 'sets', _datetime))  # csv_name might be different from one at training
+            self.save_datetime_dir = _save_datetime_dir
 
-            self.dataloaders = {split: create_dataloader(self.params, split=split) for split in self.test_splits}
-
-        # --- Common ---
-        # dataset_dir
-        # csvpath is specified train.py or test.py
-        # eg. csvpath = 'materials/docs/[csv_name].csv' -> 'materials'
-        # csvpath exists both at training and test.
-        _dataset_dir = re.findall('(.*)/docs', self.csvpath)[0]
-        # self.dataset_dir = _dataset_dir
-        _csv_name = Path(self.csvpath).stem
-
-        # save_datetime_dir for saveing paramaters, weights, learning_curve, or likelihood
-        _save_datetime_dir = str(Path(_dataset_dir, 'results', _csv_name, 'sets', self.datetime))
-        self.save_datetime_dir = _save_datetime_dir
-
-        self.device = torch.device(f"cuda:{self.gpu_ids[0]}") if self.gpu_ids != [] else torch.device('cpu')
+            # Dataloader
+            self.dataloaders = {split: create_dataloader(self, sp.df_source, split=split) for split in self.test_splits}
 
     def _define_num_outputs_for_label(self, df_source: pd.DataFrame, label_list: List[str]) -> Dict[str, int]:
         """
@@ -169,6 +112,7 @@ class ModelParam:
             eg.
                 classification:       _num_outputs_for_label = {label_A: 2, label_B: 3, ...}
                 regression, deepsurv: _num_outputs_for_label = {label_A: 1, label_B: 1, ...}
+                deepsurv:             _num_outputs_for_label = {label_A: 1}
         """
         if self.task == 'classification':
             _num_outputs_for_label = {label_name: df_source[label_name].nunique() for label_name in label_list}
@@ -178,39 +122,38 @@ class ModelParam:
             raise ValueError(f"Invalid task: {self.task}.")
         return _num_outputs_for_label
 
-    def print_parameter(self):
-        """
-        csvpath materials/covid/docs/int_cla_single_output_bin_class_128.csv
-        task classification
-        model MLP+ResNet18
-        criterion CEL
-        optimizer Adam
-        lr None
-        epochs 3
-        batch_size 64
-        augmentation xrayaug
-        normalize_image yes
-        sampler no
-        in_channel 1
-        vit_image_size 0
-        save_weight each
-        gpu_ids []
-        datetime 2022-10-26-14-04-56
-        isTrain True
-        mlp MLP
-        net ResNet18
-        input_list ['input_HR', 'input_sBP', 'input_RR', 'input_Sat', 'input_Leukocytes', 'input_CRP', 'input_Sodium', 'input_Potassium', 'input_AST', 'input_ALT', 'input_BUN', 'input_Cre', 'input_Lac', 'input_BNP', 'input_d-dimer', 'input_BMI', 'input_htn_v', 'input_dm_v', 'input_ckd_v', 'input_malignancies_v', 'input_age_splits_1', 'input_age_splits_2', 'input_lung_disease', 'input_heart_disease']
-        label_list ['label_last_status_1']
-        mlp_num_inputs 24
-        num_outputs_for_label {'label_last_status_1': 2}
-        dataloaders {'train': <torch.utils.data.dataloader.DataLoader object at 0x117cfcb10>, 'val': <torch.utils.data.dataloader.DataLoader object at 0x1625bfdd0>}
-        dataset_dir materials/covid
-        save_datetime_dir materials/covid/results/int_cla_single_output_bin_class_128/sets/2022-10-26-14-04-56
-        # device cpu
-        """
-        no_print = ['device']
+    def print_parameter(self) -> None:
+        no_print = [
+                    'mlp',
+                    'net',
+                    'input_list',
+                    'label_list',
+                    'mlp_num_inputs',
+                    'num_outputs_for_label',
+                    'dataloaders',
+                    'datetime',
+                    'device',
+                    'isTrain'
+                    ]
+
+        phase = 'Training' if self.isTrain else 'Test'
+        message = ''
+        message += f"{'-'*25} Options for {phase} {'-'*33}\n"
         for _param, _arg in vars(self).items():
-            print(_param, _arg)
+            if _param not in no_print:
+                if _param == 'gpu_ids':
+                    if _arg == []:
+                        str_arg = 'CPU selected'
+                    else:
+                        str_arg = f"{_arg}  (Primary GPU:{_arg[0]})"
+                else:
+                    str_arg = str(_arg) if (_arg is not None) else 'Default'
+                message += '{:>25}: {:<40}\n'.format(_param, str_arg)
+            else:
+                pass
+
+        message += f"{'-'*30} End {'-'*48}\n"
+        logger.logger.info(message)
 
     def print_dataset_info(self) -> None:
         """
@@ -227,20 +170,17 @@ class ModelParam:
         """
         # Delete params not to be saved.
         # str(self.device) if saved.
-        no_save_params = [
-                        'dataloaders',
-                        'device',
-                        'save_datetime_dir',
-                        'datetime',
-                        'isTrain'
-                        ]
+        no_save = [
+                    'dataloaders',
+                    'device',
+                    'isTrain'
+                    'datetime',
+                    'save_datetime_dir'
+                    ]
         saved = dict()
         for _param, _arg in vars(self).items():
-            if _param not in no_save_params:
+            if _param not in no_save:
                 saved[_param] = _arg
-
-        # weight_dir
-        saved['weight_dir'] = str(Path(self.save_datetime_dir, 'weights'))
 
         # Save scaler
         if hasattr(self.dataloaders['train'].dataset, 'scaler'):
@@ -249,7 +189,7 @@ class ModelParam:
             with open(saved['scaler_path'], 'wb') as f:
                 pickle.dump(scaler, f)
 
-        # Save
+        # Save parameters
         save_dir = Path(self.save_datetime_dir)
         save_dir.mkdir(parents=True, exist_ok=True)
         save_path = str(Path(save_dir, 'parameters.json'))
@@ -269,9 +209,6 @@ class ModelParam:
         with open(parameter_path) as f:
             parameters = json.load(f)
         return parameters
-
-    def align_paramaters_after_loading(self):
-        pass
 
 
 class BaseModel(ABC):
@@ -305,20 +242,19 @@ class BaseModel(ABC):
             from .component import set_likelihood
             self.likelihood = set_likelihood(self.params.task, self.params.num_outputs_for_label, self.params.save_datetime_dir)  # Grad-CAMの時はいらない
 
-
-        # Copy class varialbles refered below or outside.
+        # Copy class varialbles refered below or outside for convenience's sake
         self.label_list = self.params.label_list
-        self.epochs = self.params.epochs
         self.device = self.params.device
         self.gpu_ids = self.params.gpu_ids
         self.dataloaders = self.params.dataloaders
         self.save_datetime_dir = self.params.save_datetime_dir
-        self.save_weight_policy = self.params.save_weight_policy
 
-        # Only when test
-        if hasattr(self.params, 'weight_dir'):
+        if self.params.isTrain:
+            self.epochs = self.params.epochs
+            self.save_weight_policy = self.params.save_weight_policy
+        else:
             self.weight_dir = self.params.weight_dir
-
+            self.test_splits = self.params.test_splits
 
     def print_parameter(self) -> None:
         """

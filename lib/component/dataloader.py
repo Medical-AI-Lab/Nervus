@@ -14,7 +14,6 @@ from PIL import Image
 from sklearn.preprocessing import MinMaxScaler
 import pickle
 from typing import List, Dict, Union
-import argparse
 
 
 class BaseSplitProvider(ABC):
@@ -184,7 +183,8 @@ class InputDataMixin:
             _ = scaler.fit(_df_train[self.input_list])                      # fit only
         else:
             # load scalaer
-            scaler = pickle.load(scaler_path)
+            with open(scaler_path, 'rb') as f:
+                scaler = pickle.load(f)
         return scaler
 
     def _load_input_value_if_mlp(self, idx: int) -> Union[torch.Tensor, str]:
@@ -347,6 +347,7 @@ class LoadDataSet(Dataset, DataSetWidget):
         self.df_source = df_source
         self.split = split
 
+        # testの時は、traning時のcsvのinput_list, label_list
         self.input_list = self.params.input_list
         self.label_list = self.params.label_list
 
@@ -357,9 +358,8 @@ class LoadDataSet(Dataset, DataSetWidget):
         self.col_index_dict = {col_name: self.df_split.columns.get_loc(col_name) for col_name in self.df_split.columns}
 
         if (self.params.mlp is not None):
-            assert (self.input_list != []), 'No tabular data.'
-            if hasattr(self.params, 'scaler_path'):
-                scaler_path = self.params.scaler
+            if hasattr(self.params, 'scaler_path') and (self.params.scaler_path is not None):
+                scaler_path = self.params.scaler_path
             else:
                 scaler_path = None
             self.scaler = self._make_scaler(scaler_path)
@@ -394,7 +394,8 @@ class LoadDataSet(Dataset, DataSetWidget):
         periods = self._load_periods_if_deepsurv(idx)
         split = self.df_split.iat[idx, self.col_index_dict['split']]
 
-        return {
+        # imagepath, labelがなしの場合がある
+        _data = {
                 'imgpath': imgpath,
                 'inputs': inputs_value,
                 'image': image,
@@ -402,6 +403,7 @@ class LoadDataSet(Dataset, DataSetWidget):
                 'periods': periods,
                 'split': split
                 }
+        return _data
 
 
 def _make_sampler(split_data: LoadDataSet) -> WeightedRandomSampler:

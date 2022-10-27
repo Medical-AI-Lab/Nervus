@@ -2,14 +2,14 @@
 # -*- coding: utf-8 -*-
 
 from pathlib import Path
-import glob
+import re
 import argparse
 from typing import List, Tuple, Union
 
 
 class Options:
     """
-    Class to parse options.
+    Class for options.
     """
     def __init__(self,  datetime: str = None, isTrain: bool = None) -> None:
         """
@@ -17,8 +17,6 @@ class Options:
             datetime (str, optional): date time    Args:
             isTrain (bool, optional): Variable indicating whether training or not. Defaults to None.
         """
-        assert isinstance(isTrain, bool), 'isTrain should be bool.'
-
         self.parser = argparse.ArgumentParser(description='Options for training or test')
 
         # The blow is common argument both at training and test.
@@ -72,6 +70,7 @@ class Options:
         if datetime is not None:
             setattr(self.args, 'datetime', datetime)
 
+        assert isinstance(isTrain, bool), 'isTrain should be bool.'
         setattr(self.args, 'isTrain', isTrain)
 
     def _parse_model(self, model_name: str) -> Tuple[Union[str, None], Union[str, None]]:
@@ -120,6 +119,7 @@ class Options:
 
         Returns:
             List[str]: list of strings of splits
+            eg. 'train-val-test' -> ['train', 'val', 'test']
         """
         _test_splits = test_splits.split('-')
         return _test_splits
@@ -131,15 +131,11 @@ class Options:
         Returns:
             str: path to directory of the latest weight
             eg. 'materials/results/[csv_name]/sets/2022-09-30-15-56-60/weights'
-
-        Note that:
-            parameter.json is in the same directory with the directory of weight.
-            If directory of materials is link, Path('.').glob('**/weights' cannot follow below materials.
-            Therefore, use glob.glob.
         """
-        weight_dirs = glob.glob('**/weights', recursive=True)
-        assert (weight_dirs != []), 'No directory of weight.'
-        weight_dir = max(weight_dirs, key=lambda weight_dir: Path(weight_dir).stat().st_mtime)
+        _dataset_dir = re.findall('(.*)/docs', self.args.csvpath)[0]
+        _weight_dirs = list(Path(_dataset_dir, 'results').glob('*/sets/*/weights'))
+        assert (_weight_dirs != []), 'No directory of weight.'
+        weight_dir = max(_weight_dirs, key=lambda weight_dir: weight_dir.stat().st_mtime)
         return str(weight_dir)
 
     def parse(self) -> None:
