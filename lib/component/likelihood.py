@@ -100,14 +100,21 @@ class ClsLikelihood(BaseLikelihood):
                             'split': data['split']
                             })
 
-        for label_name, output in output.items():
-            # label
-            _label_list = [int(label) for label in data['labels'][label_name]]
-            _df_label = pd.DataFrame({label_name: _label_list})
-            # output
-            pred_names = self._make_pred_names(label_name)
-            _df_output = pd.DataFrame(self._convert_to_numpy(output), columns=pred_names)
-            _df_new = pd.concat([_df_new, _df_label, _df_output], axis=1)
+        if any(data['labels']):
+            for label_name, output in output.items():
+                # label
+                _label_list = [int(label) for label in data['labels'][label_name]]
+                _df_label = pd.DataFrame({label_name: _label_list})
+                # output
+                pred_names = self._make_pred_names(label_name)
+                _df_output = pd.DataFrame(self._convert_to_numpy(output), columns=pred_names)
+                _df_new = pd.concat([_df_new, _df_label, _df_output], axis=1)
+        else:
+            for label_name, output in output.items():
+                #  output
+                pred_names = self._make_pred_names(label_name)
+                _df_output = pd.DataFrame(self._convert_to_numpy(output), columns=pred_names)
+                _df_new = pd.concat([_df_new, _df_output], axis=1)
 
         self.df_likelihood = pd.concat([self.df_likelihood, _df_new], ignore_index=True)
 
@@ -151,14 +158,21 @@ class RegLikelihood(BaseLikelihood):
                             'split': data['split']
                             })
 
-        for label_name, output in output.items():
-            # label
-            _label_list = [float(label) for label in data['labels'][label_name]]
-            _df_label = pd.DataFrame({label_name: _label_list})
-            # output
-            pred_names = self._make_pred_names(label_name)
-            _df_output = pd.DataFrame(self._convert_to_numpy(output), columns=pred_names)
-            _df_new = pd.concat([_df_new, _df_label, _df_output], axis=1)
+        if any(data['labels']):
+            for label_name, output in output.items():
+                # label
+                _label_list = [float(label) for label in data['labels'][label_name]]
+                _df_label = pd.DataFrame({label_name: _label_list})
+                # output
+                pred_names = self._make_pred_names(label_name)
+                _df_output = pd.DataFrame(self._convert_to_numpy(output), columns=pred_names)
+                _df_new = pd.concat([_df_new, _df_label, _df_output], axis=1)
+        else:
+            for label_name, output in output.items():
+                #  output
+                pred_names = self._make_pred_names(label_name)
+                _df_output = pd.DataFrame(self._convert_to_numpy(output), columns=pred_names)
+                _df_new = pd.concat([_df_new, _df_output], axis=1)
 
         self.df_likelihood = pd.concat([self.df_likelihood, _df_new], ignore_index=True)
 
@@ -189,14 +203,21 @@ class DeepSurvLikelihood(RegLikelihood):
                             'periods': data['periods']
                             })
 
-        for label_name, output in output.items():
-            # label
-            _label_list = [float(label) for label in data['labels'][label_name]]
-            _df_label = pd.DataFrame({label_name: _label_list})
-            # output
-            pred_names = self._make_pred_names(label_name)
-            _df_output = pd.DataFrame(self._convert_to_numpy(output), columns=pred_names)
-            _df_new = pd.concat([_df_new, _df_label, _df_output], axis=1)
+        if any(data['labels']):
+            for label_name, output in output.items():
+                # label
+                _label_list = [int(label) for label in data['labels'][label_name]]
+                _df_label = pd.DataFrame({label_name: _label_list})
+                # output
+                pred_names = self._make_pred_names(label_name)
+                _df_output = pd.DataFrame(self._convert_to_numpy(output), columns=pred_names)
+                _df_new = pd.concat([_df_new, _df_label, _df_output], axis=1)
+        else:
+            for label_name, output in output.items():
+                #  output
+                pred_names = self._make_pred_names(label_name)
+                _df_output = pd.DataFrame(self._convert_to_numpy(output), columns=pred_names)
+                _df_new = pd.concat([_df_new, _df_output], axis=1)
 
         self.df_likelihood = pd.concat([self.df_likelihood, _df_new], ignore_index=True)
 

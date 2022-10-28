@@ -30,11 +30,22 @@ class ModelParam:
     Set up configure for traning or test.
     Integrate args and parameters.
     """
-    def __init__(self, args: argparse.Namespace) -> None:
-        # self.params = _Param()
-        self._setup_parameters(args)
+    def __init__(self, args: argparse.Namespace, test_splits: List[str]) -> None:
+        """
+        Args:
+            args (argparse.Namespace): options
+            test_splits (List[str]): splits to be test. This is used only when test.
+        """
+        self._setup_parameters(args, test_splits)
 
-    def _setup_parameters(self, args) -> None:
+    def _setup_parameters(self, args: argparse.Namespace, test_splits: List[str]) -> None:
+        """
+        Set up paramaters depending on training or test.
+
+        Args:
+            args (argparse.Namespace): options
+            test_splits (List[str]): splits to be test. This is used only when test.
+        """
         for _param, _arg in vars(args).items():
             setattr(self, _param, _arg)
 
@@ -58,7 +69,7 @@ class ModelParam:
             self.save_datetime_dir = _save_datetime_dir
 
             # Dataloader
-            self.dataloaders = {split: create_dataloader(self, sp.df_source, split=split) for split in ['train', 'val']}  # self
+            self.dataloaders = {split: create_dataloader(self, sp.df_source, split=split) for split in ['train', 'val']}
 
         else:
             # Load paramaters
@@ -74,8 +85,8 @@ class ModelParam:
                                 'gpu_ids',
                                 'mlp',
                                 'net',
-                                'input_list',
-                                'label_list',
+                                'input_list',  # used one at trainig
+                                'label_list',  # used one at trainig
                                 'mlp_num_inputs',
                                 'num_outputs_for_label',
                                 'period_name',
@@ -93,8 +104,19 @@ class ModelParam:
 
             # Directory for saving ikelihood
             _datetime = _save_datetime_dir.name
-            _save_datetime_dir = str(Path(_dataset_dir, 'results', _csv_name, 'sets', _datetime))  # csv_name might be different from one at training
+            _save_datetime_dir = str(Path(_dataset_dir, 'results', _csv_name, 'sets', _datetime))  # csv_name might be for external dataset
             self.save_datetime_dir = _save_datetime_dir
+
+            # Smaller set of splits has priority.
+            test_splits  # ['train', 'val', 'test'], ['val', 'test'], or ['test']
+            splits_in_df_source = sp.df_source['split'].unique().tolist()  # ['train', 'val', 'test'], or ['test']
+            if set(splits_in_df_source) <= set(test_splits):
+                self.test_splits = splits_in_df_source
+            elif set(splits_in_df_source) >= set(test_splits):
+                self.test_splits = test_splits
+            else:
+                # set(splits_in_df_source) == set(test_splits):
+                self.test_splits = test_splits
 
             # Dataloader
             self.dataloaders = {split: create_dataloader(self, sp.df_source, split=split) for split in self.test_splits}
@@ -313,9 +335,13 @@ class BaseModel(ABC):
         Returns:
             Dict[str, Union[int, float]]: dictionary of each label and its value which is on devide
         """
-        for label_name, each_data in multi_label.items():
-            multi_label[label_name] = each_data.to(self.device)
-        return multi_label
+        if any(multi_label):
+            _multi_label = dict()
+            for label_name, each_data in multi_label.items():
+                _multi_label[label_name] = each_data.to(self.device)
+            return _multi_label
+        else:
+            return multi_label
 
     @abstractmethod
     def forward(self):
@@ -716,17 +742,18 @@ class FusionDeepSurv(ModelWidget):
         self.loss_reg.cal_batch_loss(self.multi_output, self.multi_label, self.periods, self.network)
 
 
-def create_model(args: argparse.Namespace) -> nn.Module:
+def create_model(args: argparse.Namespace, test_splits: List[str] = ['train', 'val', 'test']) -> nn.Module:
     """
-    Construct model
+    Construct model.
 
     Args:
         args (argparse.Namespace): options
+        test_splits (List[str]): splits to be test. Default to ['train', 'val', 'test']
 
     Returns:
         nn.Module: model
     """
-    params = ModelParam(args)
+    params = ModelParam(args, test_splits)
     task = params.task
     _isMLPModel = (params.mlp is not None) and (params.mlp is None)
     _isCVModel = (params.mlp is None) and (params.mlp is not None)
@@ -740,7 +767,7 @@ def create_model(args: argparse.Namespace) -> nn.Module:
         elif _isFusion:
             model = FusionModel(params)
         else:
-            raise ValueError(f"Invalid model type: mlp={mlp}, net={net}.")
+            raise ValueError(f"Invalid model type: mlp={params.mlp}, net={params.net}.")
 
     elif task == 'deepsurv':
         if _isMLPModel:
@@ -750,7 +777,7 @@ def create_model(args: argparse.Namespace) -> nn.Module:
         elif _isFusion:
             model = FusionDeepSurv(params)
         else:
-            raise ValueError(f"Invalid model type: mlp={mlp}, net={net}.")
+            raise ValueError(f"Invalid model type: mlp={params.mlp}, net={params.net}.")
 
     else:
         raise ValueError(f"Invalid task: {task}.")

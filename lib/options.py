@@ -62,9 +62,6 @@ class Options:
             # Test bash size
             self.parser.add_argument('--test_batch_size',    type=int,  default=64, metavar='N', help='batch size for test (Default: 64)')
 
-            # Split to be inference
-            self.parser.add_argument('--test_splits',        type=str, default='train-val-test', help='splits to be inferred eg. train-val, train-val-test, val-test (Default: train-val-test)')
-
         self.args = self.parser.parse_args()
 
         if datetime is not None:
@@ -110,27 +107,14 @@ class Options:
                 _gpu_ids.append(id)
         return _gpu_ids
 
-    def _parse_test_splits(self, test_splits: str) -> List[str]:
-        """
-        Parse splits concatenated with '-' to list of strings of splits.
-
-        Args:
-            test_splits (str): splits concatenated with '-'
-
-        Returns:
-            List[str]: list of strings of splits
-            eg. 'train-val-test' -> ['train', 'val', 'test']
-        """
-        _test_splits = test_splits.split('-')
-        return _test_splits
-
     def _get_latest_weight_dir(self) -> str:
         """
         Return the latest path to directory of weight made at training.
 
         Returns:
             str: path to directory of the latest weight
-            eg. 'materials/results/[csv_name]/sets/2022-09-30-15-56-60/weights'
+            eg. 'materials/docs/[csv_name].csv'
+                -> 'materials/results/[csv_name]/sets/2022-09-30-15-56-60/weights'
         """
         _dataset_dir = re.findall('(.*)/docs', self.args.csvpath)[0]
         _weight_dirs = list(Path(_dataset_dir, 'results').glob('*/sets/*/weights'))
@@ -153,9 +137,6 @@ class Options:
             if self.args.weight_dir is None:
                 _weight_dir = self._get_latest_weight_dir()
                 setattr(self.args, 'weight_dir',  _weight_dir)
-
-            _test_splits = self._parse_test_splits(self.args.test_splits)
-            setattr(self.args, 'test_splits', _test_splits)
 
 
 def check_train_options(datetime_name: str) -> Options:

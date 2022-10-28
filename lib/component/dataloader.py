@@ -377,6 +377,29 @@ class LoadDataSet(Dataset, DataSetWidget):
         """
         return len(self.df_split)
 
+    def _load_label(self, idx: int) -> Dict[str, Union[int, float]]:
+        """
+        Return labels.
+        If no column of label when csv of external dataset is used,
+        empty dictionaty is returned.
+
+        Args:
+            idx (int): index
+
+        Returns:
+            Dict[str, Union[int, float]]: dictionary of label name anbd its value
+        """
+        # For checking if columns of labels exist when used csv for external dataset.
+        label_list_in_split = list(self.df_split.columns[self.df_split.columns.str.startswith('label')])
+        label_dict = dict()
+        if label_list_in_split != []:
+            for label_name in self.label_list:
+                label_dict[label_name] = self.df_split.iat[idx, self.col_index_dict[label_name]]
+        else:
+            # no label
+            pass
+        return label_dict
+
     def __getitem__(self, idx: int) -> Dict:
         """
         Return data row specified by index.
@@ -387,14 +410,13 @@ class LoadDataSet(Dataset, DataSetWidget):
         Returns:
             Dict: dictionary of data to be passed model
         """
-        imgpath = self.df_split.iat[idx, self.col_index_dict['imgpath']]  #! If type(imgpath)==Path, error occurs.
+        imgpath = self.df_split.iat[idx, self.col_index_dict['imgpath']]
         inputs_value = self._load_input_value_if_mlp(idx)
         image = self._load_image_if_cnn(idx)
-        label_dict = {label_name: self.df_split.iat[idx, self.col_index_dict[label_name]] for label_name in self.label_list}
+        label_dict = self._load_label(idx)
         periods = self._load_periods_if_deepsurv(idx)
         split = self.df_split.iat[idx, self.col_index_dict['split']]
 
-        # imagepath, labelがなしの場合がある
         _data = {
                 'imgpath': imgpath,
                 'inputs': inputs_value,
