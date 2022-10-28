@@ -559,9 +559,9 @@ def create_net(
         nn.Module: network
     """
 
-    _isMLPModel = (mlp is not None) and (mlp is None)
-    _isCVModel = (mlp is None) and (mlp is not None)
-    _isFusion = (mlp is not None) and (mlp is not None)
+    _isMLPModel = (mlp is not None) and (net is None)
+    _isCVModel = (mlp is None) and (net is not None)
+    _isFusion = (mlp is not None) and (net is not None)
 
     if _isMLPModel:
         multi_net = MultiNet(

@@ -752,9 +752,9 @@ def create_model(args: argparse.Namespace, test_splits: List[str] = ['train', 'v
     """
     params = ModelParam(args, test_splits)
     task = params.task
-    _isMLPModel = (params.mlp is not None) and (params.mlp is None)
-    _isCVModel = (params.mlp is None) and (params.mlp is not None)
-    _isFusion = (params.mlp is not None) and (params.mlp is not None)
+    _isMLPModel = (params.mlp is not None) and (params.net is None)
+    _isCVModel = (params.mlp is None) and (params.net is not None)
+    _isFusion = (params.mlp is not None) and (params.net is not None)
 
     if (task == 'classification') or (task == 'regression'):
         if _isMLPModel:
