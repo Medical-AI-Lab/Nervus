@@ -20,11 +20,6 @@ from typing import List, Dict, Union
 import argparse
 
 
-class _Param:
-    def __init__(self) -> None:
-        pass
-
-
 class ModelParam:
     """
     Set up configure for traning or test.
@@ -85,8 +80,8 @@ class ModelParam:
                                 'gpu_ids',
                                 'mlp',
                                 'net',
-                                'input_list',  # used one at trainig
-                                'label_list',  # used one at trainig
+                                'input_list',  # should be used one at trainig
+                                'label_list',  # shoudl be used one at trainig
                                 'mlp_num_inputs',
                                 'num_outputs_for_label',
                                 'period_name',
@@ -110,9 +105,11 @@ class ModelParam:
             # Smaller set of splits has priority.
             test_splits  # ['train', 'val', 'test'], ['val', 'test'], or ['test']
             splits_in_df_source = sp.df_source['split'].unique().tolist()  # ['train', 'val', 'test'], or ['test']
-            if set(splits_in_df_source) <= set(test_splits):
+            if set(splits_in_df_source) < set(test_splits):
+                # might be when external dataset
                 self.test_splits = splits_in_df_source
-            elif set(splits_in_df_source) >= set(test_splits):
+            elif set(splits_in_df_source) > set(test_splits):
+                # might be when analysis, ie. Grad-CAM or permutation importance
                 self.test_splits = test_splits
             else:
                 # set(splits_in_df_source) == set(test_splits):
@@ -341,7 +338,7 @@ class BaseModel(ABC):
                 _multi_label[label_name] = each_data.to(self.device)
             return _multi_label
         else:
-            return multi_label
+            return multi_label  # ie. empty dictionary
 
     @abstractmethod
     def forward(self):
