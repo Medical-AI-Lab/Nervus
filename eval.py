@@ -4,6 +4,7 @@
 import argparse
 from pathlib import Path
 import glob
+import re
 import json
 from lib import set_eval, set_logger
 from lib import Logger as logger
@@ -60,8 +61,9 @@ def check_task(likelihood_dir: str) -> str:
     Returns:
         str: task
     """
+    _dataset_dir = re.findall('(.*)/results', likelihood_dir)[0]
     _datetime_dir = Path(likelihood_dir).parents[0].name
-    _parameter_path = glob.glob('**/results/*/sets/' + _datetime_dir + '/parameters.json', recursive=True)[0]
+    _parameter_path = list(Path(_dataset_dir).glob('results/*/sets/' + _datetime_dir + '/parameters.json'))[0]
     with open(_parameter_path) as f:
         _parameters = json.load(f)
     task = _parameters['task']

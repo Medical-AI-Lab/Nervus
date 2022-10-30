@@ -110,6 +110,7 @@ class ROCMixin:
         POSITIVE = 1
         positive_pred_name = 'pred_' + label_name + '_' + str(POSITIVE)
 
+        # ! When splits is 'test' only, ie when external dataset, error occurs.
         label_metrics = LabelMetrics()
         for split in ['val', 'test']:
             df_split = df_label.query('split == @split')

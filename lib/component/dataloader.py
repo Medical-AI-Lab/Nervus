@@ -182,7 +182,7 @@ class InputDataMixin:
             _df_train = self.df_source[self.df_source['split'] == 'train']  # should be normalized with min and max of training data
             _ = scaler.fit(_df_train[self.input_list])                      # fit only
         else:
-            # load scalaer
+            # load scalaer created at training.
             with open(scaler_path, 'rb') as f:
                 scaler = pickle.load(f)
         return scaler
