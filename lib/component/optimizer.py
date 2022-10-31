@@ -21,16 +21,17 @@ class Optimizer:
 def set_optimizer(optimizer_name: str, network: nn.Module, lr: float) -> optim:
     """
     Set optimizer.
-
     Args:
         optimizer_name (str): criteon name
         network (torch.nn.Module): network
         lr (float): learning rate
-
     Returns:
         torch.optim: optimizer
     """
     assert (optimizer_name in Optimizer.optimizers), f"No specified optimizer: {optimizer_name}."
 
-    opritmizer = Optimizer.optimizers[optimizer_name](network.parameters(), lr=lr)
+    if lr is None:
+        opritmizer = Optimizer.optimizers[optimizer_name](network.parameters())
+    else:
+        opritmizer = Optimizer.optimizers[optimizer_name](network.parameters(), lr=lr)
     return opritmizer

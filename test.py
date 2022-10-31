@@ -9,28 +9,39 @@ from lib import (
         set_logger
         )
 from lib import Logger as logger
+from typing import List
 
 
-def _collect_weight(test_datetime):
-    weight_paths = list(Path('./results/sets', test_datetime, 'weights').glob('*'))
-    assert weight_paths != [], f"No weight for {test_datetime}."
+def _collect_weight(weight_dir: str) -> List[Path]:
+    """
+    Return list of weight paths.
+
+    Args:
+        weight_dir (st): path to directory of weights
+
+    Returns:
+        List[Path]: list of weight paths
+    """
+    weight_paths = list(Path(weight_dir).glob('*.pt'))
+    assert weight_paths != [], f"No weight in {weight_dir}."
     weight_paths.sort(key=lambda path: path.stat().st_mtime)
     return weight_paths
 
 
 def main(opt):
-    args = opt.args
-    model = create_model(args)
+    model = create_model(opt.args)
+    model.print_parameter()
     model.print_dataset_info()
 
-    weight_paths = _collect_weight(args.test_datetime)
+    weight_paths = _collect_weight(model.weight_dir)
     for weight_path in weight_paths:
         logger.logger.info(f"Inference with {weight_path.name}.")
 
-        model.load_weight(weight_path)  # weight is reset every time
+        # weight is reset, or overwritten every time.
+        model.load_weight(weight_path)
         model.eval()
 
-        for split in ['train', 'val', 'test']:
+        for split in model.test_splits:
             split_dataloader = model.dataloaders[split]
 
             for i, data in enumerate(split_dataloader):
@@ -38,10 +49,9 @@ def main(opt):
 
                 with torch.no_grad():
                     model.forward()
+                    model.make_likelihood(data)
 
-                model.make_likelihood(data)
-
-        model.save_likelihood(save_name=weight_path.stem)
+        model.save_likelihood(weight_path.stem)
 
 
 if __name__ == '__main__':

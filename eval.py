@@ -3,54 +3,114 @@
 
 import argparse
 from pathlib import Path
+import glob
 import re
-import pandas as pd
+import json
 from lib import set_eval, set_logger
 from lib import Logger as logger
+from typing import List
 
 
-def _get_latest_eval_datetime():
-    date_names = [path for path in Path('./results/sets/').glob('*') if re.search(r'\d+', str(path))]
-    latest = max(date_names, key=lambda date_name: date_name.stat().st_mtime).name
-    return latest
+class EvalOptions:
+    """
+    Class for options.
+    """
+    def __init__(self) -> None:
+        """
+        Options for evaluation.
+        """
+        self.parser = argparse.ArgumentParser(description='Options for evaluation')
+        self.parser.add_argument('--likelihood_dir', type=str, default=None, help='Directory of likekihood (Default: None)')
+        self.args = self.parser.parse_args()
+
+    def _get_latest_likelihood_dir(self) -> str:
+        """
+        Return the latest directory of likelihood.
+
+        Returns:
+            str: Directory of likelihood
+
+        Note that:
+        If directory of materials is link, Path('.').glob('**/likelihoods') cannot follow below materials.
+        Therefore, use glob.glob.
+        """
+        _likelihood_dirs = glob.glob('**/results/*/sets/*/likelihoods', recursive=True)
+        assert (_likelihood_dirs != []), 'No directory of likelihood.'
+        likelihood_dir = max(_likelihood_dirs, key=lambda likelihood_dir: Path(likelihood_dir).stat().st_mtime)
+        return str(likelihood_dir)
+
+    def parse(self) -> None:
+        """
+        Parse options.
+        """
+        if self.args.likelihood_dir is None:
+            _likelihood_dir = self._get_latest_likelihood_dir()
+            setattr(self.args, 'likelihood_dir',  _likelihood_dir)
+
+        _save_datetime_dir = Path(self.args.likelihood_dir).parents[0]
+        setattr(self.args, 'save_datetime_dir', _save_datetime_dir)
 
 
-def check_eval_options():
-    parser = argparse.ArgumentParser(description='Options for eval')
-    parser.add_argument('--eval_datetime', type=str, default=None, help='date time for evaluation(Default: None)')
-    args = parser.parse_args()
+def check_task(likelihood_dir: str) -> str:
+    """
+    Return task.
 
-    # Check date time
-    if args.eval_datetime is None:
-        args.eval_datetime = _get_latest_eval_datetime()
-    return args
+    Args:
+        likelihood_dir (str): Directory of likelihood
+
+    Returns:
+        str: task
+    """
+    _dataset_dir = re.findall('(.*)/results', likelihood_dir)[0]
+    _datetime_dir = Path(likelihood_dir).parents[0].name
+    _parameter_path = list(Path(_dataset_dir).glob('results/*/sets/' + _datetime_dir + '/parameters.json'))[0]
+    with open(_parameter_path) as f:
+        _parameters = json.load(f)
+    task = _parameters['task']
+    return task
 
 
-def _collect_likelihood(eval_datetime):
-    likelihood_paths = list(Path('./results/sets/', eval_datetime, 'likelihoods').glob('likelihood_*.csv'))
-    assert likelihood_paths != [], f"No likelihood for {eval_datetime}."
+def check_eval_options() -> EvalOptions:
+    """
+    Parse options for evaluation.
+
+    Returns:
+        EvalOptions: options
+    """
+    opt = EvalOptions()
+    opt.parse()
+    return opt
+
+
+def collect_likelihood(likelihood_dir: str) -> List[Path]:
+    """
+    Return list of likelihood paths.
+
+    Args:
+        likelihood_dir (str): path to directory of likelihoods
+
+    Returns:
+        List[Path]: list of likelihood paths
+    """
+    likelihood_paths = list(Path(likelihood_dir).glob('*.csv'))
+    assert likelihood_paths != [], f"No likelihood in {likelihood_dir}."
     likelihood_paths.sort(key=lambda path: path.stat().st_mtime)
     return likelihood_paths
 
 
-def _check_task(eval_datetime):
-    parameter_path = Path('./results/sets', eval_datetime, 'parameter.csv')
-    df_args = pd.read_csv(parameter_path)
-    task = df_args.loc[df_args['option'] == 'task', 'parameter'].item()
-    return task
-
-
-def main(args):
-    eval_datetime = args.eval_datetime
-    likelihood_paths = _collect_likelihood(eval_datetime)
-    task = _check_task(eval_datetime)
+def main(opt):
+    args = opt.args
+    likelihood_paths = collect_likelihood(args.likelihood_dir)
+    task = check_task(args.likelihood_dir)
     task_eval = set_eval(task)
 
-    logger.logger.info(f"Calculating metrics of {task} for {eval_datetime}.\n")
+    logger.logger.info(f"Calculating metrics of {task} for {args.likelihood_dir}.\n")
+
     for likelihood_path in likelihood_paths:
         logger.logger.info(likelihood_path.name)
-        task_eval.make_metrics(eval_datetime, likelihood_path)
+        task_eval.make_metrics(likelihood_path)
         logger.logger.info('')
+
     logger.logger.info('\nUpdated summary.')
 
 
@@ -58,7 +118,7 @@ if __name__ == '__main__':
     set_logger()
     logger.logger.info('\nEvaluation started.\n')
 
-    args = check_eval_options()
-    main(args)
+    opt = check_eval_options()
+    main(opt)
 
     logger.logger.info('Evaluation done.\n')

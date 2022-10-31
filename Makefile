@@ -1,34 +1,33 @@
 # ----- Define variables -----
-# CSV_NAME = trial.csv
-# IMAGE_DIR = 8bit/128 | 8bit/covid | 8bit/png256
 # TASK = classification | regression | deepsurv
+# CSVPATH = materials/docs/trial.csv
 # MODEL = MLP | [CNN or ViT name] | MLP+[CNN or ViT name]
 # CRITERION = CEL | MSE | RMSE | MAE | NLL
 # OPTIMIZER = SGD | Adadelta | RMSprop | Adam | RAdam
-# AUGMENTATION = xrayaug | trivialaugwide | randaug | no
+# EPOCHS  = 50
+# BATCH_SIZE = 64
 # SAMPLER = yes | no   # should be no when regression or multi-label
+# AUGMENTATION = xrayaug | trivialaugwide | randaug | no
 # IN_CHANNEL = 1 | 3
-# SAVE_WEIGHT = best | each
+# SAVE_WEIGHT_POLICY = best | each
 # GPU_IDS = -1 | 0-1-2
 
-CSV_NAME := trial.csv
-IMAGE_DIR := 128
 TASK := classification
-MODEL := ResNet18
+CSVPATH := materials/docs/trial.csv
+MODEL := MLP+ResNet18
 CRITERION := CEL
 OPTIMIZER := Adam
-EPOCHS := 3
+EPOCHS := 50
 BATCH_SIZE := 64
 SAMPLER := no
 AUGMENTATION := xrayaug
-IN_CHANNEL := 3
-SAVE_WEIGHT := each
+IN_CHANNEL := 1
+SAVE_WEIGHT_POLICY := each
 GPU_IDS := -1
 
 TRAIN_OPT := \
---csv_name $(CSV_NAME) \
---image_dir $(IMAGE_DIR) \
 --task $(TASK) \
+--csvpath $(CSVPATH) \
 --model $(MODEL) \
 --criterion $(CRITERION) \
 --optimizer $(OPTIMIZER) \
@@ -37,26 +36,16 @@ TRAIN_OPT := \
 --sampler $(SAMPLER) \
 --augmentation $(AUGMENTATION) \
 --in_channel $(IN_CHANNEL) \
---save_weight $(SAVE_WEIGHT) \
+--save_weight_policy $(SAVE_WEIGHT_POLICY) \
 --gpu_ids $(GPU_IDS)
 
+TEST_OPT := \
+--csvpath $(CSVPATH)
 
-PYTHON := python -i
-#PYTHON := python
-
+PYTHON := python
 TRAIN_CODE := train.py
 TEST_CODE := test.py
 EVAL_CODE := eval.py
-
-PARAMETER := ./parameters.csv
-RESULTS_DIR := ./results
-SETS_DIR := $(RESULTS_DIR)/sets
-SUMMARY_DIR := $(RESULTS_DIR)/summary
-LOG_DIR := ./logs
-TMP_DIR := tmp
-
-DATETIME := $$(date "+%Y-%m-%d-%H-%M-%S")
-LOG_DATETIME := $$(ls -d $(SETS_DIR)/[0-9]*)
 
 
 active:
@@ -69,17 +58,7 @@ train:
 	$(PYTHON) $(TRAIN_CODE) $(TRAIN_OPT)
 
 test:
-	$(PYTHON) $(TEST_CODE)
+	$(PYTHON) $(TEST_CODE) $(TEST_OPT)
 
 eval:
 	$(PYTHON) $(EVAL_CODE)
-
-temp:
-	-mkdir -p $(SETS_DIR)/$(TMP_DIR)
-	-mkdir -p $(SUMMARY_DIR)/$(TMP_DIR)
-	-mkdir -p $(LOG_DIR)/$(TMP_DIR)
-
-clean:
-	-mv $(LOG_DATETIME) $(SETS_DIR)/$(TMP_DIR)
-	-mv $(SUMMARY_DIR)/summary.csv $(SUMMARY_DIR)/$(TMP_DIR)/summary_$(DATETIME).csv
-	-mv $(LOG_DIR)/*.log $(LOG_DIR)/$(TMP_DIR)

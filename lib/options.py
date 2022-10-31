@@ -4,68 +4,71 @@
 from pathlib import Path
 import re
 import argparse
-import pandas as pd
-from .logger import Logger as logger
-from typing import Dict, List, Tuple, Union
+from typing import List, Tuple, Union
 
 
 class Options:
     """
-    Class to parse options.
+    Class for options.
     """
-    def __init__(self, isTrain: bool = None) -> None:
+    def __init__(self,  datetime: str = None, isTrain: bool = None) -> None:
         """
-        Args:
-            isTrain (bool, optional): Variable indicating whether training. True when traning. Defaults to None.
+            Args:
+            datetime (str, optional): date time    Args:
+            isTrain (bool, optional): Variable indicating whether training or not. Defaults to None.
         """
-        assert isinstance(isTrain, bool), 'isTrain should be bool.'
-
         self.parser = argparse.ArgumentParser(description='Options for training or test')
 
-        if isTrain:
-            # Materials
-            self.parser.add_argument('--csv_name',        type=str,   default=None,   help='csv filename(Default: None)')
-            self.parser.add_argument('--image_dir',       type=str,   default=None,   help='directory name contaning images(Default: None)')
+        # The blow is common argument both at training and test.
+        self.parser.add_argument('--csvpath',   type=str, required=True, help='path to csv for training or test')
 
+        if isTrain:
             # Task
-            self.parser.add_argument('--task',            type=str,   choices=['classification', 'regression', 'deepsurv'], default=None, help='Task: classification or regression (Default: None)')
+            self.parser.add_argument('--task',  type=str, required=True, choices=['classification', 'regression', 'deepsurv'], help='Task')
 
             # Model
-            self.parser.add_argument('--model',           type=str,   default=None,   help='model: MLP, CNN, ViT, or MLP+(CNN or ViT) (Default: None)')
+            self.parser.add_argument('--model', type=str, required=True, help='model: MLP, CNN, ViT, or MLP+(CNN or ViT)')
 
             # Training and Internal validation
-            self.parser.add_argument('--criterion',       type=str,   default=None,  help='criterion: CEL, MSE, RMSE, MAE, NLL (Default: None)')
-            self.parser.add_argument('--optimizer',       type=str,   default=None,  help='optimzer: SGD, Adadelta, RMSprop, Adam, RAdam (Default: None)')
-            self.parser.add_argument('--lr',              type=float, default=0.001, metavar='N', help='learning rate: (Default: 0.001)')
-            self.parser.add_argument('--epochs',          type=int,   default=10,    metavar='N', help='number of epochs (Default: 10)')
+            self.parser.add_argument('--criterion', type=str,   required=True, choices=['CEL', 'MSE', 'RMSE', 'MAE', 'NLL'], help='criterion')
+            self.parser.add_argument('--optimizer', type=str,   required=True, choices=['SGD', 'Adadelta', 'RMSprop', 'Adam', 'RAdam'], help='optimzer')
+            self.parser.add_argument('--lr',        type=float,                metavar='N', help='learning rate')
+            self.parser.add_argument('--epochs',    type=int,   default=10,    metavar='N', help='number of epochs (Default: 10)')
 
             # Batch size
-            self.parser.add_argument('--batch_size',      type=int,   default=None,  metavar='N', help='batch size in training (Default: None)')
+            self.parser.add_argument('--batch_size',         type=int,  required=True, metavar='N', help='batch size in training')
 
-            # Preprocess for imagez
-            self.parser.add_argument('--augmentation',    type=str,   choices=['xrayaug', 'trivialaugwide', 'randaug', 'no'], default=None,  help='kind of augmentation')
-            self.parser.add_argument('--normalize_image', type=str,   choices=['yes', 'no'], default='yes', help='image nomalization: yes, no (Default: yes)')
+            # Preprocess for image
+            self.parser.add_argument('--augmentation',       type=str,  required=True, choices=['xrayaug', 'trivialaugwide', 'randaug', 'no'], help='kind of augmentation')
+            self.parser.add_argument('--normalize_image',    type=str,                 choices=['yes', 'no'], default='yes', help='image nomalization: yes, no (Default: yes)')
 
             # Sampler
-            self.parser.add_argument('--sampler',         type=str,   choices=['yes', 'no'], default=None,  help='sample data in traning or not, yes or no (Default: None)')
+            self.parser.add_argument('--sampler',            type=str,  required=True, choices=['yes', 'no'], help='sample data in traning or not, yes or no')
 
             # Input channel
-            self.parser.add_argument('--in_channel',      type=int,   choices=[1, 3], default=None,  help='channel of input image (Default: None)')
-            self.parser.add_argument('--vit_image_size',  type=int,   default=None,  help='input image size for ViT(Default: None)')
+            self.parser.add_argument('--in_channel',         type=int,  required=True, choices=[1, 3], help='channel of input image')
+            self.parser.add_argument('--vit_image_size',     type=int,  default=0,                     help='input image size for ViT. Set 0 if not used ViT (Default: 0)')
 
             # Weight saving strategy
-            self.parser.add_argument('--save_weight',     type=str,   choices=['best', 'each'], default='best', help='Save weight: best, or each(ie. save each time loss decreases when multi-label output) (Default: best)')
+            self.parser.add_argument('--save_weight_policy', type=str,  choices=['best', 'each'], default='best', help='Save weight policy: best, or each(ie. save each time loss decreases when multi-label output) (Default: best)')
 
-            # GPU
-            self.parser.add_argument('--gpu_ids',         type=str,   default='-1',  help='gpu ids: e.g. 0, 0-1-2, 0-2. use -1 for CPU (Default: -1)')
+            # GPU Ids
+            self.parser.add_argument('--gpu_ids',            type=str,  default='-1', help='gpu ids: e.g. 0, 0-1-2, 0-2. Use -1 for CPU (Default: -1)')
 
         else:
-            # Test
-            self.parser.add_argument('--test_datetime',   type=str,   default=None,  help='date time when trained(Default: None)')
-            self.parser.add_argument('--test_batch_size', type=int,   default=64,    metavar='N', help='batch size for test (Default: 64)')
+            # Directry of weight at traning
+            self.parser.add_argument('--weight_dir',         type=str,  default=None, help='directory of weight to be used when test. If None, the latest one is selected')
+
+            # Test bash size
+            self.parser.add_argument('--test_batch_size',    type=int,  default=64, metavar='N', help='batch size for test (Default: 64)')
 
         self.args = self.parser.parse_args()
-        self.args.isTrain = isTrain
+
+        if datetime is not None:
+            setattr(self.args, 'datetime', datetime)
+
+        assert isinstance(isTrain, bool), 'isTrain should be bool.'
+        setattr(self.args, 'isTrain', isTrain)
 
     def _parse_model(self, model_name: str) -> Tuple[Union[str, None], Union[str, None]]:
         """
@@ -76,9 +79,10 @@ class Options:
 
         Returns:
             Tuple[str, str]: MLP, CNN or Vision Transformer name
+            eg. 'MLP', 'ResNet18', 'MLP+ResNet18' ->
+                ['MLP'], ['ResNet18'], ['MLP', 'ResNet18']
         """
-        assert (model_name is not None), 'Specify model.'
-        _model = model_name.split('+')  # 'MLP', 'ResNet18', 'MLP+ResNet18' -> ['MLP'], ['ResNet18'], ['MLP', 'ResNet18']
+        _model = model_name.split('+')
         mlp = 'MLP' if 'MLP' in _model else None
         _net = [_n for _n in _model if _n != 'MLP']
         net = _net[0] if _net != [] else None
@@ -86,10 +90,11 @@ class Options:
 
     def _parse_gpu_ids(self, gpu_ids: str) -> List[int]:
         """
-        Parse comma-separated GPU ids strings to list of integers to list of GPU ids.
+        Parse GPU ids concatenated with '-' to list of integers of GPU ids.
+        eg. '0-1-2' -> [0, 1, 2], '-1' -> []
 
         Args:
-            gpu_ids (str): comma-separated GPU Ids
+            gpu_ids (str): GPU Ids
 
         Returns:
             List[int]: list of GPU ids
@@ -102,178 +107,60 @@ class Options:
                 _gpu_ids.append(id)
         return _gpu_ids
 
-    def _get_latest_test_datetime(self) -> str:
+    def _get_latest_weight_dir(self) -> str:
         """
-        Return the most recent directory name.
+        Return the latest path to directory of weight made at training.
 
         Returns:
-            str: directory name indicating date name
+            str: path to directory of the latest weight
+            eg. 'materials/docs/[csv_name].csv'
+                -> 'materials/results/[csv_name]/sets/2022-09-30-15-56-60/weights'
         """
-        date_names = [path for path in Path('./results/sets/').glob('*') if re.search(r'\d+', str(path))]
-        latest = max(date_names, key=lambda date_name: date_name.stat().st_mtime).name
-        return latest
+        _dataset_dir = re.findall('(.*)/docs', self.args.csvpath)[0]
+        _weight_dirs = list(Path(_dataset_dir, 'results').glob('*/sets/*/weights'))
+        assert (_weight_dirs != []), 'No directory of weight.'
+        weight_dir = max(_weight_dirs, key=lambda weight_dir: weight_dir.stat().st_mtime)
+        return str(weight_dir)
 
     def parse(self) -> None:
         """
         Parse options.
         """
         if self.args.isTrain:
-            # model
-            mlp, net = self._parse_model(self.args.model)
-            self.args.mlp = mlp
-            self.args.net = net
+            _mlp, _net = self._parse_model(self.args.model)
+            setattr(self.args, 'mlp', _mlp)
+            setattr(self.args, 'net', _net)
 
-            # split path
-            assert (self.args.csv_name is not None), 'Specify csv_name.'
-            self.args.csv_name = Path('./materials/splits', self.args.csv_name)
-
-            # image directory
-            if self.args.image_dir is not None:
-                self.args.image_dir = Path('./materials/images', self.args.image_dir)
-
-            # GPU IDs
-            self.args.gpu_ids = self._parse_gpu_ids(self.args.gpu_ids)
-
+            _gpu_ids = self._parse_gpu_ids(self.args.gpu_ids)
+            setattr(self.args, 'gpu_ids', _gpu_ids)
         else:
-            if self.args.test_datetime is None:
-                self.args.test_datetime = self._get_latest_test_datetime()
-
-    def _get_args(self) -> Dict[str, Union[str, float, int]]:
-        """
-        Return dictionary of option name and its parameter.
-
-        Returns:
-            Dict[str, Union[str, float, int]]: dictionary of option name and its parameter
-        """
-        return vars(self.args)
-
-    def print_options(self) -> None:
-        """
-        Format and print options
-        """
-        phase = 'Training' if self.args.isTrain else 'Test'
-
-        message = ''
-        message += f"--------------- Options for {phase} --------------------------\n"
-
-        ignored = ['isTrain', 'mlp', 'net']
-        for k, v in self._get_args().items():
-            if k not in ignored:
-                comment = ''
-                default = self.parser.get_default(k)
-
-                str_default = str(default) if str(default) != '' else 'None'
-                str_v = str(v) if str(v) != '' else 'Not specified'
-
-                if k == 'csv_name':
-                    str_v = Path(v).name
-                elif k == 'image_dir':
-                    str_v = Path(v).name
-                elif k == 'gpu_ids':
-                    if str_v == '[]':
-                        str_v = 'CPU selected'
-                    else:
-                        str_v = f"{str_v}  (Primary GPU:{v[0]})"
-
-                comment = f"\t[Default: {str_default}]" if k != 'gpu_ids' else '\t[Default: CPU]'
-                message += '{:>25}: {:<40}{}\n'.format(str(k), str_v, comment)
-            else:
-                pass
-        message += '------------------------ End -------------------------------\n'
-        logger.logger.info(message)
-
-    def save_parameter(self, date_name: str) -> None:
-        """
-        Save parameters.
-
-        Args:
-            date_name (str): diractory name for saving
-        """
-        saved_args = self._get_args()
-
-        ignored = ['isTrain']
-        for ignore in ignored:
-            del saved_args[ignore]
-
-        for option, parameter in saved_args.items():
-            if option == 'gpu_ids':
-                if parameter == []:
-                    saved_args['gpu_ids'] = '-1'
-                else:
-                    _gpu_ids = [str(i) for i in saved_args['gpu_ids']]
-                    _gpu_ids = '-'.join(_gpu_ids)   # ['0', '1', '2'] -> 0-1-2
-                    saved_args['gpu_ids'] = _gpu_ids
-            else:
-                if parameter is None:
-                    saved_args[option] = 'None'
-
-        df_parameter = pd.DataFrame(saved_args.items(), columns=['option', 'parameter'])
-        save_dir = Path('./results/sets', date_name)
-        save_dir.mkdir(parents=True, exist_ok=True)
-        save_path = Path(save_dir, 'parameter.csv')
-        df_parameter.to_csv(save_path, index=False)
-
-    def setup_parameter_for_test(self) -> None:
-        """
-        Set up paramters for test.
-        """
-        parameter_path = Path('./results/sets', self.args.test_datetime, 'parameter.csv')
-        df_args = pd.read_csv(parameter_path)
-
-        ignored = ['criterion', 'optimizer', 'lr', 'epochs', 'batch_size', 'save_weight']  # no need when test
-        # DataFrame -> Dict except ignored
-        args_dict = dict()
-        for each in df_args.to_dict(orient='records'):  # eg. each = {'option': 'model', 'parameter': 'ResNet18'}
-            if each['option'] not in ignored:
-                args_dict[each['option']] = each['parameter']
-
-        for option, parameter in args_dict.items():
-            if option == 'in_channel':
-                setattr(self.args, 'in_channel', int(parameter))
-
-            elif option == 'vit_image_size':
-                if parameter.isnumeric():
-                    setattr(self.args, option, int(parameter))
-                else:
-                    setattr(self.args, option, None)
-
-            elif option == 'gpu_ids':
-                _gpu_ids = self._parse_gpu_ids(parameter)
-                setattr(self.args, option, _gpu_ids)
-
-            else:
-                if parameter == 'None':
-                    setattr(self.args, option, None)
-                else:
-                    setattr(self.args, option, parameter)
-
-        # The below should be 'no' when test.
-        setattr(self.args, 'augmentation', 'no')
-        setattr(self.args, 'sampler', 'no')
+            if self.args.weight_dir is None:
+                _weight_dir = self._get_latest_weight_dir()
+                setattr(self.args, 'weight_dir',  _weight_dir)
 
 
-def check_train_options() -> Options:
+def check_train_options(datetime_name: str) -> Options:
     """
-    Parse and print options.
+    Parse options for training.
+
+    Args:
+        datetime_name (str): date time
 
     Returns:
-        Options: Object of Options
+        Options: options
     """
-    opt = Options(isTrain=True)
+    opt = Options(datetime=datetime_name, isTrain=True)
     opt.parse()
-    opt.print_options()
     return opt
 
 
 def check_test_options() -> Options:
     """
-    Parse, set up for test and print options.
+    Parse options for test.
 
     Returns:
-        Options: Object of Options
+        Options: options
     """
     opt = Options(isTrain=False)
     opt.parse()
-    opt.setup_parameter_for_test()
-    opt.print_options()
     return opt

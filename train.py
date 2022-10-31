@@ -11,12 +11,12 @@ from lib import (
 from lib import Logger as logger
 
 
-def main(opt, date_name):
-    args = opt.args
-    model = create_model(args)
+def main(opt):
+    model = create_model(opt.args)
+    model.print_parameter()
     model.print_dataset_info()
 
-    for epoch in range(args.epochs):
+    for epoch in range(model.epochs):
         for phase in ['train', 'val']:
             if phase == 'train':
                 model.train()
@@ -40,7 +40,7 @@ def main(opt, date_name):
                         model.backward()
                         model.optimize_parameters()
 
-                model.cal_running_loss(batch_size=len(data['Filename']))
+                model.cal_running_loss(batch_size=len(data['imgpath']))
 
             model.cal_epoch_loss(epoch, phase, dataset_size=dataset_size)
 
@@ -48,20 +48,20 @@ def main(opt, date_name):
 
         if model.is_total_val_loss_updated():
             model.store_weight()
-            if (epoch > 0) and (args.save_weight == 'each'):
-                model.save_weight(date_name, as_best=False)
+            if (epoch > 0) and (model.save_weight_policy == 'each'):
+                model.save_weight(as_best=False)
 
-    model.save_weight(date_name, as_best=True)
-    model.save_learning_curve(date_name)
-    opt.save_parameter(date_name)
+    model.save_learning_curve()
+    model.save_weight(as_best=True)
+    model.save_parameter()
 
 
 if __name__ == '__main__':
     set_logger()
-    date_name = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
-    logger.logger.info(f"\nTraining started at {date_name}.\n")
+    datetime_name = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
+    logger.logger.info(f"\nTraining started at {datetime_name}.\n")
 
-    opt = check_train_options()
-    main(opt, date_name)
+    opt = check_train_options(datetime_name)
+    main(opt)
 
     logger.logger.info('\nTraining finished.\n')

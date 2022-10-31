@@ -227,13 +227,13 @@ class BaseNet:
         return classifier
 
     @classmethod
-    def construct_multi_classifier(cls, net_name: str, num_classes_in_internal_label: Dict[str, int]) -> nn.ModuleDict:
+    def construct_multi_classifier(cls, net_name: str, num_outputs_for_label: Dict[str, int]) -> nn.ModuleDict:
         """
         Construct classifier for multi-label.
 
         Args:
             net_name (str): network name
-            num_classes_in_internal_label (Dict[str, int]): number of classes for each label
+            num_outputs_for_label (Dict[str, int]): number of outputs for each label
 
         Returns:
             nn.ModuleDict: classifier for multi-label
@@ -241,23 +241,23 @@ class BaseNet:
         classifiers = dict()
         if net_name == 'MLP':
             in_features = cls.mlp_config['hidden_channels'][-1]
-            for internal_label_name, num_classes in num_classes_in_internal_label.items():
-                classifiers[internal_label_name] = nn.Linear(in_features, num_classes)
+            for label_name, num_outputs in num_outputs_for_label.items():
+                classifiers[label_name] = nn.Linear(in_features, num_outputs)
 
         elif net_name.startswith('ResNet') or net_name.startswith('DenseNet'):
             base_classifier = cls.get_classifier(net_name)
             in_features = base_classifier.in_features
-            for internal_label_name, num_classes in num_classes_in_internal_label.items():
-                classifiers[internal_label_name] = nn.Linear(in_features, num_classes)
+            for label_name, num_outputs in num_outputs_for_label.items():
+                classifiers[label_name] = nn.Linear(in_features, num_outputs)
 
         elif net_name.startswith('EfficientNet'):
             base_classifier = cls.get_classifier(net_name)
             dropout = base_classifier[0].p
             in_features = base_classifier[1].in_features
-            for internal_label_name, num_classes in num_classes_in_internal_label.items():
-                classifiers[internal_label_name] = nn.Sequential(
+            for label_name, num_outputs in num_outputs_for_label.items():
+                classifiers[label_name] = nn.Sequential(
                                                         nn.Dropout(p=dropout, inplace=False),  # if inplace==True, cannot backward.
-                                                        nn.Linear(in_features, num_classes)
+                                                        nn.Linear(in_features, num_outputs)
                                                     )
 
         elif net_name.startswith('ConvNeXt'):
@@ -265,21 +265,23 @@ class BaseNet:
             layer_norm = base_classifier[0]
             flatten = base_classifier[1]
             in_features = base_classifier[2].in_features
-            for internal_label_name, num_classes in num_classes_in_internal_label.items():
+            for label_name, num_outputs in num_outputs_for_label.items():
                 # Shape is changed before nn.Linear.
-                classifiers[internal_label_name] = nn.Sequential(
+                classifiers[label_name] = nn.Sequential(
                                                         layer_norm,
                                                         flatten,
-                                                        nn.Linear(in_features, num_classes)
+                                                        nn.Linear(in_features, num_outputs)
                                                     )
 
         elif net_name.startswith('ViT'):
             base_classifier = cls.get_classifier(net_name)
             in_features = base_classifier.head.in_features
-            for internal_label_name, num_classes in num_classes_in_internal_label.items():
-                classifiers[internal_label_name] = nn.Sequential(OrderedDict([
-                                                        ('head', nn.Linear(in_features, num_classes))
-                                                    ]))
+            for label_name, num_outputs in num_outputs_for_label.items():
+                classifiers[label_name] = nn.Sequential(
+                                                OrderedDict([
+                                                        ('head', nn.Linear(in_features, num_outputs))
+                                                        ])
+                                                )
 
         else:
             raise ValueError(f"No specified net: {net_name}.")
@@ -409,8 +411,8 @@ class MultiMixin:
             Dict[str, float]: output of classifier of each label
         """
         output = dict()
-        for internal_label_name, classifier in self.multi_classifier.items():
-            output[internal_label_name] = classifier(out_features)
+        for label_name, classifier in self.multi_classifier.items():
+            output[label_name] = classifier(out_features)
         return output
 
 
@@ -425,11 +427,18 @@ class MultiNet(MultiWidget):
     """
     Model of MLP, CNN or ViT.
     """
-    def __init__(self, net_name: str, num_classes_in_internal_label: Dict[str, int], mlp_num_inputs: int = None, in_channel: int = None, vit_image_size: Optional[int] = None):
+    def __init__(
+                self,
+                net_name: str,
+                num_outputs_for_label: Dict[str, int],
+                mlp_num_inputs: int = None,
+                in_channel: int = None,
+                vit_image_size: Optional[int] = None
+                ) -> None:
         """
         Args:
             net_name (str): MLP, CNN or ViT name
-            num_classes_in_internal_label (Dict[str, int]): number of classes for each label
+            num_outputs_for_label (Dict[str, int]): number of classes for each label
             mlp_num_inputs (int, optional): number of input of MLP. Defaults to None.
             in_channel (int, optional): number of image channel, ie gray scale(=1) or color image(=3). Defaults to None.
             vit_image_size (int, optional): imaghe size to be input to ViT. Defaults to None.
@@ -437,14 +446,14 @@ class MultiNet(MultiWidget):
         super().__init__()
 
         self.net_name = net_name
-        self.num_classes_in_internal_label = num_classes_in_internal_label
+        self.num_outputs_for_label = num_outputs_for_label
         self.mlp_num_inputs = mlp_num_inputs
         self.in_channel = in_channel
         self.vit_image_size = vit_image_size
 
         # self.extractor_net = MLP or CVmodel
         self.extractor_net = self.constuct_extractor(self.net_name, mlp_num_inputs=self.mlp_num_inputs, in_channel=self.in_channel, vit_image_size=self.vit_image_size)
-        self.multi_classifier = self.construct_multi_classifier(self.net_name, self.num_classes_in_internal_label)
+        self.multi_classifier = self.construct_multi_classifier(self.net_name, self.num_outputs_for_label)
 
     def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
         """
@@ -468,28 +477,25 @@ class MultiNetFusion(MultiWidget):
     def __init__(
                 self,
                 net_name: str,
-                num_classes_in_internal_label: Dict[str, int],
+                num_outputs_for_label: Dict[str, int],
                 mlp_num_inputs: int = None,
                 in_channel: int = None,
                 vit_image_size: Optional[int] = None
-                ) -> Dict[str, torch.Tensor]:
+                ) -> None:
         """
         Args:
             net_name (str): CNN or ViT name. It is clear that MLP is used in fusion model.
-            num_classes_in_internal_label (Dict[str, int]): number of classes for each label
+            num_outputs_for_label (Dict[str, int]): number of classes for each label
             mlp_num_inputs (int, optional): number of input of MLP. Defaults to None.
             in_channel (int, optional): number of image channel, ie gray scale(=1) or color image(=3). Defaults to None.
             vit_image_size (int, optional): imaghe size to be input to ViT. Defaults to None.
-
-        Returns:
-            Dict[str, torch.Tensor]: output
         """
         assert (net_name != 'MLP'), 'net_name should not be MLP.'
 
         super().__init__()
 
         self.net_name = net_name
-        self.num_classes_in_internal_label = num_classes_in_internal_label
+        self.num_outputs_for_label = num_outputs_for_label
         self.mlp_num_inputs = mlp_num_inputs
         self.in_channel = in_channel
         self.vit_image_size = vit_image_size
@@ -503,10 +509,11 @@ class MultiNetFusion(MultiWidget):
         self.in_featues_from_mlp = self.get_classifier_in_features('MLP')
         self.in_features_from_net = self.get_classifier_in_features(self.net_name)
         self.inter_mlp_in_feature = self.in_featues_from_mlp + self.in_features_from_net
-        self.inter_mlp = self.MLPNet(self.inter_mlp_in_feature, inplace=False)  # ! If inplace==True, cannot backward  Check!
+        self.inter_mlp = self.MLPNet(self.inter_mlp_in_feature, inplace=False)
+        # ! If inplace==True, cannot backward  To be checked.
 
         # Multi classifier
-        self.multi_classifier = self.construct_multi_classifier('MLP', num_classes_in_internal_label)
+        self.multi_classifier = self.construct_multi_classifier('MLP', num_outputs_for_label)
 
     def forward(self, x_mlp: torch.Tensor, x_net: torch.Tensor) -> Dict[str, torch.Tensor]:
         """
@@ -529,27 +536,57 @@ class MultiNetFusion(MultiWidget):
         return output
 
 
-def create_net(mlp: Optional[str], net: Optional[str], num_classes_in_internal_label: Dict[str, int], mlp_num_inputs: int, in_channel: int, vit_image_size: Optional[int]) -> nn.Module:
+def create_net(
+            mlp: Optional[str],
+            net: Optional[str],
+            num_outputs_for_label: Dict[str, int],
+            mlp_num_inputs: int,
+            in_channel: int,
+            vit_image_size: int
+            ) -> nn.Module:
     """
     Create network.
 
     Args:
-        mlp (Optional[str]): 'mlp' or None
-        net (Optional[str]):  CNN or ViT name
-        num_classes_in_internal_label (Dict[str, int]): number of classes for each label
+        mlp (Optional[str]): 'MLP' or None
+        net (Optional[str]):  CNN, ViT name or None
+        num_outputs_for_label (Dict[str, int]): number of outputs for each label
         mlp_num_inputs (int): number of input of MLP.
-        in_channel (int): number of image channel, ie gray scale(=1) or color image(=3). Defaults to None.
-        vit_image_size (Optional[int]): imaghe size to be input to ViT. Defaults to None.
+        in_channel (int): number of image channel, ie gray scale(=1) or color image(=3).
+        vit_image_size (int): imaghe size to be input to ViT.
 
     Returns:
         nn.Module: network
     """
-    if (mlp is not None) and (net is None):
-        multi_net = MultiNet('MLP', num_classes_in_internal_label, mlp_num_inputs=mlp_num_inputs, in_channel=in_channel, vit_image_size=vit_image_size)
-    elif (mlp is None) and (net is not None):
-        multi_net = MultiNet(net, num_classes_in_internal_label, mlp_num_inputs=mlp_num_inputs, in_channel=in_channel, vit_image_size=vit_image_size)
-    elif (mlp is not None) and (net is not None):
-        multi_net = MultiNetFusion(net, num_classes_in_internal_label, mlp_num_inputs=mlp_num_inputs, in_channel=in_channel, vit_image_size=vit_image_size)
+
+    _isMLPModel = (mlp is not None) and (net is None)
+    _isCVModel = (mlp is None) and (net is not None)
+    _isFusion = (mlp is not None) and (net is not None)
+
+    if _isMLPModel:
+        multi_net = MultiNet(
+                            'MLP',
+                            num_outputs_for_label,
+                            mlp_num_inputs=mlp_num_inputs,
+                            in_channel=in_channel,
+                            vit_image_size=vit_image_size
+                            )
+    elif _isCVModel:
+        multi_net = MultiNet(
+                            net,
+                            num_outputs_for_label,
+                            mlp_num_inputs=mlp_num_inputs,
+                            in_channel=in_channel,
+                            vit_image_size=vit_image_size
+                            )
+    elif _isFusion:
+        multi_net = MultiNetFusion(
+                                net,
+                                num_outputs_for_label,
+                                mlp_num_inputs=mlp_num_inputs,
+                                in_channel=in_channel,
+                                vit_image_size=vit_image_size
+                                )
     else:
         raise ValueError(f"Invalid net type: mlp={mlp}, net={net}.")
 
