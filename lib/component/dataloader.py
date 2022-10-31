@@ -113,6 +113,8 @@ class DeepSurvSplitProvider(BaseSplitProvider):
         Returns:
             pd.DataFrame: cast DataFrame of csv
         """
+        self.period_name = list(df_source.columns[df_source.columns.str.startswith('period')])[0]
+
         _cast_input = {input_name: float for input_name in self.input_list}
         _cast_label = {label_name: int for label_name in self.label_list}
         _cast_period = {self.period_name: int}
