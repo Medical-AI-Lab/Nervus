@@ -30,10 +30,10 @@ class Options:
             self.parser.add_argument('--model', type=str, required=True, help='model: MLP, CNN, ViT, or MLP+(CNN or ViT)')
 
             # Training and Internal validation
-            self.parser.add_argument('--criterion', type=str,  required=True, choices=['CEL', 'MSE', 'RMSE', 'MAE', 'NLL'], help='criterion')
-            self.parser.add_argument('--optimizer', type=str,  required=True, choices=['SGD', 'Adadelta', 'RMSprop', 'Adam', 'RAdam'], help='optimzer')
-            self.parser.add_argument('--lr',        type=float,               metavar='N', help='learning rate')
-            self.parser.add_argument('--epochs',    type=int,  default=10,    metavar='N', help='number of epochs (Default: 10)')
+            self.parser.add_argument('--criterion', type=str,   required=True, choices=['CEL', 'MSE', 'RMSE', 'MAE', 'NLL'], help='criterion')
+            self.parser.add_argument('--optimizer', type=str,   required=True, choices=['SGD', 'Adadelta', 'RMSprop', 'Adam', 'RAdam'], help='optimzer')
+            self.parser.add_argument('--lr',        type=float,                metavar='N', help='learning rate')
+            self.parser.add_argument('--epochs',    type=int,   default=10,    metavar='N', help='number of epochs (Default: 10)')
 
             # Batch size
             self.parser.add_argument('--batch_size',         type=int,  required=True, metavar='N', help='batch size in training')

@@ -37,37 +37,67 @@ class BaseModelParam:
         self._csv_name = Path(self.csvpath).stem
 
     def print_parameter(self) -> None:
+        """
+        Print parameters
+        """
         no_print = [
+                    '_dataset_dir',
+                    '_csv_name',
                     'mlp',
                     'net',
                     'input_list',
                     'label_list',
+                    'period_name',
                     'mlp_num_inputs',
                     'num_outputs_for_label',
                     'dataloaders',
                     'datetime',
                     'device',
-                    'isTrain'
+                    'isTrain',
+                    'likelihood_on'
                     ]
 
         phase = 'Training' if self.isTrain else 'Test'
         message = ''
         message += f"{'-'*25} Options for {phase} {'-'*33}\n"
+
         for _param, _arg in vars(self).items():
             if _param not in no_print:
-                if _param == 'gpu_ids':
-                    if _arg == []:
-                        str_arg = 'CPU selected'
-                    else:
-                        str_arg = f"{_arg}  (Primary GPU:{_arg[0]})"
-                else:
-                    str_arg = str(_arg) if (_arg is not None) else 'Default'
-                message += '{:>25}: {:<40}\n'.format(_param, str_arg)
+                _str_arg = self._format_arg(_param, _arg)
+                message += '{:>25}: {:<40}\n'.format(_param, _str_arg)
             else:
                 pass
 
         message += f"{'-'*30} End {'-'*48}\n"
         logger.logger.info(message)
+
+    def _format_arg(self, param: str, arg: Union[str, int, float]) -> str:
+        """
+        Convert argument to string.
+
+        Args:
+            param (str): parameter
+            arg (Union[str, int, float]): argument
+
+        Returns:
+            str: strings of argument
+        """
+        if param == 'lr':
+            if arg is None:
+                str_arg = 'Default'
+            else:
+                str_arg = str(param)
+        elif param == 'gpu_ids':
+            if arg == []:
+                str_arg = 'CPU selected'
+            else:
+                str_arg = f"{arg}  (Primary GPU:{arg[0]})"
+        else:
+            if arg is None:
+                str_arg = 'No need'
+            else:
+                str_arg = str(arg)
+        return str_arg
 
     def print_dataset_info(self) -> None:
         """
@@ -357,13 +387,11 @@ class BaseModel(ABC):
         Returns:
             Dict[str, Union[int, float]]: dictionary of each label and its value which is on devide
         """
-        if any(multi_label):
-            _multi_label = dict()
-            for label_name, each_data in multi_label.items():
-                _multi_label[label_name] = each_data.to(self.device)
-            return _multi_label
-        else:
-            return multi_label  # ie. empty dictionary
+        assert any(multi_label), 'multi-label is empty.'
+        _multi_label = dict()
+        for label_name, each_data in multi_label.items():
+            _multi_label[label_name] = each_data.to(self.device)
+        return _multi_label
 
     @abstractmethod
     def forward(self):
@@ -573,19 +601,21 @@ class MLPModel(ModelWidget):
         Args:
             data (Dict): dictionary of data
         """
-        self.inputs = data['inputs'].to(self.device)
-        self.multi_label = self.multi_label_to_device(data['labels'])
+        self.inputs = data['inputs']
+        self.multi_label = data['labels']
 
     def forward(self) -> None:
         """
         Forward.
         """
+        self.input = self.inputs.to(self.device)
         self.multi_output = self.network(self.inputs)
 
     def cal_batch_loss(self) -> None:
         """
         Calculate loss for bach bach.
         """
+        self.multi_label = self.multi_label_to_device(self.multi_label)
         self.loss_reg.cal_batch_loss(self.multi_output, self.multi_label)
 
 
@@ -607,19 +637,21 @@ class CVModel(ModelWidget):
         Args:
             data (Dict): dictionary of data
         """
-        self.image = data['image'].to(self.device)
-        self.multi_label = self.multi_label_to_device(data['labels'])
+        self.image = data['image']
+        self.multi_label = data['labels']
 
     def forward(self) -> None:
         """
         Forward.
         """
+        self.image = self.image.to(self.device)
         self.multi_output = self.network(self.image)
 
     def cal_batch_loss(self):
         """
         Calculate loss for each bach.
         """
+        self.multi_label = self.multi_label_to_device(self.multi_label)
         self.loss_reg.cal_batch_loss(self.multi_output, self.multi_label)
 
 
@@ -641,20 +673,23 @@ class FusionModel(ModelWidget):
         Args:
             data (Dict): dictionary of data
         """
-        self.inputs = data['inputs'].to(self.device)
-        self.image = data['image'].to(self.device)
-        self.multi_label = self.multi_label_to_device(data['labels'])
+        self.inputs = data['inputs']
+        self.image = data['image']
+        self.multi_label = data['labels']
 
     def forward(self) -> None:
         """
         Forward.
         """
+        self.inputs = self.inputs.to(self.device)
+        self.image = self.image.to(self.device)
         self.multi_output = self.network(self.inputs, self.image)
 
     def cal_batch_loss(self) -> None:
         """
         Calculate loss for bach bach.
         """
+        self.multi_label = self.multi_label_to_device(self.multi_label)
         self.loss_reg.cal_batch_loss(self.multi_output, self.multi_label)
 
 
@@ -676,20 +711,23 @@ class MLPDeepSurv(ModelWidget):
         Args:
             data (Dict): dictionary of data
         """
-        self.inputs = data['inputs'].to(self.device)
-        self.multi_label = self.multi_label_to_device(data['labels'])
-        self.periods = data['periods'].float().to(self.device)
+        self.inputs = data['inputs']
+        self.multi_label = data['labels']
+        self.periods = data['periods']
 
     def forward(self) -> None:
         """
         Forward.
         """
+        self.inputs = self.inputs.to(self.device)
         self.multi_output = self.network(self.inputs)
 
     def cal_batch_loss(self) -> None:
         """
         Calculate loss for each bach.
         """
+        self.multi_label = self.multi_label_to_device(self.multi_label)
+        self.periods = self.periods.float().to(self.device)
         self.loss_reg.cal_batch_loss(self.multi_output, self.multi_label, self.periods, self.network)
 
 
@@ -711,20 +749,23 @@ class CVDeepSurv(ModelWidget):
         Args:
             data (Dict): dictionary of data
         """
-        self.image = data['image'].to(self.device)
-        self.multi_label = self.multi_label_to_device(data['labels'])
-        self.periods = data['periods'].float().to(self.device)
+        self.image = data['image']
+        self.multi_label = data['labels']
+        self.periods = data['periods']
 
     def forward(self) -> None:
         """
         Forward.
         """
+        self.image = self.image.to(self.device)
         self.multi_output = self.network(self.image)
 
     def cal_batch_loss(self) -> None:
         """
         Calculate loss for each bach.
         """
+        self.multi_label = self.multi_label_to_device(self.multi_label)
+        self.periods = self.periods.float().to(self.device)
         self.loss_reg.cal_batch_loss(self.multi_output, self.multi_label, self.periods, self.network)
 
 
@@ -746,21 +787,25 @@ class FusionDeepSurv(ModelWidget):
         Args:
             data (Dict): dictionary of data
         """
-        self.inputs = data['inputs'].to(self.device)
-        self.image = data['image'].to(self.device)
-        self.multi_label = self.multi_label_to_device(data['labels'])
-        self.periods = data['periods'].float().to(self.device)
+        self.inputs = data['inputs']
+        self.image = data['image']
+        self.multi_label = data['labels']
+        self.periods = data['periods']
 
     def forward(self) -> None:
         """
         Forward.
         """
+        self.inputs = self.inputs.to(self.device)
+        self.image = self.image.to(self.device)
         self.multi_output = self.network(self.inputs, self.image)
 
     def cal_batch_loss(self) -> None:
         """
         Calculate loss for bach bach.
         """
+        self.multi_label = self.multi_label_to_device(self.multi_label)
+        self.periods = self.periods.float().to(self.device)
         self.loss_reg.cal_batch_loss(self.multi_output, self.multi_label, self.periods, self.network)
 
 
