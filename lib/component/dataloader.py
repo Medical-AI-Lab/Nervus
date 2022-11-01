@@ -179,6 +179,7 @@ class InputDataMixin:
         Returns:
             MinMaxScaler: scaler
         """
+        assert (self.input_list != []), 'No tabular data.'
         if scaler_path is None:
             scaler = MinMaxScaler()
             _df_train = self.df_source[self.df_source['split'] == 'train']  # should be normalized with min and max of training data
@@ -286,10 +287,10 @@ class ImageMixin:
         assert (self.params.in_channel is not None), 'Speficy in_channel by 1 or 3.'
         imgpath = self.df_split.iat[idx, self.col_index_dict['imgpath']]
         if self.params.in_channel == 1:
-            image = Image.open(imgpath).convert('L')
+            image = Image.open(imgpath).convert('L')    # eg. np.array(image).shape = (64, 64)
         else:
             # ie. self.params.in_channel == 3
-            image = Image.open(imgpath).convert('RGB')
+            image = Image.open(imgpath).convert('RGB')  # eg. np.array(image).shape = (64, 64, 3)
 
         image = self.augmentation(image)
         image = self.transform(image)

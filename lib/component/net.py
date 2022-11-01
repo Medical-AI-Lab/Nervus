@@ -38,14 +38,6 @@ class BaseNet:
             'ViTH14': models.vit_h_14
             }
 
-    vit_weight = {
-                'ViTb16': models.ViT_B_16_Weights.DEFAULT, # DEFAULT = IMAGENET1K_V1
-                'ViTb32': models.ViT_B_32_Weights.DEFAULT, # DEFAULT = IMAGENET1K_V1
-                'ViTl16': models.ViT_L_16_Weights.DEFAULT, # DEFAULT = IMAGENET1K_V1
-                'ViTl32': models.ViT_L_32_Weights.DEFAULT, # DEFAULT = IMAGENET1K_V1
-                'ViTH14': models.ViT_H_14_Weights.DEFAULT  # DEFAULT = IMAGENET1K_SWAG_E2E_V1
-                }
-
     net = {**cnn, **vit}
 
     _classifier = {
@@ -138,7 +130,13 @@ class BaseNet:
         return net
 
     @classmethod
-    def set_net(cls, net_name: str, in_channel: int = None, vit_image_size: int = None) -> nn.Module:
+    def set_net(
+                cls,
+                net_name: str,
+                in_channel: int = None,
+                vit_image_size: int = None,
+                pretrained: bool = None
+                ) -> nn.Module:
         """
         Modify network depending on in_channel and vit_image_size.
 
@@ -147,15 +145,20 @@ class BaseNet:
             in_channel (int, optional): image channel(any of 1ch or 3ch). Defaults to None.
             vit_image_size (int, optional): image size which ViT handles if ViT is used. Defaults to None.
                                             vit_image_size should be power of patch size.
+            pretrained (bool, optional): True when use pretrained CNN or ViT, otherwise False. Defaults to None.
 
         Returns:
             nn.Module: modified network
         """
         assert net_name in cls.net, f"No specified net: {net_name}."
-        assert (in_channel == 1) or (in_channel == 3), f"Invalid in_channels: {in_channel}."
         if net_name in cls.cnn:
-            net = cls.cnn[net_name]()
+            if pretrained:
+                net = cls.cnn[net_name](weights='DEFAULT')
+            else:
+                net = cls.cnn[net_name]()
         else:
+            # When ViT
+            # always use pretrained
             net = cls.set_vit(net_name, vit_image_size)
 
         if in_channel == 1:
@@ -176,7 +179,8 @@ class BaseNet:
         """
         assert isinstance(vit_image_size, int), f"Invalid image size for ViT: {vit_image_size}."
         base_vit = cls.vit[net_name]
-        pretrained_vit = base_vit(weights=cls.vit_weight[net_name])
+        # pretrained_vit = base_vit(weights=cls.vit_weight[net_name])
+        pretrained_vit = base_vit(weights='DEFAULT')
 
         # Align weight depending on image size
         weight = pretrained_vit.state_dict()
@@ -187,11 +191,18 @@ class BaseNet:
                                                     model_state=weight
                                                     )
         aligned_vit = base_vit(image_size=vit_image_size)  # Specify new image size.
-        aligned_vit.load_state_dict(aligned_weight)        # Load weight which can handle nee image size.
+        aligned_vit.load_state_dict(aligned_weight)        # Load weight which can handle the new image size.
         return aligned_vit
 
     @classmethod
-    def constuct_extractor(cls, net_name: str, mlp_num_inputs: int = None, in_channel: int = None, vit_image_size: int = None) -> nn.Module:
+    def construct_extractor(
+                            cls,
+                            net_name: str,
+                            mlp_num_inputs: int = None,
+                            in_channel: int = None,
+                            vit_image_size: int = None,
+                            pretrained: bool = None
+                            ) -> nn.Module:
         """
         Construct extractor of network depending on net_name.
 
@@ -200,6 +211,7 @@ class BaseNet:
             mlp_num_inputs (int, optional): nunmber of input of MLP. Defaults to None.
             in_channel (int, optional): image channel(any of 1ch or 3ch). Defaults to None.
             vit_image_size (int, optional): image size which ViT handles if ViT is used. Defaults to None.
+            pretrained (bool, optional): True when use pretrained CNN or ViT, otherwise False. Defaults to None.
 
         Returns:
             nn.Module: extractor of network
@@ -207,8 +219,8 @@ class BaseNet:
         if net_name == 'MLP':
             extractor = cls.MLPNet(mlp_num_inputs)
         else:
-            extractor = cls.set_net(net_name, in_channel, vit_image_size)
-            setattr(extractor, cls.classifier[net_name], cls.DUMMY)
+            extractor = cls.set_net(net_name, in_channel, vit_image_size, pretrained)
+            setattr(extractor, cls.classifier[net_name], cls.DUMMY)  # Replace classifier with DUMMY(=nn.Identity()).
         return extractor
 
     @classmethod
@@ -256,7 +268,7 @@ class BaseNet:
             in_features = base_classifier[1].in_features
             for label_name, num_outputs in num_outputs_for_label.items():
                 classifiers[label_name] = nn.Sequential(
-                                                        nn.Dropout(p=dropout, inplace=False),  # if inplace==True, cannot backward.
+                                                        nn.Dropout(p=dropout, inplace=False),
                                                         nn.Linear(in_features, num_outputs)
                                                     )
 
@@ -431,17 +443,19 @@ class MultiNet(MultiWidget):
                 self,
                 net_name: str,
                 num_outputs_for_label: Dict[str, int],
-                mlp_num_inputs: int = None,
-                in_channel: int = None,
-                vit_image_size: Optional[int] = None
+                mlp_num_inputs: int,
+                in_channel: int,
+                vit_image_size: int,
+                pretrained: bool
                 ) -> None:
         """
         Args:
             net_name (str): MLP, CNN or ViT name
             num_outputs_for_label (Dict[str, int]): number of classes for each label
-            mlp_num_inputs (int, optional): number of input of MLP. Defaults to None.
-            in_channel (int, optional): number of image channel, ie gray scale(=1) or color image(=3). Defaults to None.
-            vit_image_size (int, optional): imaghe size to be input to ViT. Defaults to None.
+            mlp_num_inputs (int): number of input of MLP.
+            in_channel (int): number of image channel, ie gray scale(=1) or color image(=3).
+            vit_image_size (int): imaghe size to be input to ViT.
+            pretrained (bool): True when use pretrained CNN or ViT, otherwise False.
         """
         super().__init__()
 
@@ -450,9 +464,16 @@ class MultiNet(MultiWidget):
         self.mlp_num_inputs = mlp_num_inputs
         self.in_channel = in_channel
         self.vit_image_size = vit_image_size
+        self.pretrained = pretrained
 
         # self.extractor_net = MLP or CVmodel
-        self.extractor_net = self.constuct_extractor(self.net_name, mlp_num_inputs=self.mlp_num_inputs, in_channel=self.in_channel, vit_image_size=self.vit_image_size)
+        self.extractor_net = self.construct_extractor(
+                                                    self.net_name,
+                                                    mlp_num_inputs=self.mlp_num_inputs,
+                                                    in_channel=self.in_channel,
+                                                    vit_image_size=self.vit_image_size,
+                                                    pretrained=self.pretrained
+                                                    )
         self.multi_classifier = self.construct_multi_classifier(self.net_name, self.num_outputs_for_label)
 
     def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
@@ -478,17 +499,19 @@ class MultiNetFusion(MultiWidget):
                 self,
                 net_name: str,
                 num_outputs_for_label: Dict[str, int],
-                mlp_num_inputs: int = None,
-                in_channel: int = None,
-                vit_image_size: Optional[int] = None
+                mlp_num_inputs: int,
+                in_channel: int,
+                vit_image_size: int,
+                pretrained: bool
                 ) -> None:
         """
         Args:
             net_name (str): CNN or ViT name. It is clear that MLP is used in fusion model.
             num_outputs_for_label (Dict[str, int]): number of classes for each label
             mlp_num_inputs (int, optional): number of input of MLP. Defaults to None.
-            in_channel (int, optional): number of image channel, ie gray scale(=1) or color image(=3). Defaults to None.
-            vit_image_size (int, optional): imaghe size to be input to ViT. Defaults to None.
+            in_channel (int, optional): number of image channel, ie gray scale(=1) or color image(=3).
+            vit_image_size (int, optional): imaghe size to be input to ViT.
+            pretrained (bool): True when use pretrained CNN or ViT, otherwise False.
         """
         assert (net_name != 'MLP'), 'net_name should not be MLP.'
 
@@ -499,10 +522,16 @@ class MultiNetFusion(MultiWidget):
         self.mlp_num_inputs = mlp_num_inputs
         self.in_channel = in_channel
         self.vit_image_size = vit_image_size
+        self.pretrained = pretrained
 
         # Extractor of MLP and Net
-        self.extractor_mlp = self.constuct_extractor('MLP', mlp_num_inputs=self.mlp_num_inputs)
-        self.extractor_net = self.constuct_extractor(self.net_name, in_channel=self.in_channel, vit_image_size=self.vit_image_size)
+        self.extractor_mlp = self.construct_extractor('MLP', mlp_num_inputs=self.mlp_num_inputs)
+        self.extractor_net = self.construct_extractor(
+                                                    self.net_name,
+                                                    in_channel=self.in_channel,
+                                                    vit_image_size=self.vit_image_size,
+                                                    pretrained=self.pretrained
+                                                    )
         self.aux_module = self.construct_aux_module(self.net_name)
 
         # Intermediate MLP
@@ -510,7 +539,6 @@ class MultiNetFusion(MultiWidget):
         self.in_features_from_net = self.get_classifier_in_features(self.net_name)
         self.inter_mlp_in_feature = self.in_featues_from_mlp + self.in_features_from_net
         self.inter_mlp = self.MLPNet(self.inter_mlp_in_feature, inplace=False)
-        # ! If inplace==True, cannot backward  To be checked.
 
         # Multi classifier
         self.multi_classifier = self.construct_multi_classifier('MLP', num_outputs_for_label)
@@ -542,7 +570,8 @@ def create_net(
             num_outputs_for_label: Dict[str, int],
             mlp_num_inputs: int,
             in_channel: int,
-            vit_image_size: int
+            vit_image_size: int,
+            pretrained: bool
             ) -> nn.Module:
     """
     Create network.
@@ -554,11 +583,11 @@ def create_net(
         mlp_num_inputs (int): number of input of MLP.
         in_channel (int): number of image channel, ie gray scale(=1) or color image(=3).
         vit_image_size (int): imaghe size to be input to ViT.
+        pretrained (bool): True when use pretrained CNN or ViT, otherwise False.
 
     Returns:
         nn.Module: network
     """
-
     _isMLPModel = (mlp is not None) and (net is None)
     _isCVModel = (mlp is None) and (net is not None)
     _isFusion = (mlp is not None) and (net is not None)
@@ -569,7 +598,8 @@ def create_net(
                             num_outputs_for_label,
                             mlp_num_inputs=mlp_num_inputs,
                             in_channel=in_channel,
-                            vit_image_size=vit_image_size
+                            vit_image_size=vit_image_size,
+                            pretrained=False   # No need of pretrained for MLP
                             )
     elif _isCVModel:
         multi_net = MultiNet(
@@ -577,7 +607,8 @@ def create_net(
                             num_outputs_for_label,
                             mlp_num_inputs=mlp_num_inputs,
                             in_channel=in_channel,
-                            vit_image_size=vit_image_size
+                            vit_image_size=vit_image_size,
+                            pretrained=pretrained
                             )
     elif _isFusion:
         multi_net = MultiNetFusion(
@@ -585,9 +616,10 @@ def create_net(
                                 num_outputs_for_label,
                                 mlp_num_inputs=mlp_num_inputs,
                                 in_channel=in_channel,
-                                vit_image_size=vit_image_size
+                                vit_image_size=vit_image_size,
+                                pretrained=pretrained
                                 )
     else:
-        raise ValueError(f"Invalid net type: mlp={mlp}, net={net}.")
+        raise ValueError(f"Invalid model type: mlp={mlp}, net={net}.")
 
     return multi_net
