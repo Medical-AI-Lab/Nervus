@@ -1,9 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+
+import argparse
+from distutils.util import strtobool
 from pathlib import Path
 import re
-import argparse
 from typing import List, Tuple, Union
 
 
@@ -27,7 +29,8 @@ class Options:
             self.parser.add_argument('--task',  type=str, required=True, choices=['classification', 'regression', 'deepsurv'], help='Task')
 
             # Model
-            self.parser.add_argument('--model', type=str, required=True, help='model: MLP, CNN, ViT, or MLP+(CNN or ViT)')
+            self.parser.add_argument('--model',      type=str, required=True, help='model: MLP, CNN, ViT, or MLP+(CNN or ViT)')
+            self.parser.add_argument('--pretrained', type=strtobool, default=False, help='For use of pretrained model(CNN or ViT)')
 
             # Training and Internal validation
             self.parser.add_argument('--criterion', type=str,   required=True, choices=['CEL', 'MSE', 'RMSE', 'MAE', 'NLL'], help='criterion')
@@ -130,6 +133,9 @@ class Options:
             _mlp, _net = self._parse_model(self.args.model)
             setattr(self.args, 'mlp', _mlp)
             setattr(self.args, 'net', _net)
+
+            _pretrained = bool(self.args.pretrained)   # strtobool('False') = 0 (== False)
+            setattr(self.args, 'pretrained', _pretrained)
 
             _gpu_ids = self._parse_gpu_ids(self.args.gpu_ids)
             setattr(self.args, 'gpu_ids', _gpu_ids)

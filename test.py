@@ -37,7 +37,7 @@ def main(opt):
     for weight_path in weight_paths:
         logger.logger.info(f"Inference with {weight_path.name}.")
 
-        # weight is reset, or overwritten every time.
+        # weight is reset by overwriting every time.
         model.load_weight(weight_path)
         model.eval()
 

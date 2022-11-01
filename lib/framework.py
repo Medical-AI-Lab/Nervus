@@ -33,7 +33,7 @@ class BaseModelParam:
         for _param, _arg in vars(args).items():
             setattr(self, _param, _arg)
 
-        self._dataset_dir = re.findall('(.*)/docs', self.csvpath)[0]
+        self._dataset_dir = re.findall('(.*)/docs', self.csvpath)[0]  # shoubd be unique
         self._csv_name = Path(self.csvpath).stem
 
     def print_parameter(self) -> None:
@@ -63,7 +63,7 @@ class BaseModelParam:
 
         for _param, _arg in vars(self).items():
             if _param not in no_print:
-                _str_arg = self._format_arg(_param, _arg)
+                _str_arg = self._arg2str(_param, _arg)
                 message += '{:>25}: {:<40}\n'.format(_param, _str_arg)
             else:
                 pass
@@ -71,7 +71,7 @@ class BaseModelParam:
         message += f"{'-'*30} End {'-'*48}\n"
         logger.logger.info(message)
 
-    def _format_arg(self, param: str, arg: Union[str, int, float]) -> str:
+    def _arg2str(self, param: str, arg: Union[str, int, float]) -> str:
         """
         Convert argument to string.
 
@@ -253,6 +253,10 @@ class TestModelParam(BaseModelParam):
         self.augmentation = 'no'
         self.sampler = 'no'
 
+        # Use saved weight at test
+        # saved weight is load in test.py.
+        self.pretrained = False
+
         sp = make_split_provider(self.csvpath, self.task)
         self.device = torch.device(f"cuda:{self.gpu_ids[0]}") if self.gpu_ids != [] else torch.device('cpu')
 
@@ -302,7 +306,8 @@ class BaseModel(ABC):
                                 self.params.num_outputs_for_label,
                                 self.params.mlp_num_inputs,
                                 self.params.in_channel,
-                                self.params.vit_image_size
+                                self.params.vit_image_size,
+                                self.params.pretrained
                                 )
 
         if self.params.isTrain:
@@ -869,5 +874,5 @@ def create_model(
     if params.isTrain:
         model._enable_on_gpu_if_available()
     # When test, execute model._enable_on_gpu_if_available() in load_weight(),
-    # ie. after loadding weight.
+    # ie. after loading weight.
     return model
