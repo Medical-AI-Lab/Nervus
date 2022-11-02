@@ -2,7 +2,7 @@
 
 set -eu
 
-#parameter_csv="./parameter.csv"
+parameter_csv="./parameter.csv"
 
 python="python"
 
