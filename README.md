@@ -13,48 +13,33 @@ Nervus can handle the following task:
 - Directory tree  
 Set directories as follows.  
 
-┌Nervus (this repository)  
-└materials   
-　　└images (this repository has image files for CNN.)  
-　　└splits  
-　　　　 └trials.csv (any name is available if you change `parameters/parameters.csv`)
-
-- Brief modification for your task
-  - parameters/parameters.csv  
-    - CSV must contain columns named `id_XXX`, `filepath`, `label_XXX`, and `split`.  
-    Detailed explanation is shown in below.
-  - work_all.sh  
-    - Change `gpu_ids` depending on how many GPUs you can use. Default is "-1" which means to use CPU only.
-    - Also change `save_weight` depending on how often weight is saved. Default is "best" which means that only the best weight is saved. If `save_weight` is specified as "each" when multi-label-output, weight is saved each time total loss decreases. Note that "each" is available only when multi-label-output.
-
-
-- To work and evaluate  
-`$bash work_all.sh`
-
-See Google Colab codes.  
-https://colab.research.google.com/drive/1vpP-veRHPnTEwzDOzRZ0cXcHHY0u7-oJ
+Nervus (this repository)  
+   └materials   
+      └imgs (this repository has image files for CNN.)  
+      └docs  
+　　　　  └trials.csv (any name is available if you change `parameters.csv`)
 
 # Detailed Preparation
 ## CSV
 This is the csv which we show as trials.csv in the brief usage section.  
-CSV must contain columns named `id_XXX`, `Institution`, `ExamID`, `filepath`, `label_XXX`, and `split`.
+CSV must contain columns named `uniqID`, `label_XXX`, and `split`. Additionally, if you use images as an input, you need `imgpath`.
 
-Examples:
-| id_uniq | Institution    | ExamID | filepath        | label_cancer | split |
-| -----   | -------------- | ------ | -----------     | ---------    | ----- |
-| 0001    | Institution_A  | 0001   | png_128/AAA.png | malignant    | train |
-| 0002    | Institution_A  | 0002   | png_128/BBB.png | benign       | val   |
-| 0003    | Institution_A  | 0003   | png_128/CCC.png | malignant    | train |
-| 0004    | Institution_B  | 0001   | png_128/DDD.png | malignant    | test  |
-| 0005    | Institution_B  | 0002   | png_128/EEE.png | benign       | train |
-| 0006    | Institution_B  | 0003   | png_128/FFF.png | malignant    | train |
-| 0007    | Institution_B  | 0004   | png_128/GGG.png | benign       | train |
-| 0008    | Institution_C  | 0001   | png_128/HHH.png | benign       | val   |
-| 0009    | Institution_C  | 0002   | png_128/III.png | malignant    | test  |
-| :       | :              | :      | :               | :            | :     |
+Example of csv in the docs:
+| uniqID |             imgpath            | label_cancer | split |
+| -----  | ------------------------------ |  ---------   | ----- |
+| 0001   | materials/imgs/png_128/AAA.png | malignant    | train |
+| 0002   | materials/imgs/png_128/BBB.png | benign       | val   |
+| 0003   | materials/imgs/png_128/CCC.png | malignant    | train |
+| 0004   | materials/imgs/png_128/DDD.png | malignant    | test  |
+| 0005   | materials/imgs/png_128/EEE.png | benign       | train |
+| 0006   | materials/imgs/png_128/FFF.png | malignant    | train |
+| 0007   | materials/imgs/png_128/GGG.png | benign       | train |
+| 0008   | materials/imgs/png_128/HHH.png | benign       | val   |
+| 0009   | materials/imgs/png_128/III.png | malignant    | test  |
+| :      | :                              | :            | :     |
 
 Note:
-- `id_XXX` must be unique.
+- `uniqID` must be unique.
 - `Institution` should be institution name.
 - `ExamID` should be unique in each institution.
 - `filepath` should have a path to images for the model.
@@ -63,8 +48,16 @@ Note:
 - When you use inputs other than image, `input_XXX` is needed. 
 - When you use deepsurv, `periords_XXX` is needed as well.
 
-## Model development
-For training, validation, and testing, `parameter.csv` and `work_all.sh` should be modified.
+
+## Model implemantation
+For training and internal validation(tuning), 
+
+`python train.py --`
+
+`python test.py --`
+
+## For many trials
+If you need many trials, use `work_all.sh`. In this case, `parameter.csv` must be prepared.
 
 GPU and path to `parameter.csv` should be defined in the `work_all.sh`.
 Other parameters are defined in the `parameter.csv`. 
@@ -98,13 +91,6 @@ Other parameters are defined in the `parameter.csv`.
   - example:
     - 1 channel(grayscale): 1
     - 3 channel(RGB): 3
-
-# Task
-## Single-label/Multi-label output classification, regression, or deepsurv.
-For all task, `train.py` and `test.py` are used. And also, `evaluation/roc.py`, `evaluation/yy.py` or `evaluation/c_index.py` are used depending on task.
-
-# Only for test
-Use `python test.py --test_datetime yy-mm-dd-HH-MM-SS`.
 
 
 # Debugging
