@@ -15,11 +15,10 @@ Set dataset directories as follows.
 
 datasets (Any names are available)   
 　　└imgs (Any names are available. This repository has image files for CNN.)  
-　　└docs (Any names are available. This repository contains a csv which is key for Nervus.)  
-　　　└trials.csv (Any names are available.)
+　　└docs (Any names are available. This repository contains a csv)  
+　　　└trials.csv (Any names are available. This is the key csv for Nervus)
 
-# Detailed Preparation
-## CSV
+## Key csv
 This is the csv which we show as trials.csv in the brief usage section.  
 CSV must contain columns named `uniqID`, `label_XXX`, and `split`. Additionally, if you use images as an input, you need `imgpath`.
 
