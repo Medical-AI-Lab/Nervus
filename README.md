@@ -9,15 +9,14 @@ Nervus can handle the following task:
 - Single/Multi-label-output regression with any of MLP, CNN, or MLP+CNN.
 - DeepSurv with any of MLP, CNN, or MLP+CNN.
 
-# Brief Usage
-- Directory tree  
-Set directories as follows.  
+# Dataset preparation
+## Directory tree
+Set dataset directories as follows.  
 
-Nervus (this repository)  
-　   └materials   
-　　     └imgs (this repository has image files for CNN.)  
- 　 　   └docs  
-　　　　　  └trials.csv (any name is available if you change `parameters.csv`)
+datasets (Any names are available)   
+　　└imgs (Any names are available. This repository has image files for CNN.)  
+　　└docs (Any names are available. This repository contains a csv which is key for Nervus.)
+　　　　└trials.csv (Any names are available.)
 
 # Detailed Preparation
 ## CSV
