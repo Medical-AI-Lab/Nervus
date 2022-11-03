@@ -14,10 +14,10 @@ Nervus can handle the following task:
 Set directories as follows.  
 
 Nervus (this repository)  
-   └materials   
-　     └imgs (this repository has image files for CNN.)  
- 　    └docs  
-　　　　  └trials.csv (any name is available if you change `parameters.csv`)
+　   └materials   
+　　     └imgs (this repository has image files for CNN.)  
+ 　 　   └docs  
+　　　　　  └trials.csv (any name is available if you change `parameters.csv`)
 
 # Detailed Preparation
 ## CSV
