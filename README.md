@@ -16,7 +16,7 @@ Set dataset directories as follows.
 datasets (Any names are available)   
 　　└imgs (Any names are available. This repository has image files for CNN.)  
 　　└docs (Any names are available. This repository contains a csv which is key for Nervus.)
-　　　　└trials.csv (Any names are available.)
+　　　└trials.csv (Any names are available.)
 
 # Detailed Preparation
 ## CSV
