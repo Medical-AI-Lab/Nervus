@@ -46,12 +46,16 @@ Note:
 - When you use deepsurv, `periords_XXX` is needed as well.
 
 
-## Model implemantation
+## Model development
 For training and internal validation(tuning), 
 
 `python train.py --`
 
+## Model test
+For test trained model, 
+
 `python test.py --`
+
 
 ## For many trials
 If you need many trials, use `work_all.sh`. In this case, `parameter.csv` must be prepared.
