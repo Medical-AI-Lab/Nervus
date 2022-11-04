@@ -73,7 +73,7 @@ For training and internal validation(tuning),
   - example: yes, no
   Note that this only works for two-class classification task for now.
 - augmentation: increase the amount of data by slightly modified copies or created synthetic.
-  - example: randoaug, trivialaugmentwide
+  - example: trivialaugwide, randaug, and no.
 - pretrained: specify True if pretrained model of CNN or ViT is used, otherwise False.
 - in_channel: specify the channel of when image is handled, or any of 1 channel(grayscale) and 3 channel(RGB).
   - example:
