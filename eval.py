@@ -36,7 +36,8 @@ class EvalOptions:
         """
         _likelihood_dirs = glob.glob('**/results/*/sets/*/likelihoods', recursive=True)
         assert (_likelihood_dirs != []), 'No directory of likelihood.'
-        likelihood_dir = max(_likelihood_dirs, key=lambda likelihood_dir: Path(likelihood_dir).stat().st_mtime)
+        _likelihood_dir = max(_likelihood_dirs, key=lambda likelihood_dir: Path(likelihood_dir).stat().st_mtime)
+        likelihood_dir = Path(_likelihood_dir).parents[0]
         return str(likelihood_dir)
 
     def parse(self) -> None:
@@ -62,7 +63,7 @@ def check_task(likelihood_dir: str) -> str:
         str: task
     """
     _dataset_dir = re.findall('(.*)/results', likelihood_dir)[0]
-    _datetime_dir = Path(likelihood_dir).parents[0].name
+    _datetime_dir = Path(likelihood_dir).name
     _parameter_path = list(Path(_dataset_dir).glob('results/*/sets/' + _datetime_dir + '/parameters.json'))[0]
     with open(_parameter_path) as f:
         _parameters = json.load(f)
@@ -92,7 +93,7 @@ def collect_likelihood(likelihood_dir: str) -> List[Path]:
     Returns:
         List[Path]: list of likelihood paths
     """
-    likelihood_paths = list(Path(likelihood_dir).glob('*.csv'))
+    likelihood_paths = list(Path(likelihood_dir, 'likelihoods').glob('*.csv'))
     assert likelihood_paths != [], f"No likelihood in {likelihood_dir}."
     likelihood_paths.sort(key=lambda path: path.stat().st_mtime)
     return likelihood_paths
