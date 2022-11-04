@@ -96,6 +96,7 @@ class ClsLikelihood(BaseLikelihood):
             output (Dict[str, torch.Tensor]): output of model
         """
         _df_new = pd.DataFrame({
+                            'uniqID': data['uniqID'],
                             'imgpath': [str(imgpath) for imgpath in data['imgpath']],
                             'split': data['split']
                             })
@@ -154,6 +155,7 @@ class RegLikelihood(BaseLikelihood):
             output (Dict[str, torch.Tensor]): output of model
         """
         _df_new = pd.DataFrame({
+                            'uniqID': data['uniqID'],
                             'imgpath': [str(imgpath) for imgpath in data['imgpath']],
                             'split': data['split']
                             })
@@ -198,6 +200,7 @@ class DeepSurvLikelihood(RegLikelihood):
             output (Dict[str, torch.Tensor]): output of model
         """
         _df_new = pd.DataFrame({
+                            'uniqID': data['uniqID'],
                             'imgpath': [str(imgpath) for imgpath in data['imgpath']],
                             'split': data['split'],
                             'periods': data['periods']

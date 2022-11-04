@@ -413,6 +413,7 @@ class LoadDataSet(Dataset, DataSetWidget):
         Returns:
             Dict: dictionary of data to be passed model
         """
+        uniqID = self.df_split.iat[idx, self.col_index_dict['uniqID']]
         imgpath = self.df_split.iat[idx, self.col_index_dict['imgpath']]
         inputs_value = self._load_input_value_if_mlp(idx)
         image = self._load_image_if_cnn(idx)
@@ -421,6 +422,7 @@ class LoadDataSet(Dataset, DataSetWidget):
         split = self.df_split.iat[idx, self.col_index_dict['split']]
 
         _data = {
+                'uniqID': uniqID,
                 'imgpath': imgpath,
                 'inputs': inputs_value,
                 'image': image,
