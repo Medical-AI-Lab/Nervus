@@ -16,11 +16,11 @@ Set dataset directories as follows.
 datasets (Any names are available)   
 　　└imgs (Any names are available. This repository has image files for CNN.)  
 　　└docs (Any names are available. This repository contains a csv)  
-　　　└trials.csv (Any names are available. This is the key csv for Nervus)
+　　　└trial.csv (Any names are available. This is the key csv for Nervus)
 
 ## Key csv
-This is the csv which we show as trials.csv in the brief usage section.  
-CSV must contain columns named `uniqID`, `label_XXX`, and `split`. Additionally, if you use images as an input, you need `imgpath`.
+This is the csv which we show as trial.csv in the brief usage section.  
+CSV must contain columns named `uniqID`, `label_XXX`, and `split`. Additionally, if you use images as inputs, you need `imgpath`.
 
 Example of csv in the docs:
 | uniqID |             imgpath            | label_cancer | split |
@@ -38,7 +38,7 @@ Example of csv in the docs:
 
 Note:
 - `uniqID` must be unique.
-- `imgpath` should have a path to images for the model.
+- `imgpath` should have a path to images for the model if you use image as as inputs.
 - `label_XXX` should have a classification target. Any name is available. If you use more than two `label_XXX`, it will be automatically recognize multi-label classification and automatically prepare a proper number of classifiers (FCs). 
 - `split` should have `train`, `val`, and `test`.
 - When you use inputs other than image, `input_XXX` is needed. 
@@ -48,27 +48,12 @@ Note:
 ## Model development
 For training and internal validation(tuning), 
 
-`python train.py --`
+`python train.py --task classification --csvpath datasets/docs/trial.csv --model ResNet18 --criterion CEL --optimizer Adam --epochs 50 --batch_size 32 --augmentation randaug --pretrained True --in_channel 1 --save_weight_policy best --gpu_ids 0-1-2-3`
 
-## Model test
-For test trained model, 
-
-`python test.py --`
-
-
-## For many trials
-If you need many trials, use `work_all.sh`. In this case, `parameter.csv` must be prepared.
-
-GPU and path to `parameter.csv` should be defined in the `work_all.sh`.
-Other parameters are defined in the `parameter.csv`. 
-
-### parameter.csv items
+### Arguments
 - task: task name
   - example: classification, regression, deepsurv
-- csv_name: csv file name contains labeled training data, validation data, and test data
-  - default path: ../materials/splits/ (see: align_env.py)
-- image_dir: image dataset directory name
-  - default path: ../materials/images/ (see: align_env.py)
+- csvpath: csv filepath name contains labeled training data, validation data, and test data
 - model: model name
   - example
     - MLP only: MLP
@@ -85,20 +70,41 @@ Other parameters are defined in the `parameter.csv`.
 - bach_size: number of training data in each batch
 - sampler: samples elements randomly or not.
   - example: yes, no
+  Note that this only works for two-class classification task for now.
 - augmentation: increase the amount of data by slightly modified copies or created synthetic.
-  - example: yes, no
-- input_channel: specify the channel of when image is handled, or any of 1 channel(grayscale) and 3 channel(RGB).
+  - example: randoaug, trivialaugmentwide
+- in_channel: specify the channel of when image is handled, or any of 1 channel(grayscale) and 3 channel(RGB).
   - example:
     - 1 channel(grayscale): 1
     - 3 channel(RGB): 3
+- save_weight_policy: specify when you save weights.
+  - example:
+    - Save the lowest validation loss: best
+    - Save each time the loss value is updated: each 
+- gpu_ids
+  - example:
+    - No gpu (cpu only): -1
+    - 1 gpu: 0
+    - 2 gpu: 0-1
+    - 4 gpu: 0-1-2-3
+
+    
+## Model test
+For test trained model, 
+
+`python test.py --csvpath datasets/docs/trial.csv --weight_dir datasets/results/sets/YYYY-MM-DD-HH-mm-ss/weights`
+
+### Arguments
+- csvpath: csv filepath name contains test data.
+- weight_dir: path to a directory which contains weights
+    
+## For many trials
+If you need many trials, use `work_all.sh`. In this case, `parameter.csv` must be prepared. Examples are shown in this repository.
 
 
 # Debugging
 ## MakeFile
 Edit Makefile according to task.
-
-## env
-`~/lib/align_env.py`
 
 ## Logger
 NervusLogger
