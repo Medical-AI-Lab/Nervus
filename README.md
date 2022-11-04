@@ -2,7 +2,9 @@
 This is an AI model used for single/multi-label and/or single/multi-class tasks with image and/or tabular data.
 Although this has a possibility to apply wide range of fields, we intended to use this model for medical imaging classification task.
 
-Additionally, we merged DeepSurv model [https://doi.org/10.1186/s12874-018-0482-1] into this model, which is a model that merges Cox proportional hazard model with deep learning. It is a useful model for prognosis estimation by dealing with binary variables such as decease or not, and the period until the event. The original DeepSurv model could only handle tabular data, but we have added images to it.  
+Additionally, we merged DeepSurv model [https://doi.org/10.1186/s12874-018-0482-1] into this model, which is a model that merges Cox proportional hazard model with deep learning. 
+It is a useful model for prognosis estimation by dealing with binary variables such as decease or not, and the period until the event. 
+The original DeepSurv model could only handle tabular data, but we have added images to it.
 
 Nervus can handle the following task:
 - Single/Multi-label-output classification with any of MLP, CNN, or MLP+CNN.
@@ -12,11 +14,11 @@ Nervus can handle the following task:
 # Dataset preparation
 ## Directory tree
 Set dataset directories as follows.
-
+　
 datasets (Any names are available)
-　　└imgs (Any names are available. This repository has image files for CNN.)
-　　└docs (Any names are available. This repository contains a csv)
-　　　└trial.csv (Any names are available. This is the key csv for Nervus)
+    └imgs (Any names are available. This repository has image files for CNN.)
+    └docs (Any names are available. This repository contains a csv)
+      └trial.csv (Any names are available. This is the key csv for Nervus)
 
 ## Key csv
 This is the csv which we show as trial.csv in the brief usage section.
@@ -58,7 +60,7 @@ For training and internal validation(tuning),
   - example
     - MLP only: MLP
     - CNN only: ResNet, ResNet18, DenseNet,
-    EfficientNetB0, EfficientNetB2, EfficientNetB4, EfficientNetB6, EfficientNetV2s, EfficientNetV2m, EfficientNetV2l,ConvNeXtTiny, ConvNeXtSmall, ConvNeXtBase,ConvNeXtLarge, ViTb16, ViTb32, ViTl16, ViTl32, ViTH14.
+    EfficientNetB0, EfficientNetB2, EfficientNetB4, EfficientNetB6, EfficientNetV2s, EfficientNetV2m, EfficientNetV2l, ConvNeXtTiny, ConvNeXtSmall, ConvNeXtBase, ConvNeXtLarge, ViTb16, ViTb32, ViTl16, ViTl32, ViTH14.
     - MLP+CNN : MLP+ResNet, MLP+EfficientNetB0, MLP+ResNet, MLP+ConvNeXtTiny, MLP+ViTb16 ... (combine above)
 - criterion: Loss function
   - example:
