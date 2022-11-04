@@ -56,7 +56,7 @@ class Options:
             self.parser.add_argument('--save_weight_policy', type=str,  choices=['best', 'each'], default='best', help='Save weight policy: best, or each(ie. save each time loss decreases when multi-label output) (Default: best)')
 
             # GPU Ids
-            self.parser.add_argument('--gpu_ids',            type=str,  default='-1', help='gpu ids: e.g. 0, 0-1-2, 0-2. Use -1 for CPU (Default: -1)')
+            self.parser.add_argument('--gpu_ids',            type=str,  default='cpu', help='gpu ids: e.g. 0, 0-1-2, 0-2. Use cpu for CPU (Default: cpu)')
 
         else:
             # Directry of weight at traning
@@ -102,7 +102,10 @@ class Options:
         Returns:
             List[int]: list of GPU ids
         """
-        str_ids = gpu_ids.split('-') if gpu_ids != '-1' else ['-1']
+        if (gpu_ids == 'cpu') or (gpu_ids == 'cpu\r'):
+            str_ids = []
+        else:
+            str_ids = gpu_ids.split('-')
         _gpu_ids = []
         for str_id in str_ids:
             id = int(str_id)
