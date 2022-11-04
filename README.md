@@ -16,9 +16,9 @@ Nervus can handle the following task:
 Set dataset directories as follows.
   
 datasets (Any names are available)  
-    └imgs (Any names are available. This repository has image files for CNN.)  
-    └docs (Any names are available. This repository contains a csv)  
-        └trial.csv (Any names are available. This is the key csv for Nervus)  
+　　└imgs (Any names are available. This repository has image files for CNN.)  
+　　└docs (Any names are available. This repository contains a csv)  
+　　　└trial.csv (Any names are available. This is the key csv for Nervus)  
 
 ## Key csv
 This is the csv which we show as trial.csv in the brief usage section.
