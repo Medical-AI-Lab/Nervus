@@ -89,8 +89,8 @@ For training and internal validation(tuning),
   - example:
     - No gpu (cpu only): cpu
     - 1 gpu: 0
-    - 2 gpu: 0-1
-    - 4 gpu: 0-1-2-3
+    - 2 gpus: 0-1
+    - 4 gpus: 0-1-2-3
 
 
 ## Model test

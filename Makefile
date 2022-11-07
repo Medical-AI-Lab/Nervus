@@ -10,7 +10,7 @@
 # AUGMENTATION = xrayaug | trivialaugwide | randaug | no
 # IN_CHANNEL = 1 | 3
 # SAVE_WEIGHT_POLICY = best | each
-# GPU_IDS = -1 | 0-1-2
+# GPU_IDS = cpu | 0-1-2
 
 TASK := classification
 CSVPATH := materials/docs/trial.csv
@@ -23,7 +23,7 @@ SAMPLER := no
 AUGMENTATION := xrayaug
 IN_CHANNEL := 1
 SAVE_WEIGHT_POLICY := each
-GPU_IDS := -1
+GPU_IDS := cpu
 
 TRAIN_OPT := \
 --task $(TASK) \
