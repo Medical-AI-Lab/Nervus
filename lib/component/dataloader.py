@@ -27,9 +27,10 @@ class BaseSplitProvider(ABC):
         """
         self.input_list = list(df_source.columns[df_source.columns.str.startswith('input')])
         self.label_list = list(df_source.columns[df_source.columns.str.startswith('label')])  #! externalの時、label_から始まらない時ある
+        self.df_source = self._cast_csv(df_source)
 
     @abstractmethod
-    def _cast_csv(self) -> pd.DataFrame:
+    def _cast_csv(self, df_source: pd.DataFrame) -> pd.DataFrame:
         raise NotImplementedError
 
 
@@ -37,14 +38,6 @@ class ClsSplitProvider(BaseSplitProvider):
     """
     Class to cast label and tabular data for classification.
     """
-    def __init__(self, df_source: pd.DataFrame) -> None:
-        """
-        Args:
-            df_source (DataFrame): DataFrame of csv
-        """
-        super().__init__(df_source)
-        self.df_source = self._cast_csv(df_source)
-
     def _cast_csv(self, df_source: pd.DataFrame) -> pd.DataFrame:
         """
         Cast columns for classification.
@@ -66,14 +59,6 @@ class RegSplitProvider(BaseSplitProvider):
     """
     Class to cast label and tabular data for regression.
     """
-    def __init__(self, df_source: pd.DataFrame) -> None:
-        """
-        Args:
-            df_source (DataFrame): DataFrame of csv
-        """
-        super().__init__(df_source)
-        self.df_source = self._cast_csv(df_source)
-
     def _cast_csv(self, df_source: pd.DataFrame) -> pd.DataFrame:
         """
         Cast columns for regression.
@@ -95,14 +80,6 @@ class DeepSurvSplitProvider(BaseSplitProvider):
     """
     Class to cast label and tabular data for deepsurv.
     """
-    def __init__(self, df_source: pd.DataFrame) -> None:
-        """
-        Args:
-            df_source (DataFrame): DataFrame of csv
-        """
-        super().__init__(df_source)
-        self.df_source = self._cast_csv(df_source)
-
     def _cast_csv(self, df_source: pd.DataFrame) -> pd.DataFrame:
         """
         Cast columns for deepsurv.
