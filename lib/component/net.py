@@ -83,8 +83,8 @@ class BaseNet:
         Construct MLP.
 
         Args:
-            mlp_num_inputs (int): the nunmber of input of MLP
-            inplace (bool, optional): arameter for the activation layer, which can optionally do the operation in-place. Defaults to None.
+            mlp_num_inputs (int): the number of input of MLP
+            inplace (bool, optional): parameter for the activation layer, which can optionally do the operation in-place. Defaults to None.
 
         Returns:
             MLP: MLP
@@ -103,7 +103,7 @@ class BaseNet:
             net (nn.Module): network itself
 
         Returns:
-            nn.Module: network avalibale for gray scale
+            nn.Module: network available for gray scale
         """
         if net_name.startswith('ResNet'):
             net.conv1.in_channels = 1
@@ -389,7 +389,7 @@ class BaseNet:
         Returns:
             nn.Module: last extractor of network
         """
-        assert (net_name is not None), f"Network does not cotain CNN or ViT: mlp={mlp}, net={net_name}."
+        assert (net_name is not None), f"Network does not contain CNN or ViT: mlp={mlp}, net={net_name}."
 
         _extractor = net.extractor_net
 
@@ -454,7 +454,7 @@ class MultiNet(MultiWidget):
             num_outputs_for_label (Dict[str, int]): number of classes for each label
             mlp_num_inputs (int): number of input of MLP.
             in_channel (int): number of image channel, ie gray scale(=1) or color image(=3).
-            vit_image_size (int): imaghe size to be input to ViT.
+            vit_image_size (int): image size to be input to ViT.
             pretrained (bool): True when use pretrained CNN or ViT, otherwise False.
         """
         super().__init__()
@@ -510,7 +510,7 @@ class MultiNetFusion(MultiWidget):
             num_outputs_for_label (Dict[str, int]): number of classes for each label
             mlp_num_inputs (int, optional): number of input of MLP. Defaults to None.
             in_channel (int, optional): number of image channel, ie gray scale(=1) or color image(=3).
-            vit_image_size (int, optional): imaghe size to be input to ViT.
+            vit_image_size (int, optional): image size to be input to ViT.
             pretrained (bool): True when use pretrained CNN or ViT, otherwise False.
         """
         assert (net_name != 'MLP'), 'net_name should not be MLP.'
@@ -582,7 +582,7 @@ def create_net(
         num_outputs_for_label (Dict[str, int]): number of outputs for each label
         mlp_num_inputs (int): number of input of MLP.
         in_channel (int): number of image channel, ie gray scale(=1) or color image(=3).
-        vit_image_size (int): imaghe size to be input to ViT.
+        vit_image_size (int): image size to be input to ViT.
         pretrained (bool): True when use pretrained CNN or ViT, otherwise False.
 
     Returns:

@@ -171,10 +171,10 @@ class InputDataMixin:
     """
     def _make_scaler(self, scaler_path: Path = None) -> MinMaxScaler:
         """
-        Normalizes inputa data by min-max normalization with train data.
+        Normalizes input data by min-max normalization with train data.
 
         Args:
-            scaler_path (Path, optional): path to dumpe slacer. Defaults to None.
+            scaler_path (Path, optional): path to dump scaler. Defaults to None.
 
         Returns:
             MinMaxScaler: scaler
@@ -208,7 +208,7 @@ class InputDataMixin:
         # When specifying iloc[[idx], index_input_list], pd.DataFrame is obtained,
         # it fits the input type of self.scaler.transform.
         # However, after normalizing, the shape of inputs_value is (1, N), where N is the number of input value.
-        # tehrefore, convert (1, N) -> (N,) by squeeze() so that calculating loss would work.
+        # therefore, convert (1, N) -> (N,) by squeeze() so that calculating loss would work.
         index_input_list = [self.col_index_dict[input] for input in self.input_list]
         _df_inputs_value = self.df_split.iloc[[idx], index_input_list]
         inputs_value = self.scaler.transform(_df_inputs_value).squeeze()          # normalize and squeeze() converts (1, 46) -> (46,)
@@ -225,7 +225,7 @@ class ImageMixin:
         """
         Define which augmentation is applied.
 
-        When traning, augmentation is needed for train data only.
+        When training, augmentation is needed for train data only.
         When test, no need of augmentation.
         """
         _augmentation = []
@@ -254,7 +254,7 @@ class ImageMixin:
         _transforms.append(transforms.ToTensor())
 
         assert (self.params.normalize_image is not None), 'Specify normalize_image by yes or no.'
-        assert (self.params.in_channel is not None), 'Speficy in_channel by 1 or 3.'
+        assert (self.params.in_channel is not None), 'Specify in_channel by 1 or 3.'
         if self.params.normalize_image == 'yes':
             # transforms.Normalize accepts only Tensor.
             if self.params.in_channel == 1:
@@ -284,7 +284,7 @@ class ImageMixin:
         if self.params.net is None:
             return image
 
-        assert (self.params.in_channel is not None), 'Speficy in_channel by 1 or 3.'
+        assert (self.params.in_channel is not None), 'Specify in_channel by 1 or 3.'
         imgpath = self.df_split.iat[idx, self.col_index_dict['imgpath']]
         if self.params.in_channel == 1:
             image = Image.open(imgpath).convert('L')    # eg. np.array(image).shape = (64, 64)
@@ -342,7 +342,7 @@ class LoadDataSet(Dataset, DataSetWidget):
                 ) -> None:
         """
         Args:
-            params (ModelParam): paramater for model
+            params (ModelParam): parameter for model
             df_source (DataFrame): DataFrame of csv
             split (str): split
         """
@@ -350,7 +350,7 @@ class LoadDataSet(Dataset, DataSetWidget):
         self.df_source = df_source
         self.split = split
 
-        # testの時は、traning時のcsvのinput_list, label_list
+        # testの時は、training時のcsvのinput_list, label_list
         self.input_list = self.params.input_list
         self.label_list = self.params.label_list
 
@@ -384,7 +384,7 @@ class LoadDataSet(Dataset, DataSetWidget):
         """
         Return labels.
         If no column of label when csv of external dataset is used,
-        empty dictionaty is returned.
+        empty dictionary is returned.
 
         Args:
             idx (int): index
@@ -460,10 +460,10 @@ def create_dataloader(
                     split: str = None
                     ) -> DataLoader:
     """
-    Creeate data loader ofr split.
+    Create data loader ofr split.
 
     Args:
-        params (ModelParam): paramater for model
+        params (ModelParam): parameter for model
         df_source (DataFrame): DataFrame of csv
         split (str): split. Defaults to None.
 

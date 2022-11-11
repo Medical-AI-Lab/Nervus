@@ -131,7 +131,7 @@ def set_criterion(criterion_name: str, device: torch.device) -> nn.Module:
     Set criterion.
 
     Args:
-        criterion_name (str): criterion nama
+        criterion_name (str): criterion name
         device (torch.device): device
 
     Returns:

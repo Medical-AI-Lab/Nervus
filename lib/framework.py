@@ -33,7 +33,7 @@ class BaseModelParam:
         for _param, _arg in vars(args).items():
             setattr(self, _param, _arg)
 
-        self._dataset_dir = re.findall('(.*)/docs', self.csvpath)[0]  # shoubd be unique
+        self._dataset_dir = re.findall('(.*)/docs', self.csvpath)[0]  # should be unique
         self._csv_name = Path(self.csvpath).stem
 
     def print_parameter(self) -> None:
@@ -142,7 +142,7 @@ class BaseModelParam:
 
     def load_parameter(self, parameter_path: Path) -> Dict:
         """
-        Return dictionalry of parameters at training.
+        Return dictionary of parameters at training.
 
         Args:
             parameter_path (Path): path to parameter_path
@@ -176,7 +176,7 @@ class TrainModelParam(BaseModelParam):
 
         self.device = torch.device(f"cuda:{self.gpu_ids[0]}") if self.gpu_ids != [] else torch.device('cpu')
 
-        # Directory for saveing paramaters, weights, or learning_curve
+        # Directory for saving parameters, weights, or learning_curve
         _datetime = self.datetime
         _save_datetime_dir = str(Path(self._dataset_dir, 'results', self._csv_name, 'sets', _datetime))
         self.save_datetime_dir = _save_datetime_dir
@@ -226,7 +226,7 @@ class TestModelParam(BaseModelParam):
         """
         super().__init__(args)
 
-        # Load paramaters
+        # Load parameters
         _save_datetime_dir = Path(self.weight_dir).parents[0]
         parameter_path = Path(_save_datetime_dir, 'parameters.json')
         parameters = self.load_parameter(parameter_path)  # Dict
@@ -239,8 +239,8 @@ class TestModelParam(BaseModelParam):
                             'gpu_ids',
                             'mlp',
                             'net',
-                            'input_list',  # should be used one at trainig
-                            'label_list',  # shoudl be used one at trainig
+                            'input_list',  # should be used one at training
+                            'label_list',  # should be used one at training
                             'mlp_num_inputs',
                             'num_outputs_for_label',
                             'period_name',
@@ -260,12 +260,12 @@ class TestModelParam(BaseModelParam):
         sp = make_split_provider(self.csvpath, self.task)
         self.device = torch.device(f"cuda:{self.gpu_ids[0]}") if self.gpu_ids != [] else torch.device('cpu')
 
-        # Directory for saving ikelihood
+        # Directory for saving likelihood
         _datetime = _save_datetime_dir.name
         _save_datetime_dir = str(Path(self._dataset_dir, 'results', self._csv_name, 'sets', _datetime))  # csv_name might be for external dataset
         self.save_datetime_dir = _save_datetime_dir
 
-        # Align splits to be test.
+        # Align splits to be tested.
         # splits_in_df_source = ['train', 'val', 'test'], or ['test']
         #        test_splits  = ['train', 'val', 'test'], ['val', 'test'], or ['test']
         # Smaller set of splits has priority.
@@ -317,11 +317,11 @@ class BaseModel(ABC):
             self.loss_reg = create_loss_reg(self.params.task, self.criterion, self.params.label_list, self.params.device)
         else:
             if self.params.likelihood_on:
-                # No need of likelihood when appying Grad-CAM
+                # No need of likelihood when applying Grad-CAM
                 from .component import set_likelihood
                 self.likelihood = set_likelihood(self.params.task, self.params.num_outputs_for_label, self.params.save_datetime_dir)
 
-        # Copy class varialbles refered below or outside for convenience's sake
+        # Copy class variables referred below or outside for convenience's sake
         self.label_list = self.params.label_list
         self.device = self.params.device
         self.gpu_ids = self.params.gpu_ids
@@ -364,7 +364,7 @@ class BaseModel(ABC):
         Make model compute on the GPU.
         """
         if self.gpu_ids != []:
-            assert torch.cuda.is_available(), 'No avalibale GPU on this machine.'
+            assert torch.cuda.is_available(), 'No available GPU on this machine.'
             self.network.to(self.device)
             self.network = nn.DataParallel(self.network, device_ids=self.gpu_ids)
         else:
@@ -544,7 +544,7 @@ class SaveLoadMixin:
     # For learning curve
     def save_learning_curve(self) -> None:
         """
-        Save leraning curve.
+        Save learning curve.
 
         Args:
             date_name (str): save name for learning curve
@@ -750,7 +750,7 @@ class CVDeepSurv(ModelWidget):
 
     def set_data(self, data: Dict) -> None:
         """
-        Unpack data for forwarding of DeepSurv model with with CNN or ViT
+        Unpack data for forwarding of DeepSurv model with CNN or ViT
 
         Args:
             data (Dict): dictionary of data
@@ -830,9 +830,9 @@ def create_model(
                             This is only for test.
         likelihood_on: (bool):
                             This indicates whether likelihood is needed or not.
-                            Defaut to True.
+                            Default to True.
                             This is only for test.
-                            When applying to Grad-CAM, specify False because no need of likelilhood.
+                            When applying to Grad-CAM, specify False because no need of likelihood.
                             When permutation importance, specify True.
     Returns:
         nn.Module: model

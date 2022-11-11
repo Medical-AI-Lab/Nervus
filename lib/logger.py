@@ -53,7 +53,7 @@ class BaseLogger:
         fh = logging.FileHandler(log_path)
         _root_logger.addHandler(fh)
 
-        # uppper warining
+        # upper warning
         ch = logging.StreamHandler()
         ch.setLevel(logging.WARNING)
         format = logging.Formatter('%(levelname)-8s %(message)s')
@@ -82,6 +82,6 @@ class Logger:
 
 def set_logger() -> None:
     """
-    Set logger by orverwriting the default Logger.logger.
+    Set logger by overwriting the default Logger.logger.
     """
     Logger.logger = BaseLogger.get_logger('logs')

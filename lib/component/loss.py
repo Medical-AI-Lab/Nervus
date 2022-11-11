@@ -31,7 +31,7 @@ class EpochLoss:
 
     def get_latest_loss(self, phase: str) -> float:
         """
-        Retern the latest loss of phase.
+        Return the latest loss of phase.
         Args:
             phase (str): train or val
         Returns:
@@ -99,7 +99,7 @@ class EpochLoss:
 
     def check_best_val_loss_epoch(self, epoch: int) -> None:
         """
-        Check if val loss is the bset at epoch.
+        Check if val loss is the best at epoch.
 
         Args:
             epoch (int): epoch at which loss is checked if it is the best.
@@ -120,7 +120,7 @@ class EpochLoss:
                 self.down_update_flag()
 
 
-class LossRegistory(ABC):
+class LossRegistry(ABC):
     """
     Class for calculating loss and store it.
     First, losses are calculated for each iteration and then are accumulated in EpochLoss class.
@@ -137,10 +137,10 @@ class LossRegistory(ABC):
 
     def _init_batch_loss(self) -> Dict[str, None]:
         """
-        Initialize dictinary to store loss of each internal label for each batch.
+        Initialize dictionary to store loss of each internal label for each batch.
 
         Returns:
-            Dict[str, None]: dictinary to store loss of each internal label for each batch
+            Dict[str, None]: dictionary to store loss of each internal label for each batch
         """
         _batch_loss = dict()
         for label_name in self.label_list + ['total']:
@@ -149,10 +149,10 @@ class LossRegistory(ABC):
 
     def _init_running_loss(self) -> Dict[str, float]:
         """
-        Initialize dictinary to store loss of each label for each iteration.
+        Initialize dictionary to store loss of each label for each iteration.
 
         Returnes:
-            Dict[str, float]: dictinary to store loss of each label for each iteration
+            Dict[str, float]: dictionary to store loss of each label for each iteration
         """
         _running_loss = dict()
         for label_name in self.label_list + ['total']:
@@ -161,10 +161,10 @@ class LossRegistory(ABC):
 
     def _init_epoch_loss(self) -> None:
         """
-        Initialize dictinary to store loss of each label for each epoch.
+        Initialize dictionary to store loss of each label for each epoch.
 
         Returnes:
-            Dict[str, float]: dictinary to store loss of each label for each epoch
+            Dict[str, float]: dictionary to store loss of each label for each epoch
         """
         _epoch_loss = dict()
         for label_name in self.label_list + ['total']:
@@ -174,7 +174,7 @@ class LossRegistory(ABC):
     def cal_running_loss(self, batch_size: int = None) -> None:
         """
         Calculate loss for each iteration.
-        batch_loss is accumulated in runnning_loss.
+        batch_loss is accumulated in running_loss.
         This is called in train.py
 
         Args:
@@ -202,7 +202,7 @@ class LossRegistory(ABC):
 
         Args:
             epoch (int): epoch number
-            phase (str): pahse, ie. 'train' or 'val'
+            phase (str): phase, ie. 'train' or 'val'
             dataset_size (int): dataset size. Defaults to None.
         """
         assert (dataset_size is not None), 'Invalid dataset_size: dataset_size=None.'
@@ -236,7 +236,7 @@ class LossMixin:
 
         Args:
             num_epochs (int): ith epoch
-            epoch (int): epoch numger
+            epoch (int): epoch number
         """
         _total_epoch_loss = self.epoch_loss['total']
         train_loss = _total_epoch_loss.get_latest_loss('train')
@@ -252,7 +252,7 @@ class LossMixin:
         logger.logger.info(comment)
 
 
-class LossWidget(LossRegistory, LossMixin):
+class LossWidget(LossRegistry, LossMixin):
     """
     Class for a widget to inherit multiple classes simultaneously.
     """
@@ -271,7 +271,7 @@ class ClsLoss(LossWidget):
                 ) -> None:
         """
         Args:
-            criterion (torch.nn.Module): ctiterion
+            criterion (torch.nn.Module): criterion
             label_list (List[str]): label list
             device (torch.device): device
         """
@@ -307,7 +307,7 @@ class RegLoss(LossWidget):
     def __init__(self, criterion: torch.nn.Module, label_list: List[str], device: torch.device) -> None:
         """
         Args:
-            criterion (torch.nn.Module): ctiterion
+            criterion (torch.nn.Module): criterion
             label_list (List[str]): label list
             device (torch.device): device
         """
@@ -348,7 +348,7 @@ class DeepSurvLoss(LossWidget):
                 ) -> None:
         """
         Args:
-            criterion (torch.nn.Module): ctiterion
+            criterion (torch.nn.Module): criterion
             label_list (List[str]): label list
             device (torch.device): device
         """
@@ -393,9 +393,9 @@ def create_loss_reg(
                     criterion: torch.nn.Module,
                     label_list: List[str],
                     device: torch.device
-                    ) -> LossRegistory:
+                    ) -> LossRegistry:
     """
-    Set LossRegistory depending on task
+    Set LossRegistry depending on task
 
     Args:
         task (str): task
@@ -404,7 +404,7 @@ def create_loss_reg(
         device (torch.device): device
 
     Returns:
-        LossRegistory: LossRegistory
+        LossRegistry: LossRegistry
     """
     if task == 'classification':
         loss_reg = ClsLoss(criterion, label_list, device)

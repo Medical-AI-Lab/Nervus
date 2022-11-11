@@ -11,7 +11,7 @@ import numpy
 class BaseLikelihood:
     """
     Class for making likelihood.
-    Substantialy, this is for making likelihood for classification.
+    Substantially, this is for making likelihood for classification.
     """
     def __init__(self, num_outputs_for_label: Dict[str, int], save_datetime_dir: str) -> None:
         """

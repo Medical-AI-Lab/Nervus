@@ -16,14 +16,14 @@ from typing import Dict, Union
 class MetricsData:
     """
     Class to store metrics as class variable.
-    Metrics are defined depenging on task.
+    Metrics are defined depending on task.
 
     For ROC
         self.fpr: np.ndarray
         self.tpr: np.ndarray
         self.auc: float
 
-    For Regresion
+    For Regression
         self.y_obs: np.ndarray
         self.y_pred: np.ndarray
         self.r2: float
@@ -291,7 +291,7 @@ class MetricsMixin:
             df_likelihood (pd.DataFrame): DataFrame of likelihood
 
         Returns:
-            pd.DataFrame: DataFrame of likelihood with column of insitution
+            pd.DataFrame: DataFrame of likelihood with column of institution
         """
         # materials/dogcat/imgs/all/Dog_4774_size-64.jpg -> all/Dog_4774_size-64.jpg -> all
         s_inst = df_likelihood['imgpath'].str.replace('(.*)/imgs/', '', regex=True).str.split('/', expand=True)[0]
@@ -326,7 +326,7 @@ class MetricsMixin:
         Returns:
             Dict[str, Dict[str, LabelMetrics]]: dictionary of institution and dictionary of label and its LabelMetrics
             eg. {
-                instA: {label_1: LabelMetrics(), label_2: LabelMetrics(), ...}, 
+                instA: {label_1: LabelMetrics(), label_2: LabelMetrics(), ...},
                 instB: {label_1: LabelMetrics(), label_2: LabelMetrics()}, ...},
                 ...}
         """
@@ -415,7 +415,7 @@ class MetricsMixin:
 
     def make_metrics(self, likelihood_path: Path) -> None:
         """
-        Make metrics, substantially this method handles everthing all.
+        Make metrics, substantially this method handles everything all.
 
         Args:
             likelihood_path (Path): path to likelihood
@@ -607,12 +607,12 @@ class DeepSurvEval(MetricsMixin, C_IndexMixin):
 
     def make_metrics(self, likelihood_path: Path) -> None:
         """
-        Make metrics, substantially this method handles everthing all.
+        Make metrics, substantially this method handles everything all.
 
         Args:
             likelihood_path (Path): path to likelihood
 
-        Orverwrite def make_metrics() in class MetricsMixin by deleteing self.make_save_fig(),
+        Overwrite def make_metrics() in class MetricsMixin by deleting self.make_save_fig(),
         because of no need to plot and save figure.
         """
         df_likelihood = pd.read_csv(likelihood_path)
