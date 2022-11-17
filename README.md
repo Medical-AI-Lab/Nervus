@@ -108,3 +108,6 @@ If you need many trials, use `work_all.sh`. In this case, `parameter.csv` must b
 
 # CUDA VERSION
 CUDA Version = 11.3, 11.4
+
+# Acknowledgement
+This project is working in progress, thus the codebase and model might not be perfect or bug-free. We will very much appreciate any kind of contribution or and issue raised. If you find a bug or have any suggestion, please feel free to open an issue or contact us. 
