@@ -1,5 +1,4 @@
 task,csvpath,model,criterion,optimizer,epochs,batch_size,sampler,augmentation,in_channel,pretrained,save_weight_policy,gpu_ids
-classification,materials/docs/tutorial.csv,MLP+ResNet18,CEL,Adam,50,64,no,xrayaug,3,True,best,cpu
-regression,materials/docs/tutorial.csv,MLP+ResNet18,MSE,Adam,50,64,no,xrayaug,3,True,best,cpu
-deepsurv,materials/docs/tutorial.csv,MLP+ResNet18,NLL,Adam,50,64,no,xrayaug,3,False,each,0-1-2
-
+classification,materials/docs/tutorial.csv,MLP+ResNet18,CEL,Adam,50,64,no,trivialaugwide,3,True,best,cpu
+regression,materials/docs/tutorial.csv,MLP+ResNet18,MSE,Adam,50,64,no,no,3,True,best,cpu
+deepsurv,materials/docs/tutorial.csv,MLP+ResNet18,NLL,Adam,50,64,no,no,3,False,each,0-1-2
