@@ -52,6 +52,7 @@ def main(opt):
                     model.make_likelihood(data)
 
         model.save_likelihood(weight_path.stem)
+        model.init_network()
 
 
 if __name__ == '__main__':

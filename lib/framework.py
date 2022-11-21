@@ -299,16 +299,7 @@ class BaseModel(ABC):
             param (Union[TrainModelParam, TestModelParam]): parameters for model at training or test
         """
         self.params = params
-
-        self.network = create_net(
-                                self.params.mlp,
-                                self.params.net,
-                                self.params.num_outputs_for_label,
-                                self.params.mlp_num_inputs,
-                                self.params.in_channel,
-                                self.params.vit_image_size,
-                                self.params.pretrained
-                                )
+        self.init_network()
 
         if self.params.isTrain:
             from .component import set_criterion, set_optimizer, create_loss_reg
@@ -334,6 +325,17 @@ class BaseModel(ABC):
         else:
             self.weight_dir = self.params.weight_dir
             self.test_splits = self.params.test_splits
+
+    def init_network(self):
+        self.network = create_net(
+                                self.params.mlp,
+                                self.params.net,
+                                self.params.num_outputs_for_label,
+                                self.params.mlp_num_inputs,
+                                self.params.in_channel,
+                                self.params.vit_image_size,
+                                self.params.pretrained
+                                )
 
     def print_parameter(self) -> None:
         """
