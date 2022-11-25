@@ -20,7 +20,7 @@ class EvalOptions:
         Options for evaluation.
         """
         self.parser = argparse.ArgumentParser(description='Options for evaluation')
-        self.parser.add_argument('--likelihood_dir', type=str, default=None, help='Directory of likekihood (Default: None)')
+        self.parser.add_argument('--datetime_dir', type=str, default=None, help='Directory of datetime contains target likekihoods (Default: None)')
         self.args = self.parser.parse_args()
 
     def _get_latest_likelihood_dir(self) -> str:
