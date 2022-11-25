@@ -309,8 +309,7 @@ class BaseModel(ABC):
         else:
             if self.params.likelihood_on:
                 # No need of likelihood when appying Grad-CAM
-                from .component import set_likelihood
-                self.likelihood = set_likelihood(self.params.task, self.params.num_outputs_for_label, self.params.save_datetime_dir)
+                self.likelihood = self.init_likelihood()
 
         # Copy class varialbles refered below or outside for convenience's sake
         self.label_list = self.params.label_list
@@ -336,6 +335,11 @@ class BaseModel(ABC):
                                 self.params.vit_image_size,
                                 self.params.pretrained
                                 )
+
+    def init_likelihood(self):
+        from .component import set_likelihood
+        self.likelihood = set_likelihood(self.params.task, self.params.num_outputs_for_label, self.params.save_datetime_dir)
+        return self.likelihood
 
     def print_parameter(self) -> None:
         """
