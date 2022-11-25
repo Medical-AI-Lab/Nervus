@@ -44,11 +44,11 @@ class EvalOptions:
         """
         Parse options.
         """
-        if self.args.likelihood_dir is None:
+        if self.args.datetime_dir is None:
             _likelihood_dir = self._get_latest_likelihood_dir()
             setattr(self.args, 'likelihood_dir',  _likelihood_dir)
 
-        _save_datetime_dir = Path(self.args.likelihood_dir).parents[0]
+        _save_datetime_dir = Path(self.args.datetime_dir).parents[0]
         setattr(self.args, 'save_datetime_dir', _save_datetime_dir)
 
 
@@ -101,11 +101,11 @@ def collect_likelihood(likelihood_dir: str) -> List[Path]:
 
 def main(opt):
     args = opt.args
-    likelihood_paths = collect_likelihood(args.likelihood_dir)
-    task = check_task(args.likelihood_dir)
+    likelihood_paths = collect_likelihood(args.datetime_dir)
+    task = check_task(args.datetime_dir)
     task_eval = set_eval(task)
 
-    logger.logger.info(f"Calculating metrics of {task} for {args.likelihood_dir}.\n")
+    logger.logger.info(f"Calculating metrics of {task} for {args.datetime_dir}.\n")
 
     for likelihood_path in likelihood_paths:
         logger.logger.info(likelihood_path.name)
