@@ -37,8 +37,7 @@ class EvalOptions:
         _likelihood_dirs = glob.glob('**/results/*/sets/*/likelihoods', recursive=True)
         assert (_likelihood_dirs != []), 'No directory of likelihood.'
         _likelihood_dir = max(_likelihood_dirs, key=lambda likelihood_dir: Path(likelihood_dir).stat().st_mtime)
-        likelihood_dir = Path(_likelihood_dir).parents[0]
-        return str(likelihood_dir)
+        return str(_likelihood_dir)
 
     def parse(self) -> None:
         """
@@ -46,10 +45,8 @@ class EvalOptions:
         """
         if self.args.datetime_dir is None:
             _likelihood_dir = self._get_latest_likelihood_dir()
-            setattr(self.args, 'likelihood_dir',  _likelihood_dir)
-
-        _save_datetime_dir = Path(self.args.datetime_dir).parents[0]
-        setattr(self.args, 'save_datetime_dir', _save_datetime_dir)
+            _datetime_dir = str(Path(_likelihood_dir).parents[0])
+            setattr(self.args, 'datetime_dir',  _datetime_dir)
 
 
 def check_task(likelihood_dir: str) -> str:
@@ -83,18 +80,18 @@ def check_eval_options() -> EvalOptions:
     return opt
 
 
-def collect_likelihood(likelihood_dir: str) -> List[Path]:
+def collect_likelihood(datetime_dir: str) -> List[Path]:
     """
     Return list of likelihood paths.
 
     Args:
-        likelihood_dir (str): path to directory of likelihoods
+        datetime_dir (str): path to directory of likelihoods
 
     Returns:
         List[Path]: list of likelihood paths
     """
-    likelihood_paths = list(Path(likelihood_dir, 'likelihoods').glob('*.csv'))
-    assert likelihood_paths != [], f"No likelihood in {likelihood_dir}."
+    likelihood_paths = list(Path(datetime_dir, 'likelihoods').glob('*.csv'))
+    assert likelihood_paths != [], f"No likelihood in {datetime_dir}."
     likelihood_paths.sort(key=lambda path: path.stat().st_mtime)
     return likelihood_paths
 
