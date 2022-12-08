@@ -22,11 +22,14 @@ class Options:
         self.parser = argparse.ArgumentParser(description='Options for training or test')
 
         # The blow is common argument both at training and test.
-        self.parser.add_argument('--csvpath',   type=str, required=True, help='path to csv for training or test')
+        self.parser.add_argument('--csvpath', type=str, required=True, help='path to csv for training or test')
+
+        # GPU Ids
+        self.parser.add_argument('--gpu_ids', type=str, default='cpu', help='gpu ids: e.g. 0, 0-1-2, 0-2. Use cpu for CPU (Default: cpu)')
 
         if isTrain:
             # Task
-            self.parser.add_argument('--task',  type=str, required=True, choices=['classification', 'regression', 'deepsurv'], help='Task')
+            self.parser.add_argument('--task', type=str, required=True, choices=['classification', 'regression', 'deepsurv'], help='Task')
 
             # Model
             self.parser.add_argument('--model',      type=str, required=True, help='model: MLP, CNN, ViT, or MLP+(CNN or ViT)')
@@ -54,9 +57,6 @@ class Options:
 
             # Weight saving strategy
             self.parser.add_argument('--save_weight_policy', type=str,  choices=['best', 'each'], default='best', help='Save weight policy: best, or each(ie. save each time loss decreases when multi-label output) (Default: best)')
-
-            # GPU Ids
-            self.parser.add_argument('--gpu_ids',            type=str,  default='cpu', help='gpu ids: e.g. 0, 0-1-2, 0-2. Use cpu for CPU (Default: cpu)')
 
         else:
             # Directry of weight at traning
@@ -132,6 +132,9 @@ class Options:
         """
         Parse options.
         """
+        _gpu_ids = self._parse_gpu_ids(self.args.gpu_ids)
+        setattr(self.args, 'gpu_ids', _gpu_ids)
+
         if self.args.isTrain:
             _mlp, _net = self._parse_model(self.args.model)
             setattr(self.args, 'mlp', _mlp)
@@ -139,9 +142,6 @@ class Options:
 
             _pretrained = bool(self.args.pretrained)   # strtobool('False') = 0 (== False)
             setattr(self.args, 'pretrained', _pretrained)
-
-            _gpu_ids = self._parse_gpu_ids(self.args.gpu_ids)
-            setattr(self.args, 'gpu_ids', _gpu_ids)
         else:
             if self.args.weight_dir is None:
                 _weight_dir = self._get_latest_weight_dir()
