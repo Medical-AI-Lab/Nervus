@@ -60,8 +60,8 @@ for row in $(tail -n +2 "$parameter_csv"); do
 
   # Internal Test
   echo "$i/$total: Test starts..."
-  echo "$python $test_code --csvpath $csvpath"
-  "$python" "$test_code" --csvpath "$csvpath"
+  echo "$python $test_code --csvpath $csvpath --gpu_ids $gpu_ids"
+  "$python" "$test_code" --csvpath "$csvpath" --gpu_ids "$gpu_ids"
 
   echo ""
 
