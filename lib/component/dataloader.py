@@ -205,15 +205,15 @@ class InputDataMixin:
         if self.params.mlp is None:
             return inputs_value
 
-        # When specifying iloc[[idx], index_input_list], pd.DataFrame is obtained,
-        # it fits the input type of self.scaler.transform.
-        # However, after normalizing, the shape of inputs_value is (1, N), where N is the number of input value.
-        # tehrefore, convert (1, N) -> (N,) by squeeze() so that calculating loss would work.
+        # After iloc[[idx], index_input_list], pd.DataFrame is obtained.
+        # DataFrame fits the input type of self.scaler.transform.
+        # However, after normalizing, the shape of inputs_value is (1, N), where N is the number of input values.
+        # Since the shape (1, N) is not accaptable when forwarding, convert (1, N) -> (N,) is needed.
         index_input_list = [self.col_index_dict[input] for input in self.input_list]
         _df_inputs_value = self.df_split.iloc[[idx], index_input_list]
-        inputs_value = self.scaler.transform(_df_inputs_value).squeeze()          # normalize and squeeze() converts (1, 46) -> (46,)
+        inputs_value = self.scaler.transform(_df_inputs_value).reshape(-1)
         inputs_value = np.array(inputs_value, dtype=np.float64)
-        inputs_value = torch.from_numpy(inputs_value.astype(np.float32)).clone()  # numpy -> Tensor
+        inputs_value = torch.from_numpy(inputs_value.astype(np.float32)).clone()
         return inputs_value
 
 

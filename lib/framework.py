@@ -115,6 +115,8 @@ class BaseModelParam:
         # Delete params not to be saved.
         # str(self.device) if saved.
         no_save = [
+                    '_dataset_dir',
+                    '_csv_name',
                     'dataloaders',
                     'device',
                     'isTrain'
@@ -236,7 +238,6 @@ class TestModelParam(BaseModelParam):
                             'normalize_image',
                             'in_channel',
                             'vit_image_size',
-                            'gpu_ids',
                             'mlp',
                             'net',
                             'input_list',  # should be used one at trainig

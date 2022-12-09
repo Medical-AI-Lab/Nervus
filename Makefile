@@ -9,6 +9,7 @@
 # SAMPLER = yes | no   # should be no when regression or multi-label
 # AUGMENTATION = xrayaug | trivialaugwide | randaug | no
 # IN_CHANNEL = 1 | 3
+# PRETRAINED = True | False
 # SAVE_WEIGHT_POLICY = best | each
 # GPU_IDS = cpu | 0-1-2
 
@@ -22,8 +23,11 @@ BATCH_SIZE := 64
 SAMPLER := no
 AUGMENTATION := xrayaug
 IN_CHANNEL := 1
+PRETRAINED := False
 SAVE_WEIGHT_POLICY := each
-GPU_IDS := cpu
+TRAIN_GPU_IDS := cpu
+TEST_GPU_IDS := $(TRAIN_GPU_IDS)
+
 
 TRAIN_OPT := \
 --task $(TASK) \
@@ -36,11 +40,14 @@ TRAIN_OPT := \
 --sampler $(SAMPLER) \
 --augmentation $(AUGMENTATION) \
 --in_channel $(IN_CHANNEL) \
+--pretrained $(PRETRAINED) \
 --save_weight_policy $(SAVE_WEIGHT_POLICY) \
---gpu_ids $(GPU_IDS)
+--gpu_ids $(TRAIN_GPU_IDS)
+
 
 TEST_OPT := \
---csvpath $(CSVPATH)
+--csvpath $(CSVPATH) \
+--gpu_ids $(TEST_GPU_IDS)
 
 PYTHON := python
 TRAIN_CODE := train.py
