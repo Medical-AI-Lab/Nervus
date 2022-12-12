@@ -9,6 +9,7 @@ from lib import (
         set_logger
         )
 from lib import Logger as logger
+from lib.component import set_likelihood
 from typing import List
 
 
@@ -28,10 +29,23 @@ def _collect_weight(weight_dir: str) -> List[Path]:
     return weight_paths
 
 
+def init_likelihood(params):
+    _likelihood = set_likelihood(params.task, params.num_outputs_for_label, params.save_datetime_dir)
+    return _likelihood
+
+
+# likelihood.make_likehood(data, model.get_output())
+
+
+# save_likelihood(weight_path.stem)
+
+
 def main(opt):
     model = create_model(opt.args)
     model.print_parameter()
     model.print_dataset_info()
+
+    params = model.params
 
     weight_paths = _collect_weight(model.weight_dir)
     for weight_path in weight_paths:
@@ -41,6 +55,8 @@ def main(opt):
         model.load_weight(weight_path)
         model.eval()
 
+        likelihood = init_likelihood(params)
+
         for split in model.test_splits:
             split_dataloader = model.dataloaders[split]
 
@@ -49,11 +65,14 @@ def main(opt):
 
                 with torch.no_grad():
                     model.forward()
-                    model.make_likelihood(data)
+                    output = model.get_output()
+                    #model.make_likelihood(data)
+                    likelihood.make_likelihood(data, output)
 
-        model.save_likelihood(weight_path.stem)
+        #model.save_likelihood(weight_path.stem)
+        likelihood.save_likelihood(weight_path.stem)
         model.init_network()
-        model.init_likelihood()
+        # model.init_likelihood()
 
 
 if __name__ == '__main__':

@@ -87,7 +87,7 @@ class ClsLikelihood(BaseLikelihood):
 
         return pred_names
 
-    def make_likehood(self, data: Dict, output: Dict[str, torch.Tensor]) -> None:
+    def make_likelihood(self, data: Dict, output: Dict[str, torch.Tensor]) -> None:
         """
         Make DataFrame of likelihood every batch
 

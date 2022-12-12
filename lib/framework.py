@@ -308,9 +308,10 @@ class BaseModel(ABC):
             self.optimizer = set_optimizer(self.params.optimizer, self.network, self.params.lr)
             self.loss_reg = create_loss_reg(self.params.task, self.criterion, self.params.label_list, self.params.device)
         else:
-            if self.params.likelihood_on:
+            #if self.params.likelihood_on:
                 # No need of likelihood when appying Grad-CAM
-                self.init_likelihood()
+            #    self.init_likelihood()
+            pass
 
         # Copy class varialbles refered below or outside for convenience's sake
         self.label_list = self.params.label_list
@@ -337,9 +338,9 @@ class BaseModel(ABC):
                                 self.params.pretrained
                                 )
 
-    def init_likelihood(self):
-        from .component import set_likelihood
-        self.likelihood = set_likelihood(self.params.task, self.params.num_outputs_for_label, self.params.save_datetime_dir)
+    #def init_likelihood(self):
+    #    from .component import set_likelihood
+    #    self.likelihood = set_likelihood(self.params.task, self.params.num_outputs_for_label, self.params.save_datetime_dir)
 
     def print_parameter(self) -> None:
         """
@@ -477,14 +478,14 @@ class BaseModel(ABC):
         self.loss_reg.print_epoch_loss(self.epochs, epoch)
 
     # Lieklihood
-    def make_likelihood(self, data: Dict) -> None:
-        """
-        Make DataFrame of likelihood.
-
-        Args:
-            data (Dict): dictionary of each label and its value which is on devide
-        """
-        self.likelihood.make_likehood(data, self.get_output())
+    #def make_likelihood(self, data: Dict) -> None:
+    #    """
+    #    Make DataFrame of likelihood.
+    #
+    #    Args:
+    #        data (Dict): dictionary of each label and its value which is on devide
+    #    """
+    #    self.likelihood.make_likehood(data, self.get_output())
 
 
 class SaveLoadMixin:
@@ -578,14 +579,14 @@ class SaveLoadMixin:
         self.params.save_parameter()
 
     # For likelihood
-    def save_likelihood(self, save_name: str = None) -> None:
-        """
-        Save likelihood.
-
-        Args:
-            save_name (str): save name for likelihood. Defaults to None.
-        """
-        self.likelihood.save_likelihood(save_name=save_name)
+    #def save_likelihood(self, save_name: str = None) -> None:
+    #    """
+    #    Save likelihood.
+    #
+    #    Args:
+    #        save_name (str): save name for likelihood. Defaults to None.
+    #    """
+    #    self.likelihood.save_likelihood(save_name=save_name)
 
 
 class ModelWidget(BaseModel, SaveLoadMixin):
