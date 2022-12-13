@@ -284,13 +284,11 @@ class TestModelParam(BaseModelParam):
         Smaller set of splits has priority.
         """
         if set(splits_in_df_source) < set(args_test_splits):
-            # maybe when external dataset
-            _test_splits = splits_in_df_source
+            _test_splits = splits_in_df_source  # maybe when external dataset
         elif set(args_test_splits) < set(splits_in_df_source):
-            # should be when Grad-CAM or permutation importance
-            _test_splits = args_test_splits  # ['val', 'test'], or ['test']
+            _test_splits = args_test_splits     # ['val', 'test'], or ['test']
         else:
-            _test_splits = args_test_splits  # ['train', 'val', 'test']
+            _test_splits = args_test_splits
         return _test_splits
 
 

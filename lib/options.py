@@ -65,6 +65,9 @@ class Options:
             # Test bash size
             self.parser.add_argument('--test_batch_size',    type=int,  default=64, metavar='N', help='batch size for test (Default: 64)')
 
+            # Splits for test
+            self.parser.add_argument('--test_splits',        type=str, default='train-val-test', help='splits for test: e.g. test, val-test, train-val-test. (Default: train-val-test)')
+
         self.args = self.parser.parse_args()
 
         if datetime is not None:
@@ -146,6 +149,8 @@ class Options:
             if self.args.weight_dir is None:
                 _weight_dir = self._get_latest_weight_dir()
                 setattr(self.args, 'weight_dir',  _weight_dir)
+
+            setattr(self.args, 'test_splits', self.args.test_splits.split('-'))
 
 
 def check_train_options(datetime_name: str) -> Options:

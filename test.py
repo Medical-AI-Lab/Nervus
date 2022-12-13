@@ -41,7 +41,7 @@ def main(opt):
 
     likelihood = set_likelihood(params.task, params.num_outputs_for_label, params.save_datetime_dir)
 
-    weight_paths = _collect_weight(model.weight_dir)
+    weight_paths = _collect_weight(params.weight_dir)
     for weight_path in weight_paths:
         logger.logger.info(f"Inference with {weight_path.name}.")
 

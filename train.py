@@ -21,7 +21,7 @@ def main(opt):
     model = create_model(params)
     dataloaders = params.dataloaders
 
-    for epoch in range(model.epochs):
+    for epoch in range(params.epochs):
         for phase in ['train', 'val']:
             if phase == 'train':
                 model.train()
@@ -58,7 +58,7 @@ def main(opt):
 
     model.save_learning_curve()
     model.save_weight(as_best=True)
-    model.save_parameter()
+    model.save_parameter()          #! parameter.save
 
 
 if __name__ == '__main__':

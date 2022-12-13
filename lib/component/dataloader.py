@@ -478,14 +478,13 @@ def create_dataloader(
     else:
         batch_size = params.test_batch_size
 
-    assert (params.sampler is not None), 'Specify sampler by yes or no.'
     if params.sampler == 'yes':
         assert ((params.task == 'classification') or (params.task == 'deepsurv')), 'Cannot make sampler in regression.'
         assert (len(params.label_list) == 1), 'Cannot make sampler for multi-label.'
         shuffle = False
         sampler = _make_sampler(split_data)
     else:
-        # ie. pramas.sampler == 'no'
+        # When pramas.sampler == 'no'
         shuffle = True
         sampler = None
 
@@ -497,4 +496,3 @@ def create_dataloader(
                             sampler=sampler
                             )
     return split_loader
-
