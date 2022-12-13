@@ -33,7 +33,7 @@ class BaseModelParam:
         for _param, _arg in vars(args).items():
             setattr(self, _param, _arg)
 
-        self._dataset_dir = re.findall('(.*)/docs', self.csvpath)[0]  # shoubd be unique
+        self._dataset_dir = re.findall('(.*)/docs', self.csvpath)[0]  # should be unique
         self._csv_name = Path(self.csvpath).stem
 
     def print_parameter(self) -> None:
@@ -53,8 +53,7 @@ class BaseModelParam:
                     'dataloaders',
                     'datetime',
                     'device',
-                    'isTrain',
-                    'likelihood_on'
+                    'isTrain'
                     ]
 
         phase = 'Training' if self.isTrain else 'Test'
@@ -216,15 +215,11 @@ class TestModelParam(BaseModelParam):
     """
     def __init__(
                 self,
-                args: argparse.Namespace,
-                test_splits: List[str],
-                likelihood_on: bool
+                args: argparse.Namespace
                 ) -> None:
         """
         Args:
             args (argparse.Namespace): options
-            test_splits (List[str]): splits to be test. Default to ['train', 'val', 'test'].
-            likelihood_on (bool): This indicates whether likelihood is needed or not.
         """
         super().__init__(args)
 
@@ -266,26 +261,37 @@ class TestModelParam(BaseModelParam):
         _save_datetime_dir = str(Path(self._dataset_dir, 'results', self._csv_name, 'sets', _datetime))  # csv_name might be for external dataset
         self.save_datetime_dir = _save_datetime_dir
 
-        # Align splits to be test.
-        # splits_in_df_source = ['train', 'val', 'test'], or ['test']
-        #        test_splits  = ['train', 'val', 'test'], ['val', 'test'], or ['test']
-        # Smaller set of splits has priority.
-        splits_in_df_source = sp.df_source['split'].unique().tolist()
-        if set(splits_in_df_source) < set(test_splits):
-            # should be when external dataset
-            self.test_splits = splits_in_df_source  # ['test']
-        elif set(test_splits) < set(splits_in_df_source):
-            # should be when Grad-CAM or permutation importance
-            self.test_splits = test_splits  # ['val', 'test'], or ['test']
-        else:
-            # should be when used internal dataset
-            self.test_splits = test_splits  # ['train', 'val', 'test']
+        # Align splits to be test
+        _splits_in_df_source = sp.df_source['split'].unique().tolist()
+        self.test_splits = self._align_test_splits(self.test_splits, _splits_in_df_source)
 
         # Dataloader
         self.dataloaders = {split: create_dataloader(self, sp.df_source, split=split) for split in self.test_splits}
 
-        # Used When Grad-CAm or permutation importance
-        self.likelihood_on = likelihood_on
+    def _align_test_splits(self, args_test_splits, splits_in_df_source) -> List[str]:
+        """
+        Align splits to be test.
+
+        Args:
+            args_test_splits (List[str]): splits specified by args. Default is ['train', 'val', 'test']
+            splits_in_df_source (List[str]): splits includinf csv
+
+        Returns:
+            List[str]: splits for test
+
+        args_test_splits  = ['train', 'val', 'test'], ['val', 'test'], or ['test']
+        splits_in_df_source = ['train', 'val', 'test'], or ['test']
+        Smaller set of splits has priority.
+        """
+        if set(splits_in_df_source) < set(args_test_splits):
+            # maybe when external dataset
+            _test_splits = splits_in_df_source
+        elif set(args_test_splits) < set(splits_in_df_source):
+            # should be when Grad-CAM or permutation importance
+            _test_splits = args_test_splits  # ['val', 'test'], or ['test']
+        else:
+            _test_splits = args_test_splits  # ['train', 'val', 'test']
+        return _test_splits
 
 
 class BaseModel(ABC):
@@ -308,9 +314,6 @@ class BaseModel(ABC):
             self.optimizer = set_optimizer(self.params.optimizer, self.network, self.params.lr)
             self.loss_reg = create_loss_reg(self.params.task, self.criterion, self.params.label_list, self.params.device)
         else:
-            #if self.params.likelihood_on:
-                # No need of likelihood when appying Grad-CAM
-            #    self.init_likelihood()
             pass
 
         # Copy class varialbles refered below or outside for convenience's sake
@@ -337,10 +340,6 @@ class BaseModel(ABC):
                                 self.params.vit_image_size,
                                 self.params.pretrained
                                 )
-
-    #def init_likelihood(self):
-    #    from .component import set_likelihood
-    #    self.likelihood = set_likelihood(self.params.task, self.params.num_outputs_for_label, self.params.save_datetime_dir)
 
     def print_parameter(self) -> None:
         """
@@ -477,20 +476,10 @@ class BaseModel(ABC):
         # self.epochs is total number pf epochs
         self.loss_reg.print_epoch_loss(self.epochs, epoch)
 
-    # Lieklihood
-    #def make_likelihood(self, data: Dict) -> None:
-    #    """
-    #    Make DataFrame of likelihood.
-    #
-    #    Args:
-    #        data (Dict): dictionary of each label and its value which is on devide
-    #    """
-    #    self.likelihood.make_likehood(data, self.get_output())
-
 
 class SaveLoadMixin:
     """
-    Class including methods for save or load weight, learning_curve, or likelihood.
+    Class including methods for save or load weight, or learning_curve.
     """
     # variables to keep best_weight and best_epoch temporarily.
     acting_best_weight = None
@@ -578,16 +567,6 @@ class SaveLoadMixin:
         """
         self.params.save_parameter()
 
-    # For likelihood
-    #def save_likelihood(self, save_name: str = None) -> None:
-    #    """
-    #    Save likelihood.
-    #
-    #    Args:
-    #        save_name (str): save name for likelihood. Defaults to None.
-    #    """
-    #    self.likelihood.save_likelihood(save_name=save_name)
-
 
 class ModelWidget(BaseModel, SaveLoadMixin):
     """
@@ -600,12 +579,13 @@ class MLPModel(ModelWidget):
     """
     Class for MLP model
     """
-    def __init__(self, args: argparse.Namespace) -> None:
+
+    def __init__(self, params: Union[TrainModelParam, TestModelParam]) -> None:
         """
         Args:
-            args (argparse.Namespace): options
+            params: (Union[TrainModelParam, TestModelParam]): parameters
         """
-        super().__init__(args)
+        super().__init__(params)
 
     def set_data(self, data: Dict) -> None:
         """
@@ -636,12 +616,12 @@ class CVModel(ModelWidget):
     """
     Class for CNN or ViT model
     """
-    def __init__(self, args: argparse.Namespace) -> None:
+    def __init__(self, params: Union[TrainModelParam, TestModelParam]) -> None:
         """
         Args:
-            args (argparse.Namespace): options
+            params: (Union[TrainModelParam, TestModelParam]): parameters
         """
-        super().__init__(args)
+        super().__init__(params)
 
     def set_data(self, data: Dict) -> None:
         """
@@ -672,12 +652,12 @@ class FusionModel(ModelWidget):
     """
     Class for MLP+CNN or MLP+ViT model.
     """
-    def __init__(self, args: argparse.Namespace) -> None:
+    def __init__(self, params: Union[TrainModelParam, TestModelParam]) -> None:
         """
         Args:
-            args (argparse.Namespace): options
+            params: (Union[TrainModelParam, TestModelParam]): parameters
         """
-        super().__init__(args)
+        super().__init__(params)
 
     def set_data(self, data: Dict) -> None:
         """
@@ -710,12 +690,12 @@ class MLPDeepSurv(ModelWidget):
     """
     Class for DeepSurv model with MLP
     """
-    def __init__(self, args: argparse.Namespace) -> None:
+    def __init__(self, params: Union[TrainModelParam, TestModelParam]) -> None:
         """
         Args:
-            args (argparse.Namespace): options
+            params: (Union[TrainModelParam, TestModelParam]): parameters
         """
-        super().__init__(args)
+        super().__init__(params)
 
     def set_data(self, data: Dict) -> None:
         """
@@ -748,12 +728,12 @@ class CVDeepSurv(ModelWidget):
     """
     Class for DeepSurv model with CNN or ViT
     """
-    def __init__(self, args: argparse.Namespace) -> None:
+    def __init__(self, params: Union[TrainModelParam, TestModelParam]) -> None:
         """
         Args:
-            args (argparse.Namespace): options
+            params: (Union[TrainModelParam, TestModelParam]): parameters
         """
-        super().__init__(args)
+        super().__init__(params)
 
     def set_data(self, data: Dict) -> None:
         """
@@ -786,12 +766,12 @@ class FusionDeepSurv(ModelWidget):
     """
     Class for DeepSurv model with MLP+CNN or MLP+ViT model.
     """
-    def __init__(self, args: argparse.Namespace) -> None:
+    def __init__(self, params: Union[TrainModelParam, TestModelParam]) -> None:
         """
         Args:
-            args (argparse.Namespace): options
+            params: (Union[TrainModelParam, TestModelParam]): parameters
         """
-        super().__init__(args)
+        super().__init__(params)
 
     def set_data(self, data: Dict) -> None:
         """
@@ -822,35 +802,16 @@ class FusionDeepSurv(ModelWidget):
         self.loss_reg.cal_batch_loss(self.multi_output, self.multi_label, self.periods, self.network)
 
 
-def create_model(
-                args: argparse.Namespace,
-                test_splits: List[str] = ['train', 'val', 'test'],
-                likelihood_on: bool = True
-                ) -> nn.Module:
+def create_model(params: Union[TrainModelParam, TestModelParam]) -> nn.Module:
     """
     Construct model.
 
     Args:
-        args (argparse.Namespace): options
-        test_splits (List[str]):
-                            splits to be test. Default to ['train', 'val', 'test'].
-                            This is only for test.
-        likelihood_on: (bool):
-                            This indicates whether likelihood is needed or not.
-                            Defaut to True.
-                            This is only for test.
-                            When applying to Grad-CAM, specify False because no need of likelilhood.
-                            When permutation importance, specify True.
+        params (Union[TrainModelParam, TestModelParam]: parameters
+
     Returns:
         nn.Module: model
     """
-    # params = ModelParam(args, test_splits)
-    if args.isTrain:
-        # NO need of test_splits, likelihood_on
-        params = TrainModelParam(args)
-    else:
-        params = TestModelParam(args, test_splits, likelihood_on)
-
     task = params.task
     _isMLPModel = (params.mlp is not None) and (params.net is None)
     _isCVModel = (params.mlp is None) and (params.net is not None)

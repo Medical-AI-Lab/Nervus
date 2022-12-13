@@ -8,9 +8,11 @@ from lib import (
         create_model,
         set_logger
         )
-from lib import Logger as logger
 from lib.component import set_likelihood
+from lib import Logger as logger
 from typing import List
+
+from lib.framework import TestModelParam
 
 
 def _collect_weight(weight_dir: str) -> List[Path]:
@@ -29,23 +31,15 @@ def _collect_weight(weight_dir: str) -> List[Path]:
     return weight_paths
 
 
-def init_likelihood(params):
-    _likelihood = set_likelihood(params.task, params.num_outputs_for_label, params.save_datetime_dir)
-    return _likelihood
-
-
-# likelihood.make_likehood(data, model.get_output())
-
-
-# save_likelihood(weight_path.stem)
-
-
 def main(opt):
-    model = create_model(opt.args)
-    model.print_parameter()
-    model.print_dataset_info()
+    params = TestModelParam(opt.args)
+    params.print_parameter()
+    params.print_dataset_info()
 
-    params = model.params
+    model = create_model(params)
+    dataloaders = params.dataloaders
+
+    likelihood = set_likelihood(params.task, params.num_outputs_for_label, params.save_datetime_dir)
 
     weight_paths = _collect_weight(model.weight_dir)
     for weight_path in weight_paths:
@@ -55,10 +49,10 @@ def main(opt):
         model.load_weight(weight_path)
         model.eval()
 
-        likelihood = init_likelihood(params)
+        likelihood.init_likelihood()
 
         for split in model.test_splits:
-            split_dataloader = model.dataloaders[split]
+            split_dataloader = dataloaders[split]
 
             for i, data in enumerate(split_dataloader):
                 model.set_data(data)
@@ -66,10 +60,8 @@ def main(opt):
                 with torch.no_grad():
                     model.forward()
                     output = model.get_output()
-                    #model.make_likelihood(data)
                     likelihood.make_likelihood(data, output)
 
-        #model.save_likelihood(weight_path.stem)
         likelihood.save_likelihood(weight_path.stem)
         model.init_network()
         # model.init_likelihood()

@@ -10,11 +10,16 @@ from lib import (
         )
 from lib import Logger as logger
 
+from lib.framework import TrainModelParam
+
 
 def main(opt):
-    model = create_model(opt.args)
-    model.print_parameter()
-    model.print_dataset_info()
+    params = TrainModelParam(opt.args)
+    params.print_parameter()
+    params.print_dataset_info()
+
+    model = create_model(params)
+    dataloaders = params.dataloaders
 
     for epoch in range(model.epochs):
         for phase in ['train', 'val']:
@@ -25,7 +30,7 @@ def main(opt):
             else:
                 raise ValueError(f"Invalid phase: {phase}.")
 
-            split_dataloader = model.dataloaders[phase]
+            split_dataloader = dataloaders[phase]
             dataset_size = len(split_dataloader.dataset)
 
             for i, data in enumerate(split_dataloader):
