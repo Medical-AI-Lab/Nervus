@@ -8,7 +8,6 @@ from sklearn import metrics
 from sklearn.preprocessing import label_binarize
 import matplotlib.pyplot as plt
 from matplotlib import colors as mcolors
-from lifelines.utils import concordance_index
 from .logger import Logger as logger
 from typing import Dict, Union
 
@@ -253,6 +252,7 @@ class C_IndexMixin:
 
         self.metrics_kind = 'c_index' is defined in class DeepSurvEval below.
         """
+        from lifelines.utils import concordance_index
         value_c_index = concordance_index(periods, (-1)*preds, labels)
         label_metrics.set_label_metrics(split, self.metrics_kind, value_c_index)
 

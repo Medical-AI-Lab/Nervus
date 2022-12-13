@@ -49,7 +49,7 @@ class Options:
             self.parser.add_argument('--normalize_image',    type=str,                 choices=['yes', 'no'], default='yes', help='image nomalization: yes, no (Default: yes)')
 
             # Sampler
-            self.parser.add_argument('--sampler',            type=str,  required=True, choices=['yes', 'no'], help='sample data in traning or not, yes or no')
+            self.parser.add_argument('--sampler',            type=str,  default='no',  choices=['yes', 'no'], help='sample data in traning or not, yes or no')
 
             # Input channel
             self.parser.add_argument('--in_channel',         type=int,  required=True, choices=[1, 3], help='channel of input image')
