@@ -5,14 +5,13 @@ from pathlib import Path
 import torch
 from lib import (
         check_test_options,
+        set_params,
         create_model,
         set_logger
         )
 from lib.component import set_likelihood
 from lib import Logger as logger
 from typing import List
-
-from lib.framework import TestModelParam
 
 
 def _collect_weight(weight_dir: str) -> List[Path]:
@@ -32,7 +31,7 @@ def _collect_weight(weight_dir: str) -> List[Path]:
 
 
 def main(opt):
-    params = TestModelParam(opt.args)
+    params = set_params(opt.args)
     params.print_parameter()
     params.print_dataset_info()
 
@@ -63,7 +62,7 @@ def main(opt):
                     likelihood.make_likelihood(data, output)
 
         likelihood.save_likelihood(weight_path.stem)
-        model.init_network()
+        model.init_network()      #! NEED?
         # model.init_likelihood()
 
 

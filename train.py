@@ -5,21 +5,24 @@ import datetime
 import torch
 from lib import (
         check_train_options,
+        set_params,
         create_model,
         set_logger
         )
+from lib.component import create_dataloader
 from lib import Logger as logger
-
-from lib.framework import TrainModelParam
 
 
 def main(opt):
-    params = TrainModelParam(opt.args)
+    params = set_params(opt.args)
+    #dataloaders = params.dataloaders
+    dataloaders =  {split: create_dataloader(params, params.df_source, split=split) for split in ['train', 'val']}
+    model = create_model(params)
+
+    breakpoint()
+
     params.print_parameter()
     params.print_dataset_info()
-
-    model = create_model(params)
-    dataloaders = params.dataloaders
 
     for epoch in range(params.epochs):
         for phase in ['train', 'val']:
