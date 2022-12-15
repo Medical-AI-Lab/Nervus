@@ -11,7 +11,9 @@
 # IN_CHANNEL = 1 | 3
 # PRETRAINED = True | False
 # SAVE_WEIGHT_POLICY = best | each
-# GPU_IDS = cpu | 0-1-2
+# TRAIN_GPU_IDS = cpu | 0-1-2
+# TEST_BATCH_SIZE = 64
+# TEST_GPU_IDS = cpu | 0-1-2
 
 TASK := classification
 CSVPATH := materials/docs/trial.csv
