@@ -30,7 +30,8 @@ done
 #10 in_channel
 #11 pretrained
 #12 save_weight_policy
-#13 gpu_ids
+#13 test_batch_size
+#14 gpu_ids
 
 total=$(tail -n +1 "$parameter_csv" | wc -l)
 i=1
