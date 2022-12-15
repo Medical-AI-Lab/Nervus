@@ -334,7 +334,6 @@ class BaseModel(ABC):
         self.label_list = self.params.label_list
         self.device = self.params.device
         self.gpu_ids = self.params.gpu_ids
-        #self.dataloaders = self.params.dataloaders
         self.save_datetime_dir = self.params.save_datetime_dir
 
         if self.params.isTrain:
@@ -419,9 +418,9 @@ class BaseModel(ABC):
             _multi_label[label_name] = each_data.to(self.device)
         return _multi_label
 
-    @abstractmethod
-    def forward(self):
-        pass
+    #@abstractmethod
+    #def forward(self):
+    #    pass
 
     def get_output(self) -> Dict[str, torch.Tensor]:
         """
@@ -612,12 +611,11 @@ class MLPModel(ModelWidget):
         self.inputs = data['inputs']
         self.multi_label = data['labels']
 
-    def forward(self) -> None:
-        """
-        Forward.
-        """
-        self.input = self.inputs.to(self.device)
-        self.multi_output = self.network(self.inputs)
+    def __call__(self, input_data):
+        # input_data sohuld be inputs.
+        input = input_data.to(self.device)
+        output = self.network(input)
+        return output
 
     def cal_batch_loss(self) -> None:
         """
@@ -625,6 +623,13 @@ class MLPModel(ModelWidget):
         """
         self.multi_label = self.multi_label_to_device(self.multi_label)
         self.loss_reg.cal_batch_loss(self.multi_output, self.multi_label)
+
+    def cal_batch_loss(self, output, labels) -> None:
+        """
+        Calculate loss for each bach.
+        """
+        labels = self.multi_label_to_device(labels)
+        self.loss_reg.cal_batch_loss(output, labels)
 
 
 class CVModel(ModelWidget):
@@ -645,23 +650,22 @@ class CVModel(ModelWidget):
         Args:
             data (Dict): dictionary of data
         """
-        self.image = data['image']
-        self.multi_label = data['labels']
+        image = data['image']
+        multi_label = data['labels']
+        return image, multi_label
 
-    def forward(self) -> None:
-        """
-        Forward.
-        """
-        self.image = self.image.to(self.device)
-        self.multi_output = self.network(self.image)
+    def __call__(self, input_data):
+        # input_data sohuld be image.
+        image = input_data.to(self.device)
+        output = self.network(image)
+        return output
 
-    def cal_batch_loss(self):
+    def cal_batch_loss(self, output, labels) -> None:
         """
         Calculate loss for each bach.
         """
-        self.multi_label = self.multi_label_to_device(self.multi_label)
-        self.loss_reg.cal_batch_loss(self.multi_output, self.multi_label)
-
+        labels = self.multi_label_to_device(labels)
+        self.loss_reg.cal_batch_loss(output, labels)
 
 class FusionModel(ModelWidget):
     """
@@ -681,17 +685,23 @@ class FusionModel(ModelWidget):
         Args:
             data (Dict): dictionary of data
         """
-        self.inputs = data['inputs']
-        self.image = data['image']
-        self.multi_label = data['labels']
+        #self.inputs = data['inputs']
+        #self.image = data['image']
+        #self.multi_label = data['labels']
 
-    def forward(self) -> None:
+        image = data['image']
+        multi_label = data['labels']
+        return image, multi_label
+
+    #def forward(self) -> None:
         """
         Forward.
         """
-        self.inputs = self.inputs.to(self.device)
-        self.image = self.image.to(self.device)
-        self.multi_output = self.network(self.inputs, self.image)
+    #    self.inputs = self.inputs.to(self.device)
+    #    self.image = self.image.to(self.device)
+    #    self.multi_output = self.network(self.inputs, self.image)
+    def __call__(self, )
+
 
     def cal_batch_loss(self) -> None:
         """
