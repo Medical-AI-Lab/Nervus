@@ -1,4 +1,4 @@
-task,csvpath,model,criterion,optimizer,epochs,batch_size,sampler,augmentation,in_channel,pretrained,save_weight_policy,gpu_ids
-classification,materials/docs/tutorial.csv,MLP+ResNet18,CEL,Adam,50,64,no,trivialaugwide,3,True,best,cpu
-regression,materials/docs/tutorial.csv,MLP+ResNet18,MSE,Adam,50,64,no,no,3,True,best,cpu
-deepsurv,materials/docs/tutorial.csv,MLP+ResNet18,NLL,Adam,50,64,no,no,3,False,each,0-1-2
+task,csvpath,model,criterion,optimizer,epochs,batch_size,sampler,augmentation,in_channel,pretrained,save_weight_policy,test_batch_size,gpu_ids
+classification,materials/dogcat/docs/tutorial_src.csv,ResNet18,CEL,Adam,3,64,no,trivialaugwide,3,True,best,1,cpu
+regression,materials/docs/tutorial.csv,MLP+ResNet18,MSE,Adam,50,64,no,no,3,True,best,1,cpu
+deepsurv,materials/docs/tutorial.csv,MLP+ResNet18,NLL,Adam,50,64,no,no,3,False,each,64,0-1-2

@@ -42,7 +42,7 @@ class Options:
             self.parser.add_argument('--epochs',    type=int,   default=10,    metavar='N', help='number of epochs (Default: 10)')
 
             # Batch size
-            self.parser.add_argument('--batch_size',         type=int,  required=True, metavar='N', help='batch size in training')
+            self.parser.add_argument('--batch_size', type=int,  required=True, metavar='N', help='batch size in training')
 
             # Preprocess for image
             self.parser.add_argument('--augmentation',       type=str,  default='no', choices=['xrayaug', 'trivialaugwide', 'randaug', 'no'], help='kind of augmentation')
@@ -63,7 +63,7 @@ class Options:
             self.parser.add_argument('--weight_dir',         type=str,  default=None, help='directory of weight to be used when test. If None, the latest one is selected')
 
             # Test bash size
-            self.parser.add_argument('--test_batch_size',    type=int,  default=64, metavar='N', help='batch size for test (Default: 64)')
+            self.parser.add_argument('--test_batch_size',    type=int,  default=1, metavar='N', help='batch size for test (Default: 1)')
 
             # Splits for test
             self.parser.add_argument('--test_splits',        type=str, default='train-val-test', help='splits for test: e.g. test, val-test, train-val-test. (Default: train-val-test)')

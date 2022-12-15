@@ -11,7 +11,9 @@
 # IN_CHANNEL = 1 | 3
 # PRETRAINED = True | False
 # SAVE_WEIGHT_POLICY = best | each
-# GPU_IDS = cpu | 0-1-2
+# TRAIN_GPU_IDS = cpu | 0-1-2
+# TEST_BATCH_SIZE = 64
+# TEST_GPU_IDS = cpu | 0-1-2
 
 TASK := classification
 CSVPATH := materials/docs/trial.csv
@@ -26,6 +28,8 @@ IN_CHANNEL := 1
 PRETRAINED := False
 SAVE_WEIGHT_POLICY := each
 TRAIN_GPU_IDS := cpu
+
+TEST_BATCH_SIZE := $(BATCH_SIZE)
 TEST_GPU_IDS := $(TRAIN_GPU_IDS)
 
 
@@ -47,6 +51,7 @@ TRAIN_OPT := \
 
 TEST_OPT := \
 --csvpath $(CSVPATH) \
+--test_batch_size $(TEST_BATCH_SIZE) \
 --gpu_ids $(TEST_GPU_IDS)
 
 PYTHON := python
