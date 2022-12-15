@@ -47,7 +47,8 @@ for row in $(tail -n +2 "$parameter_csv"); do
   in_channel=$(echo "$row" | cut -d "," -f10)
   pretrained=$(echo "$row" | cut -d "," -f11)
   save_weight_policy=$(echo "$row" | cut -d "," -f12)
-  gpu_ids=$(echo "$row" | cut -d "," -f13)
+  test_batch_size=$(echo "$row" | cut -d "," -f13)
+  gpu_ids=$(echo "$row" | cut -d "," -f14)
 
   echo "$i/$total: Training starts..."
   echo ""
@@ -60,8 +61,8 @@ for row in $(tail -n +2 "$parameter_csv"); do
 
   # Internal Test
   echo "$i/$total: Test starts..."
-  echo "$python $test_code --csvpath $csvpath --gpu_ids $gpu_ids"
-  "$python" "$test_code" --csvpath "$csvpath" --gpu_ids "$gpu_ids"
+  echo "$python $test_code --csvpath $csvpath --test_batch_size $test_batch_size --gpu_ids $gpu_ids"
+  "$python" "$test_code" --csvpath "$csvpath"  --test_batch_size "$test_batch_size" --gpu_ids "$gpu_ids"
 
   echo ""
 
