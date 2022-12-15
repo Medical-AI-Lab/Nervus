@@ -9,20 +9,16 @@ from lib import (
         create_model,
         set_logger
         )
-from lib.component import create_dataloader
 from lib import Logger as logger
 
 
 def main(opt):
     params = set_params(opt.args)
-    #dataloaders = params.dataloaders
-    dataloaders =  {split: create_dataloader(params, params.df_source, split=split) for split in ['train', 'val']}
-    model = create_model(params)
-
-    breakpoint()
-
     params.print_parameter()
     params.print_dataset_info()
+
+    dataloaders = params.dataloaders
+    model = create_model(params)
 
     for epoch in range(params.epochs):
         for phase in ['train', 'val']:
@@ -34,8 +30,6 @@ def main(opt):
                 raise ValueError(f"Invalid phase: {phase}.")
 
             split_dataloader = dataloaders[phase]
-            dataset_size = len(split_dataloader.dataset)
-
             for i, data in enumerate(split_dataloader):
                 model.optimizer.zero_grad()
                 model.set_data(data)
@@ -50,6 +44,7 @@ def main(opt):
 
                 model.cal_running_loss(batch_size=len(data['imgpath']))
 
+            dataset_size = len(split_dataloader.dataset)
             model.cal_epoch_loss(epoch, phase, dataset_size=dataset_size)
 
         model.print_epoch_loss(epoch)
@@ -61,7 +56,7 @@ def main(opt):
 
     model.save_learning_curve()
     model.save_weight(as_best=True)
-    model.save_parameter()          #! parameter.save
+    params.save_parameter()
 
 
 if __name__ == '__main__':

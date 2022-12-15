@@ -9,7 +9,10 @@ from lib import (
         create_model,
         set_logger
         )
-from lib.component import set_likelihood
+from lib.component import (
+        create_dataloader,
+        set_likelihood
+        )
 from lib import Logger as logger
 from typing import List
 
@@ -35,9 +38,8 @@ def main(opt):
     params.print_parameter()
     params.print_dataset_info()
 
-    model = create_model(params)
     dataloaders = params.dataloaders
-
+    model = create_model(params)
     likelihood = set_likelihood(params.task, params.num_outputs_for_label, params.save_datetime_dir)
 
     weight_paths = _collect_weight(params.weight_dir)
@@ -49,10 +51,8 @@ def main(opt):
         model.eval()
 
         likelihood.init_likelihood()
-
-        for split in model.test_splits:
+        for split in params.test_splits:
             split_dataloader = dataloaders[split]
-
             for i, data in enumerate(split_dataloader):
                 model.set_data(data)
 
@@ -63,7 +63,6 @@ def main(opt):
 
         likelihood.save_likelihood(weight_path.stem)
         model.init_network()      #! NEED?
-        # model.init_likelihood()
 
 
 if __name__ == '__main__':

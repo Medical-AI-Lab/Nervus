@@ -350,7 +350,6 @@ class LoadDataSet(Dataset, DataSetWidget):
         self.df_source = df_source
         self.split = split
 
-        # testの時は、traning時のcsvのinput_list, label_list
         self.input_list = self.params.input_list
         self.label_list = self.params.label_list
 

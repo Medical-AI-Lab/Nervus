@@ -183,8 +183,7 @@ class TrainParam(BaseParam):
         self.save_datetime_dir = _save_datetime_dir
 
         # Dataloader
-        self.df_source = sp.df_source
-        #elf.dataloaders = {split: create_dataloader(self, sp.df_source, split=split) for split in ['train', 'val']}
+        self.dataloaders = {split: create_dataloader(self, sp.df_source, split=split) for split in ['train', 'val']}
 
     def _define_num_outputs_for_label(self, df_source: pd.DataFrame, label_list: List[str]) -> Dict[str, int]:
         """
