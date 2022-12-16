@@ -49,7 +49,7 @@ class BaseLikelihood:
     def make_likehood_type(self) -> None:
         raise NotImplementedError
 
-    def save_likelihood(self, save_name: str) -> None:
+    def save_likelihood(self, save_datetime_dir, save_name: str) -> None:
         """
         Save likelihoood.
 
@@ -57,7 +57,7 @@ class BaseLikelihood:
             save_datetime_dir (str): directory for saving likelihood
             save_name (str): save name of likelihood
         """
-        save_dir = Path(self.save_datetime_dir, 'likelihoods')
+        save_dir = Path(save_datetime_dir, 'likelihoods')
         save_dir.mkdir(parents=True, exist_ok=True)
         save_path = Path(save_dir, 'likelihood_' + save_name).with_suffix('.csv')
         self.df_likelihood.to_csv(save_path, index=False)

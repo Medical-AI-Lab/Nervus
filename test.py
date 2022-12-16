@@ -9,10 +9,7 @@ from lib import (
         create_model,
         set_logger
         )
-from lib.component import (
-        create_dataloader,
-        set_likelihood
-        )
+from lib.component import set_likelihood
 from lib import Logger as logger
 from typing import List
 
@@ -46,7 +43,7 @@ def main(opt):
     for weight_path in weight_paths:
         logger.logger.info(f"Inference with {weight_path.name}.")
 
-        # weight is reset by overwriting every time.
+        # weight is orverwritten every time weight is loaded.
         model.load_weight(weight_path)
         model.eval()
 
@@ -54,15 +51,17 @@ def main(opt):
         for split in params.test_splits:
             split_dataloader = dataloaders[split]
             for i, data in enumerate(split_dataloader):
-                model.set_data(data)
+                model_input, _ = model.set_data(data)
 
                 with torch.no_grad():
-                    model.forward()
-                    output = model.get_output()
+                    output = model(model_input)
                     likelihood.make_likelihood(data, output)
 
-        likelihood.save_likelihood(weight_path.stem)
-        model.init_network()      #! NEED?
+        likelihood.save_likelihood(params.save_datetime_dir, weight_path.stem)
+
+        #! NEED?
+        if len(weight_paths) > 1:
+            model.init_network(params)
 
 
 if __name__ == '__main__':

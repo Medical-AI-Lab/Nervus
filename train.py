@@ -32,13 +32,11 @@ def main(opt):
             split_dataloader = dataloaders[phase]
             for i, data in enumerate(split_dataloader):
                 model.optimizer.zero_grad()
-                input_data, labels, = model.set_data(data)
+                _data = model.set_data(data) # Extract required data only the below
 
                 with torch.set_grad_enabled(phase == 'train'):
-                    #model.forward()
-                    #model.cal_batch_loss()
-                    output = model(input_data)
-                    model.cal_batch_loss(output, labels)
+                    output = model(_data)
+                    model.cal_batch_loss(output, _data)
 
                     if phase == 'train':
                         model.backward()
@@ -49,15 +47,15 @@ def main(opt):
             dataset_size = len(split_dataloader.dataset)
             model.cal_epoch_loss(epoch, phase, dataset_size=dataset_size)
 
-        model.print_epoch_loss(epoch)
+        model.print_epoch_loss(params.epochs, epoch)
 
         if model.is_total_val_loss_updated():
             model.store_weight()
-            if (epoch > 0) and (model.save_weight_policy == 'each'):
-                model.save_weight(as_best=False)
+            if (epoch > 0) and (params.save_weight_policy == 'each'):
+                model.save_weight(params.save_datetime_dir, as_best=False)
 
-    model.save_learning_curve()
-    model.save_weight(as_best=True)
+    model.save_learning_curve(params.save_datetime_dir)
+    model.save_weight(params.save_datetime_dir, as_best=True)
     params.save_parameter()
 
 
