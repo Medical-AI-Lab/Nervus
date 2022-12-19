@@ -152,7 +152,7 @@ class RegLikelihood(BaseLikelihood):
         pred_names.append('pred_' + label_name)
         return pred_names
 
-    def make_likehood(self, data: Dict, output: Dict[str, torch.Tensor]) -> None:
+    def make_likelihood(self, data: Dict, output: Dict[str, torch.Tensor]) -> None:
         """
         Make DataFrame of likelihood every batch
 
@@ -197,7 +197,7 @@ class DeepSurvLikelihood(RegLikelihood):
         """
         super().__init__(num_outputs_for_label, save_datetime_dir)
 
-    def make_likehood(self, data: Dict, output: Dict[str, torch.Tensor]) -> None:
+    def make_likelihood(self, data: Dict, output: Dict[str, torch.Tensor]) -> None:
         """
         Make DataFrame of likelihood every batch
 
