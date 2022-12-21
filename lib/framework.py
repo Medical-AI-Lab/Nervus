@@ -116,7 +116,7 @@ class BaseParam:
                     '_csv_name',
                     'dataloaders',
                     'device',  # Need str(self.device) when save
-                    'isTrain'
+                    'isTrain',
                     'datetime',
                     'save_datetime_dir'
                     ]
