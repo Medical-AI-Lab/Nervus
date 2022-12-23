@@ -350,7 +350,6 @@ class LoadDataSet(Dataset, DataSetWidget):
         self.df_source = df_source
         self.split = split
 
-        # testの時は、traning時のcsvのinput_list, label_list
         self.input_list = self.params.input_list
         self.label_list = self.params.label_list
 
@@ -478,14 +477,13 @@ def create_dataloader(
     else:
         batch_size = params.test_batch_size
 
-    assert (params.sampler is not None), 'Specify sampler by yes or no.'
     if params.sampler == 'yes':
         assert ((params.task == 'classification') or (params.task == 'deepsurv')), 'Cannot make sampler in regression.'
         assert (len(params.label_list) == 1), 'Cannot make sampler for multi-label.'
         shuffle = False
         sampler = _make_sampler(split_data)
     else:
-        # ie. pramas.sampler == 'no'
+        # When pramas.sampler == 'no'
         shuffle = True
         sampler = None
 
@@ -497,4 +495,3 @@ def create_dataloader(
                             sampler=sampler
                             )
     return split_loader
-

@@ -5,6 +5,7 @@ import datetime
 import torch
 from lib import (
         check_train_options,
+        set_params,
         create_model,
         set_logger
         )
@@ -12,11 +13,14 @@ from lib import Logger as logger
 
 
 def main(opt):
-    model = create_model(opt.args)
-    model.print_parameter()
-    model.print_dataset_info()
+    params = set_params(opt.args)
+    params.print_parameter()
+    params.print_dataset_info()
 
-    for epoch in range(model.epochs):
+    dataloaders = params.dataloaders
+    model = create_model(params)
+
+    for epoch in range(params.epochs):
         for phase in ['train', 'val']:
             if phase == 'train':
                 model.train()
@@ -25,16 +29,14 @@ def main(opt):
             else:
                 raise ValueError(f"Invalid phase: {phase}.")
 
-            split_dataloader = model.dataloaders[phase]
-            dataset_size = len(split_dataloader.dataset)
-
+            split_dataloader = dataloaders[phase]
             for i, data in enumerate(split_dataloader):
                 model.optimizer.zero_grad()
-                model.set_data(data)
+                in_data, labels = model.set_data(data)
 
                 with torch.set_grad_enabled(phase == 'train'):
-                    model.forward()
-                    model.cal_batch_loss()
+                    output = model(in_data)
+                    model.cal_batch_loss(output, labels)
 
                     if phase == 'train':
                         model.backward()
@@ -42,18 +44,19 @@ def main(opt):
 
                 model.cal_running_loss(batch_size=len(data['imgpath']))
 
+            dataset_size = len(split_dataloader.dataset)
             model.cal_epoch_loss(epoch, phase, dataset_size=dataset_size)
 
-        model.print_epoch_loss(epoch)
+        model.print_epoch_loss(params.epochs, epoch)
 
         if model.is_total_val_loss_updated():
             model.store_weight()
-            if (epoch > 0) and (model.save_weight_policy == 'each'):
-                model.save_weight(as_best=False)
+            if (epoch > 0) and (params.save_weight_policy == 'each'):
+                model.save_weight(params.save_datetime_dir, as_best=False)
 
-    model.save_learning_curve()
-    model.save_weight(as_best=True)
-    model.save_parameter()
+    model.save_learning_curve(params.save_datetime_dir)
+    model.save_weight(params.save_datetime_dir, as_best=True)
+    params.save_parameter()
 
 
 if __name__ == '__main__':

@@ -22,6 +22,11 @@ class BaseLikelihood:
 
         self.num_outputs_for_label = num_outputs_for_label
         self.save_datetime_dir = save_datetime_dir
+
+    def init_likelihood(self) -> None:
+        """
+        Set empty DataFrame to store likelihood.
+        """
         self.df_likelihood = pd.DataFrame()
 
     def _convert_to_numpy(self, output: torch.Tensor) -> numpy.ndarray:
@@ -43,7 +48,7 @@ class BaseLikelihood:
     def make_likehood_type(self) -> None:
         raise NotImplementedError
 
-    def save_likelihood(self, save_name: str) -> None:
+    def save_likelihood(self, save_datetime_dir, save_name: str) -> None:
         """
         Save likelihoood.
 
@@ -51,7 +56,7 @@ class BaseLikelihood:
             save_datetime_dir (str): directory for saving likelihood
             save_name (str): save name of likelihood
         """
-        save_dir = Path(self.save_datetime_dir, 'likelihoods')
+        save_dir = Path(save_datetime_dir, 'likelihoods')
         save_dir.mkdir(parents=True, exist_ok=True)
         save_path = Path(save_dir, 'likelihood_' + save_name).with_suffix('.csv')
         self.df_likelihood.to_csv(save_path, index=False)
@@ -87,7 +92,7 @@ class ClsLikelihood(BaseLikelihood):
 
         return pred_names
 
-    def make_likehood(self, data: Dict, output: Dict[str, torch.Tensor]) -> None:
+    def make_likelihood(self, data: Dict, output: Dict[str, torch.Tensor]) -> None:
         """
         Make DataFrame of likelihood every batch
 
@@ -146,7 +151,7 @@ class RegLikelihood(BaseLikelihood):
         pred_names.append('pred_' + label_name)
         return pred_names
 
-    def make_likehood(self, data: Dict, output: Dict[str, torch.Tensor]) -> None:
+    def make_likelihood(self, data: Dict, output: Dict[str, torch.Tensor]) -> None:
         """
         Make DataFrame of likelihood every batch
 
@@ -191,7 +196,7 @@ class DeepSurvLikelihood(RegLikelihood):
         """
         super().__init__(num_outputs_for_label, save_datetime_dir)
 
-    def make_likehood(self, data: Dict, output: Dict[str, torch.Tensor]) -> None:
+    def make_likelihood(self, data: Dict, output: Dict[str, torch.Tensor]) -> None:
         """
         Make DataFrame of likelihood every batch
 

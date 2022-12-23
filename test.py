@@ -5,9 +5,11 @@ from pathlib import Path
 import torch
 from lib import (
         check_test_options,
+        set_params,
         create_model,
         set_logger
         )
+from lib.component import set_likelihood
 from lib import Logger as logger
 from typing import List
 
@@ -29,31 +31,36 @@ def _collect_weight(weight_dir: str) -> List[Path]:
 
 
 def main(opt):
-    model = create_model(opt.args)
-    model.print_parameter()
-    model.print_dataset_info()
+    params = set_params(opt.args)
+    params.print_parameter()
+    params.print_dataset_info()
 
-    weight_paths = _collect_weight(model.weight_dir)
+    dataloaders = params.dataloaders
+    model = create_model(params)
+    likelihood = set_likelihood(params.task, params.num_outputs_for_label, params.save_datetime_dir)
+
+    weight_paths = _collect_weight(params.weight_dir)
     for weight_path in weight_paths:
         logger.logger.info(f"Inference with {weight_path.name}.")
 
-        # weight is reset by overwriting every time.
+        # weight is orverwritten every time weight is loaded.
         model.load_weight(weight_path)
         model.eval()
 
-        for split in model.test_splits:
-            split_dataloader = model.dataloaders[split]
-
+        likelihood.init_likelihood()
+        for split in params.test_splits:
+            split_dataloader = dataloaders[split]
             for i, data in enumerate(split_dataloader):
-                model.set_data(data)
+                in_data, _ = model.set_data(data)
 
                 with torch.no_grad():
-                    model.forward()
-                    model.make_likelihood(data)
+                    output = model(in_data)
+                    likelihood.make_likelihood(data, output)
 
-        model.save_likelihood(weight_path.stem)
-        model.init_network()
-        model.init_likelihood()
+        likelihood.save_likelihood(params.save_datetime_dir, weight_path.stem)
+
+        if len(weight_paths) > 1:
+            model.init_network(params)
 
 
 if __name__ == '__main__':

@@ -16,11 +16,11 @@ from .component import (
                 create_net
                 )
 from .logger import Logger as logger
-from typing import List, Dict, Union
+from typing import List, Dict, Tuple, Union
 import argparse
 
 
-class BaseModelParam:
+class BaseParam:
     """
     Set up configure for traning or test.
     Integrate args and parameters.
@@ -33,7 +33,7 @@ class BaseModelParam:
         for _param, _arg in vars(args).items():
             setattr(self, _param, _arg)
 
-        self._dataset_dir = re.findall('(.*)/docs', self.csvpath)[0]  # shoubd be unique
+        self._dataset_dir = re.findall('(.*)/docs', self.csvpath)[0]  # should be unique
         self._csv_name = Path(self.csvpath).stem
 
     def print_parameter(self) -> None:
@@ -53,8 +53,7 @@ class BaseModelParam:
                     'dataloaders',
                     'datetime',
                     'device',
-                    'isTrain',
-                    'likelihood_on'
+                    'isTrain'
                     ]
 
         phase = 'Training' if self.isTrain else 'Test'
@@ -112,14 +111,12 @@ class BaseModelParam:
         """
         Save parameters.
         """
-        # Delete params not to be saved.
-        # str(self.device) if saved.
         no_save = [
                     '_dataset_dir',
                     '_csv_name',
                     'dataloaders',
-                    'device',
-                    'isTrain'
+                    'device',  # Need str(self.device) when save
+                    'isTrain',
                     'datetime',
                     'save_datetime_dir'
                     ]
@@ -147,7 +144,7 @@ class BaseModelParam:
         Return dictionalry of parameters at training.
 
         Args:
-            parameter_path (Path): path to parameter_path
+            parameter_path (str): path to parameter_path
 
         Returns:
             Dict: parameters at training
@@ -157,7 +154,7 @@ class BaseModelParam:
         return parameters
 
 
-class TrainModelParam(BaseModelParam):
+class TrainParam(BaseParam):
     """
     Class for setting parameters for training.
     """
@@ -210,21 +207,14 @@ class TrainModelParam(BaseModelParam):
         return _num_outputs_for_label
 
 
-class TestModelParam(BaseModelParam):
+class TestParam(BaseParam):
     """
     Class for setting parameters for test.
     """
-    def __init__(
-                self,
-                args: argparse.Namespace,
-                test_splits: List[str],
-                likelihood_on: bool
-                ) -> None:
+    def __init__(self, args: argparse.Namespace) -> None:
         """
         Args:
             args (argparse.Namespace): options
-            test_splits (List[str]): splits to be test. Default to ['train', 'val', 'test'].
-            likelihood_on (bool): This indicates whether likelihood is needed or not.
         """
         super().__init__(args)
 
@@ -250,12 +240,9 @@ class TestModelParam(BaseModelParam):
         for _param in required_for_test:
             setattr(self, _param, parameters.get(_param))  # If no exists, set None
 
-        # No need to apply the below at test
+        # No need the below at test
         self.augmentation = 'no'
         self.sampler = 'no'
-
-        # Use saved weight at test
-        # saved weight is load in test.py.
         self.pretrained = False
 
         sp = make_split_provider(self.csvpath, self.task)
@@ -266,92 +253,95 @@ class TestModelParam(BaseModelParam):
         _save_datetime_dir = str(Path(self._dataset_dir, 'results', self._csv_name, 'sets', _datetime))  # csv_name might be for external dataset
         self.save_datetime_dir = _save_datetime_dir
 
-        # Align splits to be test.
-        # splits_in_df_source = ['train', 'val', 'test'], or ['test']
-        #        test_splits  = ['train', 'val', 'test'], ['val', 'test'], or ['test']
-        # Smaller set of splits has priority.
-        splits_in_df_source = sp.df_source['split'].unique().tolist()
-        if set(splits_in_df_source) < set(test_splits):
-            # should be when external dataset
-            self.test_splits = splits_in_df_source  # ['test']
-        elif set(test_splits) < set(splits_in_df_source):
-            # should be when Grad-CAM or permutation importance
-            self.test_splits = test_splits  # ['val', 'test'], or ['test']
-        else:
-            # should be when used internal dataset
-            self.test_splits = test_splits  # ['train', 'val', 'test']
+        # Align splits to be test
+        _splits_in_df_source = sp.df_source['split'].unique().tolist()
+        self.test_splits = self._align_test_splits(self.test_splits, _splits_in_df_source)
 
         # Dataloader
         self.dataloaders = {split: create_dataloader(self, sp.df_source, split=split) for split in self.test_splits}
 
-        # Used When Grad-CAm or permutation importance
-        self.likelihood_on = likelihood_on
+    def _align_test_splits(self, arg_test_splits: List[str], splits_in_df_source: List[str]) -> List[str]:
+        """
+        Align splits to be test.
+
+        Args:
+            arg_test_splits (List[str]): splits specified by args. Default is ['train', 'val', 'test']
+            splits_in_df_source (List[str]): splits includinf csv
+
+        Returns:
+            List[str]: splits for test
+
+        args_test_splits  = ['train', 'val', 'test'], ['val', 'test'], or ['test']
+        splits_in_df_source = ['train', 'val', 'test'], or ['test']
+        Smaller set of splits has priority.
+        """
+        if set(splits_in_df_source) < set(arg_test_splits):
+            _test_splits = splits_in_df_source  # maybe when external dataset
+        elif set(arg_test_splits) < set(splits_in_df_source):
+            _test_splits = arg_test_splits     # ['val', 'test'], or ['test']
+        else:
+            _test_splits = arg_test_splits
+        return _test_splits
+
+
+def set_params(args: argparse.Namespace) -> Union[TrainParam, TestParam]:
+    """
+    Set parameters depending on training or test
+
+    Args:
+        args (argparse.Namespace): args
+
+    Returns:
+        Union[TrainParam, TestParam]: parameters
+    """
+    if args.isTrain:
+        params = TrainParam(args)
+    else:
+        params = TestParam(args)
+    return params
 
 
 class BaseModel(ABC):
     """
     Class to construct model. This class is the base class to construct model.
     """
-    def __init__(self, params: Union[TrainModelParam, TestModelParam]) -> None:
+    def __init__(self, params: Union[TrainParam, TestParam]) -> None:
         """
         Class to define Model
 
         Args:
-            param (Union[TrainModelParam, TestModelParam]): parameters for model at training or test
+            param (Union[TrainParam, TestParam]): parameters
         """
-        self.params = params
-        self.init_network()
+        self.init_network(params)
 
-        if self.params.isTrain:
+        if params.isTrain:
             from .component import set_criterion, set_optimizer, create_loss_reg
-            self.criterion = set_criterion(self.params.criterion, self.params.device)
-            self.optimizer = set_optimizer(self.params.optimizer, self.network, self.params.lr)
-            self.loss_reg = create_loss_reg(self.params.task, self.criterion, self.params.label_list, self.params.device)
+            self.criterion = set_criterion(params.criterion, params.device)
+            self.optimizer = set_optimizer(params.optimizer, self.network, params.lr)
+            self.loss_reg = create_loss_reg(params.task, self.criterion, params.label_list, params.device)
         else:
-            if self.params.likelihood_on:
-                # No need of likelihood when appying Grad-CAM
-                self.init_likelihood()
+            pass
 
-        # Copy class varialbles refered below or outside for convenience's sake
-        self.label_list = self.params.label_list
-        self.device = self.params.device
-        self.gpu_ids = self.params.gpu_ids
-        self.dataloaders = self.params.dataloaders
-        self.save_datetime_dir = self.params.save_datetime_dir
+        self.label_list = params.label_list
+        self.device = params.device
+        self.gpu_ids = params.gpu_ids
 
-        if self.params.isTrain:
-            self.epochs = self.params.epochs
-            self.save_weight_policy = self.params.save_weight_policy
-        else:
-            self.weight_dir = self.params.weight_dir
-            self.test_splits = self.params.test_splits
+    def init_network(self, params: Union[TrainParam, TestParam]) -> None:
+        """
+        Creates network.
 
-    def init_network(self):
+        Args:
+            params (Union[TrainParam, TestParam]): parameters
+        """
         self.network = create_net(
-                                self.params.mlp,
-                                self.params.net,
-                                self.params.num_outputs_for_label,
-                                self.params.mlp_num_inputs,
-                                self.params.in_channel,
-                                self.params.vit_image_size,
-                                self.params.pretrained
+                                params.mlp,
+                                params.net,
+                                params.num_outputs_for_label,
+                                params.mlp_num_inputs,
+                                params.in_channel,
+                                params.vit_image_size,
+                                params.pretrained
                                 )
-
-    def init_likelihood(self):
-        from .component import set_likelihood
-        self.likelihood = set_likelihood(self.params.task, self.params.num_outputs_for_label, self.params.save_datetime_dir)
-
-    def print_parameter(self) -> None:
-        """
-        Print parameters.
-        """
-        self.params.print_parameter()
-
-    def print_dataset_info(self) -> None:
-        """
-        Print dataset size for each split.
-        """
-        self.params.print_dataset_info()
 
     def train(self) -> None:
         """
@@ -377,7 +367,7 @@ class BaseModel(ABC):
             pass
 
     @abstractmethod
-    def set_data(self, data):
+    def set_data(self, data: Dict) -> Dict:
         pass
         # data = {
         #         'imgpath': imgpath,
@@ -386,7 +376,7 @@ class BaseModel(ABC):
         #         'labels': label_dict,
         #         'periods': periods,
         #         'split': split
-        #        }: Dict[str, Union[str, torch.Tensor, torch.Tensor, Dict[str, Union[int, float]], int, str]]
+        #        }
 
     def multi_label_to_device(self, multi_label: Dict[str, Union[int, float]]) -> Dict[str, Union[int, float]]:
         """
@@ -404,19 +394,6 @@ class BaseModel(ABC):
             _multi_label[label_name] = each_data.to(self.device)
         return _multi_label
 
-    @abstractmethod
-    def forward(self):
-        pass
-
-    def get_output(self) -> Dict[str, torch.Tensor]:
-        """
-        Return output of model.
-
-        Returns:
-            Dict[str, torch.Tensor]: output of model
-        """
-        return self.multi_output
-
     def backward(self) -> None:
         """
         Backward
@@ -432,10 +409,10 @@ class BaseModel(ABC):
 
     # Loss
     @abstractmethod
-    def cal_batch_loss(self):
+    def cal_batch_loss(self) -> None:
         pass
 
-    def cal_running_loss(self, batch_size: int = None) -> None:
+    def cal_running_loss(self, batch_size: int) -> None:
         """
         Calculate loss for each iteration.
 
@@ -444,7 +421,7 @@ class BaseModel(ABC):
         """
         self.loss_reg.cal_running_loss(batch_size)
 
-    def cal_epoch_loss(self, epoch: int, phase: str, dataset_size: int = None) -> None:
+    def cal_epoch_loss(self, epoch: int, phase: str, dataset_size: int) -> None:
         """
         Calculate loss for each epoch.
 
@@ -466,30 +443,20 @@ class BaseModel(ABC):
         is_updated = _total_epoch_loss.is_val_loss_updated()
         return is_updated
 
-    def print_epoch_loss(self, epoch: int) -> None:
+    def print_epoch_loss(self, num_epochs: int, epoch: int) -> None:
         """
         Print loss for each epoch.
 
         Args:
+            num_epochs (int): total numger of epochs
             epoch (int): current epoch number
         """
-        # self.epochs is total number pf epochs
-        self.loss_reg.print_epoch_loss(self.epochs, epoch)
-
-    # Lieklihood
-    def make_likelihood(self, data: Dict) -> None:
-        """
-        Make DataFrame of likelihood.
-
-        Args:
-            data (Dict): dictionary of each label and its value which is on devide
-        """
-        self.likelihood.make_likehood(data, self.get_output())
+        self.loss_reg.print_epoch_loss(num_epochs, epoch)
 
 
 class SaveLoadMixin:
     """
-    Class including methods for save or load weight, learning_curve, or likelihood.
+    Class including methods for save or load weight, or learning_curve.
     """
     # variables to keep best_weight and best_epoch temporarily.
     acting_best_weight = None
@@ -508,15 +475,16 @@ class SaveLoadMixin:
         else:
             self.acting_best_weight = copy.deepcopy(_network.state_dict())
 
-    def save_weight(self, as_best: bool = None) -> None:
+    def save_weight(self, save_datetime_dir: str, as_best: bool) -> None:
         """
         Save weight.
 
         Args:
+            save_datetime_dir (str): save_datetime_dir
             as_best (bool): True if weight is saved as best, otherise False. Defaults to None.
         """
         assert isinstance(as_best, bool), 'Argument as_best should be bool.'
-        save_dir = Path(self.save_datetime_dir, 'weights')
+        save_dir = Path(save_datetime_dir, 'weights')
         save_dir.mkdir(parents=True, exist_ok=True)
         save_name = 'weight_epoch-' + str(self.acting_best_epoch).zfill(3) + '.pt'
         save_path = Path(save_dir, save_name)
@@ -548,14 +516,14 @@ class SaveLoadMixin:
         self._enable_on_gpu_if_available()
 
     # For learning curve
-    def save_learning_curve(self) -> None:
+    def save_learning_curve(self, save_datetime_dir: str) -> None:
         """
         Save leraning curve.
 
         Args:
-            date_name (str): save name for learning curve
+            save_datetime_dir (str): save_datetime_dir
         """
-        save_dir = Path(self.save_datetime_dir, 'learning_curve')
+        save_dir = Path(save_datetime_dir, 'learning_curve')
         save_dir.mkdir(parents=True, exist_ok=True)
         epoch_loss = self.loss_reg.epoch_loss
         for label_name in self.label_list + ['total']:
@@ -570,23 +538,6 @@ class SaveLoadMixin:
             save_path = Path(save_dir, save_name)
             df_each_epoch_loss.to_csv(save_path, index=False)
 
-    # For save parameters
-    def save_parameter(self) -> None:
-        """
-        Save parameters.
-        """
-        self.params.save_parameter()
-
-    # For likelihood
-    def save_likelihood(self, save_name: str = None) -> None:
-        """
-        Save likelihood.
-
-        Args:
-            save_name (str): save name for likelihood. Defaults to None.
-        """
-        self.likelihood.save_likelihood(save_name=save_name)
-
 
 class ModelWidget(BaseModel, SaveLoadMixin):
     """
@@ -599,198 +550,344 @@ class MLPModel(ModelWidget):
     """
     Class for MLP model
     """
-    def __init__(self, args: argparse.Namespace) -> None:
+
+    def __init__(self, params: Union[TrainParam, TestParam]) -> None:
         """
         Args:
-            args (argparse.Namespace): options
+            params: (Union[TrainParam, TestParam]): parameters
         """
-        super().__init__(args)
+        super().__init__(params)
 
-    def set_data(self, data: Dict) -> None:
+    def set_data(
+                self,
+                data: Dict
+                ) -> Tuple[
+                        Dict[str, torch.Tensor],
+                        Dict[str, Union[int, float]]
+                        ]:
         """
         Unpack data for forwarding of MLP.
 
         Args:
             data (Dict): dictionary of data
-        """
-        self.inputs = data['inputs']
-        self.multi_label = data['labels']
 
-    def forward(self) -> None:
+        Returns:
+            Tuple[
+                Dict[str, torch.Tensor],
+                Dict[str, Union[int, float]
+                ]: inputs and labels
         """
-        Forward.
-        """
-        self.input = self.inputs.to(self.device)
-        self.multi_output = self.network(self.inputs)
+        in_data = {'inputs': data['inputs']}
+        labels = {'labels': data['labels']}
+        return in_data, labels
 
-    def cal_batch_loss(self) -> None:
+    def __call__(self, in_data: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
         """
-        Calculate loss for bach bach.
+        Forward
+
+        Args:
+            in_data (Dict[str, torch.Tensor]): data to be input into model
+
+        Returns:
+            Dict[str, torch.Tensor]: output
         """
-        self.multi_label = self.multi_label_to_device(self.multi_label)
-        self.loss_reg.cal_batch_loss(self.multi_output, self.multi_label)
+        inputs = in_data['inputs'].to(self.device)
+        output = self.network(inputs)
+        return output
+
+    def cal_batch_loss(
+                    self,
+                    output: Dict[str, torch.Tensor],
+                    labels: Dict[str, Union[int, float]]
+                    ) -> None:
+        """
+        Calculate loss for each bach.
+
+        Args:
+            output (Dict[str, torch.Tensor]): output
+            labels (Dict[str, Union[int, float]]): labels
+        """
+        _labels = self.multi_label_to_device(labels['labels'])
+        self.loss_reg.cal_batch_loss(output, _labels)
 
 
 class CVModel(ModelWidget):
     """
     Class for CNN or ViT model
     """
-    def __init__(self, args: argparse.Namespace) -> None:
+    def __init__(self, params: Union[TrainParam, TestParam]) -> None:
         """
         Args:
-            args (argparse.Namespace): options
+            params: (Union[TrainParam, TestParam]): parameters
         """
-        super().__init__(args)
+        super().__init__(params)
 
-    def set_data(self, data: Dict) -> None:
+    def set_data(
+                self,
+                data: Dict
+                ) -> Tuple[
+                        Dict[str, torch.Tensor],
+                        Dict[str, Union[int, float]]
+                        ]:
         """
         Unpack data for forwarding of CNN or ViT Model.
 
         Args:
             data (Dict): dictionary of data
-        """
-        self.image = data['image']
-        self.multi_label = data['labels']
 
-    def forward(self) -> None:
+        Returns:
+            Tuple[
+                Dict[str, torch.Tensor],
+                Dict[str, Union[int, float]
+                ]: image and labels
         """
-        Forward.
-        """
-        self.image = self.image.to(self.device)
-        self.multi_output = self.network(self.image)
+        in_data = {'image': data['image']}
+        labels = {'labels': data['labels']}
+        return in_data, labels
 
-    def cal_batch_loss(self):
+    def __call__(self, in_data: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+        """
+        Forward
+
+        Args:
+            in_data (Dict[str, torch.Tensor]): data to be input into model
+
+        Returns:
+            Dict[str, torch.Tensor]: output
+        """
+        image = in_data['image'].to(self.device)
+        output = self.network(image)
+        return output
+
+    def cal_batch_loss(
+                    self,
+                    output: Dict[str, torch.Tensor],
+                    labels: Dict[str, Union[int, float]]
+                    ) -> None:
         """
         Calculate loss for each bach.
+
+        Args:
+            output (Dict[str, torch.Tensor]): output
+            labels (Dict[str, Union[int, float]]): labels
         """
-        self.multi_label = self.multi_label_to_device(self.multi_label)
-        self.loss_reg.cal_batch_loss(self.multi_output, self.multi_label)
+        _labels = self.multi_label_to_device(labels['labels'])
+        self.loss_reg.cal_batch_loss(output, _labels)
 
 
 class FusionModel(ModelWidget):
     """
     Class for MLP+CNN or MLP+ViT model.
     """
-    def __init__(self, args: argparse.Namespace) -> None:
+    def __init__(self, params: Union[TrainParam, TestParam]) -> None:
         """
         Args:
-            args (argparse.Namespace): options
+            params: (Union[TrainParam, TestParam]): parameters
         """
-        super().__init__(args)
+        super().__init__(params)
 
-    def set_data(self, data: Dict) -> None:
+    def set_data(
+                self,
+                data: Dict
+                ) -> Tuple[
+                        Dict[str, torch.Tensor],
+                        Dict[str, Union[int, float]]
+                        ]:
         """
         Unpack data for forwarding of MLP+CNN or MLP+ViT.
 
         Args:
             data (Dict): dictionary of data
-        """
-        self.inputs = data['inputs']
-        self.image = data['image']
-        self.multi_label = data['labels']
 
-    def forward(self) -> None:
+        Returns:
+            Tuple[
+                Dict[str, torch.Tensor],
+                Dict[str, Union[int, float]
+                ]: inputs, image and labels
         """
-        Forward.
-        """
-        self.inputs = self.inputs.to(self.device)
-        self.image = self.image.to(self.device)
-        self.multi_output = self.network(self.inputs, self.image)
+        in_data = {
+                    'inputs': data['inputs'],
+                    'image': data['image']
+                }
+        labels = {'labels': data['labels']}
+        return in_data, labels
 
-    def cal_batch_loss(self) -> None:
+    def __call__(self, in_data: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
         """
-        Calculate loss for bach bach.
+        Forward
+
+        Args:
+            in_data (Dict[str, torch.Tensor]): data to be input into model
+
+        Returns:
+            Dict[str, torch.Tensor]: output
         """
-        self.multi_label = self.multi_label_to_device(self.multi_label)
-        self.loss_reg.cal_batch_loss(self.multi_output, self.multi_label)
+        inputs = in_data['inputs'].to(self.device)
+        image = in_data['image'].to(self.device)
+        output = self.network(inputs, image)
+        return output
+
+    def cal_batch_loss(
+                    self,
+                    output: Dict[str, torch.Tensor],
+                    labels: Dict[str, Union[int, float]]
+                    ) -> None:
+        """
+        Calculate loss for each bach.
+
+        Args:
+            output (Dict[str, torch.Tensor]): output
+            labels (Dict): labels
+        """
+        _labels = self.multi_label_to_device(labels['labels'])
+        self.loss_reg.cal_batch_loss(output, _labels)
 
 
 class MLPDeepSurv(ModelWidget):
     """
     Class for DeepSurv model with MLP
     """
-    def __init__(self, args: argparse.Namespace) -> None:
+    def __init__(self, params: Union[TrainParam, TestParam]) -> None:
         """
         Args:
-            args (argparse.Namespace): options
+            params (Union[TrainParam, TestParam]): parameters
         """
-        super().__init__(args)
+        super().__init__(params)
 
-    def set_data(self, data: Dict) -> None:
+    def set_data(
+                self,
+                data: Dict
+                ) -> Tuple[
+                            Dict[str, torch.Tensor],
+                            Dict[str, Union[int, float]]
+                        ]:
         """
         Unpack data for forwarding of DeepSurv model with MLP
 
         Args:
             data (Dict): dictionary of data
-        """
-        self.inputs = data['inputs']
-        self.multi_label = data['labels']
-        self.periods = data['periods']
 
-    def forward(self) -> None:
+        Returns:
+            Tuple[
+                Dict[str, torch.Tensor],
+                Dict[str, Union[int, float]]
+                ]: inputs, and labels, periods
         """
-        Forward.
-        """
-        self.inputs = self.inputs.to(self.device)
-        self.multi_output = self.network(self.inputs)
+        in_data = {'inputs': data['inputs']}
+        labels = {
+                    'labels': data['labels'],
+                    'periods': data['periods']
+                }
+        return in_data, labels
 
-    def cal_batch_loss(self) -> None:
+    def __call__(self, in_data: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+        """
+        Forward
+
+        Args:
+            in_data (Dict[str, torch.Tensor]): data to be input into model
+
+        Returns:
+            Dict[str, torch.Tensor]: output
+        """
+        inputs = in_data['inputs'].to(self.device)
+        output = self.network(inputs)
+        return output
+
+    def cal_batch_loss(
+                    self,
+                    output: Dict[str, torch.Tensor],
+                    labels: Dict[str, Union[int, float]]
+                    ) -> None:
         """
         Calculate loss for each bach.
+
+        Args:
+            outputs (Dict[str, torch.Tensor]): output
+            labels (Dict[str, Union[int, float]]): labels and periods
         """
-        self.multi_label = self.multi_label_to_device(self.multi_label)
-        self.periods = self.periods.float().to(self.device)
-        self.loss_reg.cal_batch_loss(self.multi_output, self.multi_label, self.periods, self.network)
+        _labels = self.multi_label_to_device(labels['labels'])
+        _periods = labels['periods'].float().to(self.device)
+        self.loss_reg.cal_batch_loss(output, _labels, _periods, self.network)
 
 
 class CVDeepSurv(ModelWidget):
     """
     Class for DeepSurv model with CNN or ViT
     """
-    def __init__(self, args: argparse.Namespace) -> None:
+    def __init__(self, params: Union[TrainParam, TestParam]) -> None:
         """
         Args:
-            args (argparse.Namespace): options
+            params: (Union[TrainParam, TestParam]): parameters
         """
-        super().__init__(args)
+        super().__init__(params)
 
-    def set_data(self, data: Dict) -> None:
+    def set_data(
+                self,
+                data: Dict
+                ) -> Tuple[
+                            Dict[str, torch.Tensor],
+                            Dict[str, Union[int, float]]
+                        ]:
         """
         Unpack data for forwarding of DeepSurv model with with CNN or ViT
 
         Args:
             data (Dict): dictionary of data
-        """
-        self.image = data['image']
-        self.multi_label = data['labels']
-        self.periods = data['periods']
 
-    def forward(self) -> None:
+        Returns:
+            Tuple[
+                Dict[str, torch.Tensor],
+                Dict[str, Union[int, float]]
+                ]: image, and labels, periods
         """
-        Forward.
-        """
-        self.image = self.image.to(self.device)
-        self.multi_output = self.network(self.image)
+        in_data = {'image': data['image']}
+        labels = {
+                'labels': data['labels'],
+                'periods': data['periods']
+                }
+        return in_data, labels
 
-    def cal_batch_loss(self) -> None:
+    def __call__(self, in_data: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+        """
+        Forward
+
+        Args:
+            in_data (Dict[str, torch.Tensor]): data to be input into model
+
+        Returns:
+            Dict[str, torch.Tensor]: output
+        """
+        image = in_data['image'].to(self.device)
+        output = self.network(image)
+        return output
+
+    def cal_batch_loss(
+                    self,
+                    output: Dict[str, torch.Tensor],
+                    labels: Dict[str, Union[int, float]]
+                    ) -> None:
         """
         Calculate loss for each bach.
-        """
-        self.multi_label = self.multi_label_to_device(self.multi_label)
-        self.periods = self.periods.float().to(self.device)
-        self.loss_reg.cal_batch_loss(self.multi_output, self.multi_label, self.periods, self.network)
 
+        Args:
+            output (Dict[str, torch.Tensor]): output
+            lables and periods (Dict[str, Union[int, float]]): labels and periods
+        """
+        _labels = self.multi_label_to_device(labels['labels'])
+        _periods = labels['periods'].float().to(self.device)
+        self.loss_reg.cal_batch_loss(output, _labels, _periods, self.network)
 
 class FusionDeepSurv(ModelWidget):
     """
     Class for DeepSurv model with MLP+CNN or MLP+ViT model.
     """
-    def __init__(self, args: argparse.Namespace) -> None:
+    def __init__(self, params: Union[TrainParam, TestParam]) -> None:
         """
         Args:
-            args (argparse.Namespace): options
+            params: (Union[TrainParam, TestParam]): parameters
         """
-        super().__init__(args)
+        super().__init__(params)
 
     def set_data(self, data: Dict) -> None:
         """
@@ -798,58 +895,65 @@ class FusionDeepSurv(ModelWidget):
 
         Args:
             data (Dict): dictionary of data
-        """
-        self.inputs = data['inputs']
-        self.image = data['image']
-        self.multi_label = data['labels']
-        self.periods = data['periods']
 
-    def forward(self) -> None:
+        Returns:
+            Tuple[
+                Dict[str, torch.Tensor],
+                Dict[str, Union[int, float]]
+                ]: inputs, image, and labels, periods
         """
-        Forward.
-        """
-        self.inputs = self.inputs.to(self.device)
-        self.image = self.image.to(self.device)
-        self.multi_output = self.network(self.inputs, self.image)
+        in_data = {
+                'inputs': data['inputs'],
+                'image': data['image']
+                }
+        labels = {
+                'labels': data['labels'],
+                'periods': data['periods']
+                }
+        return in_data, labels
 
-    def cal_batch_loss(self) -> None:
+    def __call__(self, in_data: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
         """
-        Calculate loss for bach bach.
+        Forward
+
+        Args:
+            in_data (Dict[str, torch.Tensor]): data to be input into model
+
+        Returns:
+            Dict[str, torch.Tensor]: output
         """
-        self.multi_label = self.multi_label_to_device(self.multi_label)
-        self.periods = self.periods.float().to(self.device)
-        self.loss_reg.cal_batch_loss(self.multi_output, self.multi_label, self.periods, self.network)
+        inputs = in_data['inputs'].to(self.device)
+        image = in_data['image'].to(self.device)
+        output = self.network(inputs, image)
+        return output
+
+    def cal_batch_loss(
+                        self,
+                        output: Dict[str, torch.Tensor],
+                        labels: Dict[str, Union[int, float]]
+                        ) -> None:
+        """
+        Calculate loss for each bach.
+
+        Args:
+            output (Dict[str, torch.Tensor]): output
+            labels (Dict[str, Union[int, float]]): labels and periods
+        """
+        _labels = self.multi_label_to_device(labels['labels'])
+        _periods = labels['periods'].float().to(self.device)
+        self.loss_reg.cal_batch_loss(output, _labels, _periods, self.network)
 
 
-def create_model(
-                args: argparse.Namespace,
-                test_splits: List[str] = ['train', 'val', 'test'],
-                likelihood_on: bool = True
-                ) -> nn.Module:
+def create_model(params: Union[TrainParam, TestParam]) -> nn.Module:
     """
     Construct model.
 
     Args:
-        args (argparse.Namespace): options
-        test_splits (List[str]):
-                            splits to be test. Default to ['train', 'val', 'test'].
-                            This is only for test.
-        likelihood_on: (bool):
-                            This indicates whether likelihood is needed or not.
-                            Defaut to True.
-                            This is only for test.
-                            When applying to Grad-CAM, specify False because no need of likelilhood.
-                            When permutation importance, specify True.
+        params (Union[TrainParam, TestParam]: parameters
+
     Returns:
         nn.Module: model
     """
-    # params = ModelParam(args, test_splits)
-    if args.isTrain:
-        # NO need of test_splits, likelihood_on
-        params = TrainModelParam(args)
-    else:
-        params = TestModelParam(args, test_splits, likelihood_on)
-
     task = params.task
     _isMLPModel = (params.mlp is not None) and (params.net is None)
     _isCVModel = (params.mlp is None) and (params.net is not None)
