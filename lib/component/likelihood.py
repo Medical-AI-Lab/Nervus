@@ -22,7 +22,6 @@ class BaseLikelihood:
 
         self.num_outputs_for_label = num_outputs_for_label
         self.save_datetime_dir = save_datetime_dir
-        # self.df_likelihood = pd.DataFrame()
 
     def init_likelihood(self) -> None:
         """

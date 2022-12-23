@@ -59,7 +59,6 @@ def main(opt):
 
         likelihood.save_likelihood(params.save_datetime_dir, weight_path.stem)
 
-        #! NEED?
         if len(weight_paths) > 1:
             model.init_network(params)
 
