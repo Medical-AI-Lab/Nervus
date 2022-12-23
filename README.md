@@ -107,7 +107,8 @@ If you need many trials, use `work_all.sh`. In this case, `parameter.csv` must b
 
 
 # Tutorial
-Tutorial is availabel. To do a tutorial, please visit this site. https://doi.org/10.1186/s12874-018-0482-1
+Tutorial for Nervus library is availabel on Google Colaboratory.
+To do the tutorial, please visit this site [https://colab.research.google.com/drive/1710VAktDPVyPZdRo39UrSAtuVBYdFsCT].
 
 
 # CUDA VERSION
