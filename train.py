@@ -32,11 +32,11 @@ def main(opt):
             split_dataloader = dataloaders[phase]
             for i, data in enumerate(split_dataloader):
                 model.optimizer.zero_grad()
-                _data = model.set_data(data) # Extract required data only the below
+                in_data, labels = model.set_data(data)
 
                 with torch.set_grad_enabled(phase == 'train'):
-                    output = model(_data)
-                    model.cal_batch_loss(output, _data)
+                    output = model(in_data)
+                    model.cal_batch_loss(output, labels)
 
                     if phase == 'train':
                         model.backward()

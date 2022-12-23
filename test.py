@@ -51,10 +51,10 @@ def main(opt):
         for split in params.test_splits:
             split_dataloader = dataloaders[split]
             for i, data in enumerate(split_dataloader):
-                _data = model.set_data(data)
+                in_data, _ = model.set_data(data)
 
                 with torch.no_grad():
-                    output = model(_data)
+                    output = model(in_data)
                     likelihood.make_likelihood(data, output)
 
         likelihood.save_likelihood(params.save_datetime_dir, weight_path.stem)
