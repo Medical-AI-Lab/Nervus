@@ -106,6 +106,10 @@ For test trained model,
 If you need many trials, use `work_all.sh`. In this case, `parameter.csv` must be prepared. Examples are shown in this repository.
 
 
+# Tutorial
+Tutorial is availabel. To do a tutorial, please visit this site. https://doi.org/10.1186/s12874-018-0482-1
+
+
 # CUDA VERSION
 CUDA Version = 11
 
