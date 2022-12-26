@@ -8,8 +8,6 @@ from abc import ABC, abstractmethod
 import pandas as pd
 import torch
 import torch.nn as nn
-import json
-import pickle
 from .component import (
                 make_split_provider,
                 create_dataloader,
@@ -20,292 +18,11 @@ from typing import List, Dict, Tuple, Union
 import argparse
 
 
-class BaseParam:
-    """
-    Set up configure for traning or test.
-    Integrate args and parameters.
-    """
-    def __init__(self, args: argparse.Namespace) -> None:
-        """
-        Args:
-            args (argparse.Namespace): options
-        """
-        for _param, _arg in vars(args).items():
-            setattr(self, _param, _arg)
-
-        self._dataset_dir = re.findall('(.*)/docs', self.csvpath)[0]  # should be unique
-        self._csv_name = Path(self.csvpath).stem
-
-    def print_parameter(self) -> None:
-        """
-        Print parameters
-        """
-        no_print = [
-                    '_dataset_dir',
-                    '_csv_name',
-                    'mlp',
-                    'net',
-                    'input_list',
-                    'label_list',
-                    'period_name',
-                    'mlp_num_inputs',
-                    'num_outputs_for_label',
-                    'dataloaders',
-                    'datetime',
-                    'device',
-                    'isTrain'
-                    ]
-
-        phase = 'Training' if self.isTrain else 'Test'
-        message = ''
-        message += f"{'-'*25} Options for {phase} {'-'*33}\n"
-
-        for _param, _arg in vars(self).items():
-            if _param not in no_print:
-                _str_arg = self._arg2str(_param, _arg)
-                message += '{:>25}: {:<40}\n'.format(_param, _str_arg)
-            else:
-                pass
-
-        message += f"{'-'*30} End {'-'*48}\n"
-        logger.logger.info(message)
-
-    def _arg2str(self, param: str, arg: Union[str, int, float]) -> str:
-        """
-        Convert argument to string.
-
-        Args:
-            param (str): parameter
-            arg (Union[str, int, float]): argument
-
-        Returns:
-            str: strings of argument
-        """
-        if param == 'lr':
-            if arg is None:
-                str_arg = 'Default'
-            else:
-                str_arg = str(param)
-        elif param == 'gpu_ids':
-            if arg == []:
-                str_arg = 'CPU selected'
-            else:
-                str_arg = f"{arg}  (Primary GPU:{arg[0]})"
-        else:
-            if arg is None:
-                str_arg = 'No need'
-            else:
-                str_arg = str(arg)
-        return str_arg
-
-    def print_dataset_info(self) -> None:
-        """
-        Print dataset size for each split.
-        """
-        for split, dataloader in self.dataloaders.items():
-            total = len(dataloader.dataset)
-            logger.logger.info(f"{split:>5}_data = {total}")
-        logger.logger.info('')
-
-    def save_parameter(self) -> None:
-        """
-        Save parameters.
-        """
-        no_save = [
-                    '_dataset_dir',
-                    '_csv_name',
-                    'dataloaders',
-                    'device',  # Need str(self.device) when save
-                    'isTrain',
-                    'datetime',
-                    'save_datetime_dir'
-                    ]
-        saved = dict()
-        for _param, _arg in vars(self).items():
-            if _param not in no_save:
-                saved[_param] = _arg
-
-        # Save scaler
-        if hasattr(self.dataloaders['train'].dataset, 'scaler'):
-            scaler = self.dataloaders['train'].dataset.scaler
-            saved['scaler_path'] = str(Path(self.save_datetime_dir, 'scaler.pkl'))
-            with open(saved['scaler_path'], 'wb') as f:
-                pickle.dump(scaler, f)
-
-        # Save parameters
-        save_dir = Path(self.save_datetime_dir)
-        save_dir.mkdir(parents=True, exist_ok=True)
-        save_path = str(Path(save_dir, 'parameters.json'))
-        with open(save_path, 'w') as f:
-            json.dump(saved, f, indent=4)
-
-    def load_parameter(self, parameter_path: Path) -> Dict:
-        """
-        Return dictionalry of parameters at training.
-
-        Args:
-            parameter_path (str): path to parameter_path
-
-        Returns:
-            Dict: parameters at training
-        """
-        with open(parameter_path) as f:
-            parameters = json.load(f)
-        return parameters
-
-
-class TrainParam(BaseParam):
-    """
-    Class for setting parameters for training.
-    """
-    def __init__(self, args: argparse.Namespace) -> None:
-        """
-        Args:
-            args (argparse.Namespace): options
-        """
-        super().__init__(args)
-
-        sp = make_split_provider(self.csvpath, self.task)
-        self.input_list = list(sp.df_source.columns[sp.df_source.columns.str.startswith('input')])
-        self.label_list = list(sp.df_source.columns[sp.df_source.columns.str.startswith('label')])
-        self.mlp_num_inputs = len(self.input_list)
-        self.num_outputs_for_label = self._define_num_outputs_for_label(sp.df_source, self.label_list)
-        if self.task == 'deepsurv':
-            self.period_name = list(sp.df_source.columns[sp.df_source.columns.str.startswith('period')])[0]
-
-        self.device = torch.device(f"cuda:{self.gpu_ids[0]}") if self.gpu_ids != [] else torch.device('cpu')
-
-        # Directory for saveing paramaters, weights, or learning_curve
-        _datetime = self.datetime
-        _save_datetime_dir = str(Path(self._dataset_dir, 'results', self._csv_name, 'sets', _datetime))
-        self.save_datetime_dir = _save_datetime_dir
-
-        # Dataloader
-        self.dataloaders = {split: create_dataloader(self, sp.df_source, split=split) for split in ['train', 'val']}
-
-    def _define_num_outputs_for_label(self, df_source: pd.DataFrame, label_list: List[str]) -> Dict[str, int]:
-        """
-        Define the number of outputs for each label.
-
-        Args:
-            df_source (pd.DataFrame): DataFrame of csv
-            label_list (List[str]): label list
-
-        Returns:
-            Dict[str, int]: dictionary of the number of outputs for each label
-            eg.
-                classification:       _num_outputs_for_label = {label_A: 2, label_B: 3, ...}
-                regression, deepsurv: _num_outputs_for_label = {label_A: 1, label_B: 1, ...}
-                deepsurv:             _num_outputs_for_label = {label_A: 1}
-        """
-        if self.task == 'classification':
-            _num_outputs_for_label = {label_name: df_source[label_name].nunique() for label_name in label_list}
-        elif (self.task == 'regression') or (self.task == 'deepsurv'):
-            _num_outputs_for_label = {label_name: 1 for label_name in label_list}
-        else:
-            raise ValueError(f"Invalid task: {self.task}.")
-        return _num_outputs_for_label
-
-
-class TestParam(BaseParam):
-    """
-    Class for setting parameters for test.
-    """
-    def __init__(self, args: argparse.Namespace) -> None:
-        """
-        Args:
-            args (argparse.Namespace): options
-        """
-        super().__init__(args)
-
-        # Load paramaters
-        _save_datetime_dir = Path(self.weight_dir).parents[0]
-        parameter_path = Path(_save_datetime_dir, 'parameters.json')
-        parameters = self.load_parameter(parameter_path)  # Dict
-        required_for_test = [
-                            'task',
-                            'model',
-                            'normalize_image',
-                            'in_channel',
-                            'vit_image_size',
-                            'mlp',
-                            'net',
-                            'input_list',  # should be used one at trainig
-                            'label_list',  # shoudl be used one at trainig
-                            'mlp_num_inputs',
-                            'num_outputs_for_label',
-                            'period_name',
-                            'scaler_path'
-                            ]
-        for _param in required_for_test:
-            setattr(self, _param, parameters.get(_param))  # If no exists, set None
-
-        # No need the below at test
-        self.augmentation = 'no'
-        self.sampler = 'no'
-        self.pretrained = False
-
-        sp = make_split_provider(self.csvpath, self.task)
-        self.device = torch.device(f"cuda:{self.gpu_ids[0]}") if self.gpu_ids != [] else torch.device('cpu')
-
-        # Directory for saving ikelihood
-        _datetime = _save_datetime_dir.name
-        _save_datetime_dir = str(Path(self._dataset_dir, 'results', self._csv_name, 'sets', _datetime))  # csv_name might be for external dataset
-        self.save_datetime_dir = _save_datetime_dir
-
-        # Align splits to be test
-        _splits_in_df_source = sp.df_source['split'].unique().tolist()
-        self.test_splits = self._align_test_splits(self.test_splits, _splits_in_df_source)
-
-        # Dataloader
-        self.dataloaders = {split: create_dataloader(self, sp.df_source, split=split) for split in self.test_splits}
-
-    def _align_test_splits(self, arg_test_splits: List[str], splits_in_df_source: List[str]) -> List[str]:
-        """
-        Align splits to be test.
-
-        Args:
-            arg_test_splits (List[str]): splits specified by args. Default is ['train', 'val', 'test']
-            splits_in_df_source (List[str]): splits includinf csv
-
-        Returns:
-            List[str]: splits for test
-
-        args_test_splits  = ['train', 'val', 'test'], ['val', 'test'], or ['test']
-        splits_in_df_source = ['train', 'val', 'test'], or ['test']
-        Smaller set of splits has priority.
-        """
-        if set(splits_in_df_source) < set(arg_test_splits):
-            _test_splits = splits_in_df_source  # maybe when external dataset
-        elif set(arg_test_splits) < set(splits_in_df_source):
-            _test_splits = arg_test_splits     # ['val', 'test'], or ['test']
-        else:
-            _test_splits = arg_test_splits
-        return _test_splits
-
-
-def set_params(args: argparse.Namespace) -> Union[TrainParam, TestParam]:
-    """
-    Set parameters depending on training or test
-
-    Args:
-        args (argparse.Namespace): args
-
-    Returns:
-        Union[TrainParam, TestParam]: parameters
-    """
-    if args.isTrain:
-        params = TrainParam(args)
-    else:
-        params = TestParam(args)
-    return params
-
-
 class BaseModel(ABC):
     """
     Class to construct model. This class is the base class to construct model.
     """
-    def __init__(self, params: Union[TrainParam, TestParam]) -> None:
+    def __init__(self, params) -> None:
         """
         Class to define Model
 
@@ -326,7 +43,7 @@ class BaseModel(ABC):
         self.device = params.device
         self.gpu_ids = params.gpu_ids
 
-    def init_network(self, params: Union[TrainParam, TestParam]) -> None:
+    def init_network(self, params) -> None:
         """
         Creates network.
 
@@ -551,7 +268,7 @@ class MLPModel(ModelWidget):
     Class for MLP model
     """
 
-    def __init__(self, params: Union[TrainParam, TestParam]) -> None:
+    def __init__(self, params) -> None:
         """
         Args:
             params: (Union[TrainParam, TestParam]): parameters
@@ -615,7 +332,7 @@ class CVModel(ModelWidget):
     """
     Class for CNN or ViT model
     """
-    def __init__(self, params: Union[TrainParam, TestParam]) -> None:
+    def __init__(self, params) -> None:
         """
         Args:
             params: (Union[TrainParam, TestParam]): parameters
@@ -679,7 +396,7 @@ class FusionModel(ModelWidget):
     """
     Class for MLP+CNN or MLP+ViT model.
     """
-    def __init__(self, params: Union[TrainParam, TestParam]) -> None:
+    def __init__(self, params) -> None:
         """
         Args:
             params: (Union[TrainParam, TestParam]): parameters
@@ -747,7 +464,7 @@ class MLPDeepSurv(ModelWidget):
     """
     Class for DeepSurv model with MLP
     """
-    def __init__(self, params: Union[TrainParam, TestParam]) -> None:
+    def __init__(self, params) -> None:
         """
         Args:
             params (Union[TrainParam, TestParam]): parameters
@@ -815,7 +532,7 @@ class CVDeepSurv(ModelWidget):
     """
     Class for DeepSurv model with CNN or ViT
     """
-    def __init__(self, params: Union[TrainParam, TestParam]) -> None:
+    def __init__(self, params) -> None:
         """
         Args:
             params: (Union[TrainParam, TestParam]): parameters
@@ -882,7 +599,7 @@ class FusionDeepSurv(ModelWidget):
     """
     Class for DeepSurv model with MLP+CNN or MLP+ViT model.
     """
-    def __init__(self, params: Union[TrainParam, TestParam]) -> None:
+    def __init__(self, params) -> None:
         """
         Args:
             params: (Union[TrainParam, TestParam]): parameters
@@ -944,7 +661,7 @@ class FusionDeepSurv(ModelWidget):
         self.loss_reg.cal_batch_loss(output, _labels, _periods, self.network)
 
 
-def create_model(params: Union[TrainParam, TestParam]) -> nn.Module:
+def create_model(params) -> nn.Module:
     """
     Construct model.
 

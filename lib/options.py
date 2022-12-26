@@ -7,6 +7,15 @@ from pathlib import Path
 import re
 from typing import List, Tuple, Union
 
+# Added
+from .component import make_split_provider
+import json
+import pickle
+from .logger import Logger as logger
+from typing import Dict
+import torch
+import pandas as pd
+
 
 class Options:
     """
@@ -67,6 +76,7 @@ class Options:
             # Splits for test
             self.parser.add_argument('--test_splits',        type=str, default='train-val-test', help='splits for test: e.g. test, val-test, train-val-test. (Default: train-val-test)')
 
+
         self.args = self.parser.parse_args()
 
         if datetime is not None:
@@ -74,6 +84,14 @@ class Options:
 
         assert isinstance(isTrain, bool), 'isTrain should be bool.'
         setattr(self.args, 'isTrain', isTrain)
+
+    def get_opt(self):
+        return self.args
+
+
+class ParamParser:
+    def __init__(self, args):
+        self.args = self.parse(args)
 
     def _parse_model(self, model_name: str) -> Tuple[Union[str, None], Union[str, None]]:
         """
@@ -115,7 +133,7 @@ class Options:
                 _gpu_ids.append(id)
         return _gpu_ids
 
-    def _get_latest_weight_dir(self) -> str:
+    def _get_latest_weight_dir(self, dataset_dir) -> str:
         """
         Return the latest path to directory of weight made at training.
 
@@ -124,32 +142,128 @@ class Options:
             eg. 'materials/docs/[csv_name].csv'
                 -> 'materials/results/[csv_name]/sets/2022-09-30-15-56-60/weights'
         """
-        _dataset_dir = re.findall('(.*)/docs', self.args.csvpath)[0]
-        _weight_dirs = list(Path(_dataset_dir, 'results').glob('*/sets/*/weights'))
+        _weight_dirs = list(Path(dataset_dir, 'results').glob('*/sets/*/weights'))
         assert (_weight_dirs != []), 'No directory of weight.'
         weight_dir = max(_weight_dirs, key=lambda weight_dir: weight_dir.stat().st_mtime)
         return str(weight_dir)
 
-    def parse(self) -> None:
+    def parse(self, args) -> None:
         """
         Parse options.
         """
-        _gpu_ids = self._parse_gpu_ids(self.args.gpu_ids)
-        setattr(self.args, 'gpu_ids', _gpu_ids)
+        _args = args
+
+        _dataset_dir = re.findall('(.*)/docs', args.csvpath)[0]  # should be unique
+        setattr(_args, 'dataset_dir', _dataset_dir)
+
+        _gpu_ids = self._parse_gpu_ids(args.gpu_ids)
+        setattr(_args, 'gpu_ids', _gpu_ids)
+
+        _csv_name = Path(self.csvpath).stem
+        setattr(_args, 'csv_name', _csv_name)
+
+        if args.isTrain:
+            _mlp, _net = self._parse_model(args.model)
+            setattr(_args, 'mlp', _mlp)
+            setattr(_args, 'net', _net)
+
+            _pretrained = bool(args.pretrained)   # strtobool('False') = 0 (== False)
+            setattr(_args, 'pretrained', _pretrained)
+        else:
+            if args.weight_dir is None:
+                _weight_dir = self._get_latest_weight_dir(_dataset_dir)
+                setattr(_args, 'weight_dir',  _weight_dir)
+
+            setattr(_args, 'test_splits', args.test_splits.split('-'))
+        return _args
+
+
+
+"""
+args = Options(datetime='2022-12-26-16-56-00', isTrain=True)
+param_handler = ParamHandler(args)
+params = param_handler.devide()
+params['model_param']
+params['dataloader_param']
+...
+"""
+
+"""
+Allocation_table = {
+csvpath
+
+input_list
+label_list
+mlp_num_inputs
+num_outputs_for_label
+period_name
+
+gpu_ids
+task
+model
+
+pretrained
+criterion
+optimizer
+lr
+epochs
+batch_size
+augmentation
+normalize_image
+sampler
+in_channel
+vit_image_size
+save_weight_policy
+
+save_datetime_dir
+scaler_path
+
+csvpath
+gpu_ids
+weight_dir
+test_batch_size
+test_splits
+
+datetime
+}
+"""
+
+
+class ParamHandler:
+    def __init__(self, args):
+        self.args = args
 
         if self.args.isTrain:
-            _mlp, _net = self._parse_model(self.args.model)
-            setattr(self.args, 'mlp', _mlp)
-            setattr(self.args, 'net', _net)
-
-            _pretrained = bool(self.args.pretrained)   # strtobool('False') = 0 (== False)
-            setattr(self.args, 'pretrained', _pretrained)
+            _save_datetime_dir = str(Path(self.args.dataset_dir, 'results', self.args.csv_name, 'sets', self.args.datetime))
+            self.save_datetime_dir = _save_datetime_dir
         else:
-            if self.args.weight_dir is None:
-                _weight_dir = self._get_latest_weight_dir()
-                setattr(self.args, 'weight_dir',  _weight_dir)
+            _save_datetime_dir = Path(self.args.weight_dir).parents[0]
+            parameter_path = Path(_save_datetime_dir, 'parameters.json')
 
-            setattr(self.args, 'test_splits', self.args.test_splits.split('-'))
+
+    def devide(self):
+        # trainの時は、振り分けだけ
+        # testの時は、parameter.json を読み込んで、マージ
+        if self.args.isTrain:
+            pass
+        else:
+            pass
+
+
+
+class ParamContainer:
+    def __init__(self):
+        pass
+
+# args ->
+# csvpath -> csv_param
+# dataloader_param
+# model_param
+# train_param
+# test_param
+# mutual_param
+
+
 
 
 def check_train_options(datetime_name: str) -> Options:
@@ -164,6 +278,329 @@ def check_train_options(datetime_name: str) -> Options:
     """
     opt = Options(datetime=datetime_name, isTrain=True)
     opt.parse()
+
+    #! Must opt -> params
+    return opt
+
+
+def check_test_options() -> Options:
+    """
+    Parse options for test.
+
+    Returns:
+        Options: options
+    """
+    opt = Options(isTrain=False)
+    opt.parse()
+    return opt
+
+
+
+
+# For PaframHandler
+class ParamMixin:
+    def print_parameter(self) -> None:
+        """
+        Print parameters
+        """
+        no_print = [
+                    '_dataset_dir',
+                    '_csv_name',
+                    'mlp',
+                    'net',
+                    'input_list',
+                    'label_list',
+                    'period_name',
+                    'mlp_num_inputs',
+                    'num_outputs_for_label',
+                    'dataloaders',
+                    'datetime',
+                    'device',
+                    'isTrain'
+                    ]
+
+        phase = 'Training' if self.isTrain else 'Test'
+        message = ''
+        message += f"{'-'*25} Options for {phase} {'-'*33}\n"
+
+        for _param, _arg in vars(self).items():
+            if _param not in no_print:
+                _str_arg = self._arg2str(_param, _arg)
+                message += '{:>25}: {:<40}\n'.format(_param, _str_arg)
+            else:
+                pass
+
+        message += f"{'-'*30} End {'-'*48}\n"
+        logger.logger.info(message)
+
+
+    def _arg2str(self, param: str, arg: Union[str, int, float]) -> str:
+        """
+        Convert argument to string.
+
+        Args:
+            param (str): parameter
+            arg (Union[str, int, float]): argument
+
+        Returns:
+            str: strings of argument
+        """
+        if param == 'lr':
+            if arg is None:
+                str_arg = 'Default'
+            else:
+                str_arg = str(param)
+        elif param == 'gpu_ids':
+            if arg == []:
+                str_arg = 'CPU selected'
+            else:
+                str_arg = f"{arg}  (Primary GPU:{arg[0]})"
+        else:
+            if arg is None:
+                str_arg = 'No need'
+            else:
+                str_arg = str(arg)
+        return str_arg
+
+    def print_dataset_info(self) -> None:
+        """
+        Print dataset size for each split.
+        """
+        for split, dataloader in self.dataloaders.items():
+            total = len(dataloader.dataset)
+            logger.logger.info(f"{split:>5}_data = {total}")
+        logger.logger.info('')
+
+    def save_parameter(self) -> None:
+        """
+        Save parameters.
+        """
+        no_save = [
+                    '_dataset_dir',
+                    '_csv_name',
+                    'dataloaders',
+                    'device',  # Need str(self.device) when save
+                    'isTrain',
+                    'datetime',
+                    'save_datetime_dir'
+                    ]
+        saved = dict()
+        for _param, _arg in vars(self).items():
+            if _param not in no_save:
+                saved[_param] = _arg
+
+        # Save scaler
+        if hasattr(self.dataloaders['train'].dataset, 'scaler'):
+            scaler = self.dataloaders['train'].dataset.scaler
+            saved['scaler_path'] = str(Path(self.save_datetime_dir, 'scaler.pkl'))
+            with open(saved['scaler_path'], 'wb') as f:
+                pickle.dump(scaler, f)
+
+        # Save parameters
+        save_dir = Path(self.save_datetime_dir)
+        save_dir.mkdir(parents=True, exist_ok=True)
+        save_path = str(Path(save_dir, 'parameters.json'))
+        with open(save_path, 'w') as f:
+            json.dump(saved, f, indent=4)
+
+    def load_parameter(self, parameter_path: Path) -> Dict:
+        """
+        Return dictionalry of parameters at training.
+
+        Args:
+            parameter_path (str): path to parameter_path
+
+        Returns:
+            Dict: parameters at training
+        """
+        with open(parameter_path) as f:
+            parameters = json.load(f)
+        return parameters
+
+
+
+
+class BaseParam:
+    """
+    Set up configure for traning or test.
+    Integrate args and parameters.
+    """
+    def __init__(self, args: argparse.Namespace) -> None:
+        """
+        Args:
+            args (argparse.Namespace): options
+        """
+        for _param, _arg in vars(args).items():
+            setattr(self, _param, _arg)
+
+
+
+
+
+class TrainParam(BaseParam):
+    """
+    Class for setting parameters for training.
+    """
+    def __init__(self, args: argparse.Namespace) -> None:
+        """
+        Args:
+            args (argparse.Namespace): options
+        """
+        super().__init__(args)
+
+        sp = make_split_provider(self.csvpath, self.task)
+        self.input_list = list(sp.df_source.columns[sp.df_source.columns.str.startswith('input')])
+        self.label_list = list(sp.df_source.columns[sp.df_source.columns.str.startswith('label')])
+        self.mlp_num_inputs = len(self.input_list)
+        self.num_outputs_for_label = self._define_num_outputs_for_label(sp.df_source, self.label_list)
+        if self.task == 'deepsurv':
+            self.period_name = list(sp.df_source.columns[sp.df_source.columns.str.startswith('period')])[0]
+
+        self.device = torch.device(f"cuda:{self.gpu_ids[0]}") if self.gpu_ids != [] else torch.device('cpu')
+
+        # Directory for saveing paramaters, weights, or learning_curve
+        _datetime = self.datetime
+
+        # _save_datetime_dir = str(Path(self._dataset_dir, 'results', self._csv_name, 'sets', _datetime))
+        # self.save_datetime_dir = _save_datetime_dir
+
+        # Dataloader
+        self.dataloaders = {split: create_dataloader(self, sp.df_source, split=split) for split in ['train', 'val']}
+
+    def _define_num_outputs_for_label(self, df_source: pd.DataFrame, label_list: List[str]) -> Dict[str, int]:
+        """
+        Define the number of outputs for each label.
+
+        Args:
+            df_source (pd.DataFrame): DataFrame of csv
+            label_list (List[str]): label list
+
+        Returns:
+            Dict[str, int]: dictionary of the number of outputs for each label
+            eg.
+                classification:       _num_outputs_for_label = {label_A: 2, label_B: 3, ...}
+                regression, deepsurv: _num_outputs_for_label = {label_A: 1, label_B: 1, ...}
+                deepsurv:             _num_outputs_for_label = {label_A: 1}
+        """
+        if self.task == 'classification':
+            _num_outputs_for_label = {label_name: df_source[label_name].nunique() for label_name in label_list}
+        elif (self.task == 'regression') or (self.task == 'deepsurv'):
+            _num_outputs_for_label = {label_name: 1 for label_name in label_list}
+        else:
+            raise ValueError(f"Invalid task: {self.task}.")
+        return _num_outputs_for_label
+
+
+class TestParam(BaseParam):
+    """
+    Class for setting parameters for test.
+    """
+    def __init__(self, args: argparse.Namespace) -> None:
+        """
+        Args:
+            args (argparse.Namespace): options
+        """
+        super().__init__(args)
+
+        # Load paramaters
+        _save_datetime_dir = Path(self.weight_dir).parents[0]
+        parameter_path = Path(_save_datetime_dir, 'parameters.json')
+        parameters = self.load_parameter(parameter_path)  # Dict
+        required_for_test = [
+                            'task',
+                            'model',
+                            'normalize_image',
+                            'in_channel',
+                            'vit_image_size',
+                            'mlp',
+                            'net',
+                            'input_list',  # should be used one at trainig
+                            'label_list',  # shoudl be used one at trainig
+                            'mlp_num_inputs',
+                            'num_outputs_for_label',
+                            'period_name',
+                            'scaler_path'
+                            ]
+        for _param in required_for_test:
+            setattr(self, _param, parameters.get(_param))  # If no exists, set None
+
+        # No need the below at test
+        self.augmentation = 'no'
+        self.sampler = 'no'
+        self.pretrained = False
+
+        sp = make_split_provider(self.csvpath, self.task)
+        self.device = torch.device(f"cuda:{self.gpu_ids[0]}") if self.gpu_ids != [] else torch.device('cpu')
+
+        # Directory for saving ikelihood
+        _datetime = _save_datetime_dir.name
+        _save_datetime_dir = str(Path(self._dataset_dir, 'results', self._csv_name, 'sets', _datetime))  # csv_name might be for external dataset
+        self.save_datetime_dir = _save_datetime_dir
+
+        # Align splits to be test
+        _splits_in_df_source = sp.df_source['split'].unique().tolist()
+        self.test_splits = self._align_test_splits(self.test_splits, _splits_in_df_source)
+
+        # Dataloader
+        # self.dataloaders = {split: create_dataloader(self, sp.df_source, split=split) for split in self.test_splits}
+
+    def _align_test_splits(self, arg_test_splits: List[str], splits_in_df_source: List[str]) -> List[str]:
+        """
+        Align splits to be test.
+
+        Args:
+            arg_test_splits (List[str]): splits specified by args. Default is ['train', 'val', 'test']
+            splits_in_df_source (List[str]): splits includinf csv
+
+        Returns:
+            List[str]: splits for test
+
+        args_test_splits  = ['train', 'val', 'test'], ['val', 'test'], or ['test']
+        splits_in_df_source = ['train', 'val', 'test'], or ['test']
+        Smaller set of splits has priority.
+        """
+        if set(splits_in_df_source) < set(arg_test_splits):
+            _test_splits = splits_in_df_source  # maybe when external dataset
+        elif set(arg_test_splits) < set(splits_in_df_source):
+            _test_splits = arg_test_splits     # ['val', 'test'], or ['test']
+        else:
+            _test_splits = arg_test_splits
+        return _test_splits
+
+
+def set_params(args: argparse.Namespace) -> Union[TrainParam, TestParam]:
+    """
+    Set parameters depending on training or test
+
+    Args:
+        args (argparse.Namespace): args
+
+    Returns:
+        Union[TrainParam, TestParam]: parameters
+    """
+    if args.isTrain:
+        params = TrainParam(args)
+    else:
+        params = TestParam(args)
+    return params
+
+
+
+
+def check_train_options(datetime_name: str) -> Options:
+    """
+    Parse options for training.
+
+    Args:
+        datetime_name (str): date time
+
+    Returns:
+        Options: options
+    """
+    opt = Options(datetime=datetime_name, isTrain=True)
+    opt.parse()
+
+    #! Must opt -> params
     return opt
 
 
