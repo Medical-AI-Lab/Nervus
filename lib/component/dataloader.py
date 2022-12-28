@@ -26,10 +26,16 @@ class BaseSplitProvider(ABC):
             df_source (DataFrame): DataFrame of csv
         """
         self.input_list = list(df_source.columns[df_source.columns.str.startswith('input')])
-        self.label_list = list(df_source.columns[df_source.columns.str.startswith('label')])  #! externalの時、label_から始まらない時ある
+        self.label_list = list(df_source.columns[df_source.columns.str.startswith('label')])
+        self.mlp_num_inputs = len(self.input_list)
+        self.num_outputs_for_label = self._define_num_outputs_for_label(df_source, self.label_list)
 
     @abstractmethod
     def _cast_csv(self) -> pd.DataFrame:
+        raise NotImplementedError
+
+    @abstractmethod
+    def _define_num_outputs_for_label(self, df_source: pd.DataFrame, label_list: List[str]) -> Dict[str, int]:
         raise NotImplementedError
 
 
@@ -61,6 +67,19 @@ class ClsSplitProvider(BaseSplitProvider):
         _df_source = df_source.astype(_cast)
         return _df_source
 
+    def _define_num_outputs_for_label(self, df_source: pd.DataFrame, label_list: List[str]) -> Dict[str, int]:
+        """
+        Define the number of outputs for each label.
+        Args:
+            df_source (pd.DataFrame): DataFrame of csv
+            label_list (List[str]): label list
+        Returns:
+            Dict[str, int]: dictionary of the number of outputs for each label
+            eg. _num_outputs_for_label = {label_A: 2, label_B: 3, ...}
+        """
+        _num_outputs_for_label = {label_name: df_source[label_name].nunique() for label_name in label_list}
+        return _num_outputs_for_label
+
 
 class RegSplitProvider(BaseSplitProvider):
     """
@@ -90,6 +109,21 @@ class RegSplitProvider(BaseSplitProvider):
         _df_source = df_source.astype(_cast)
         return _df_source
 
+    def _define_num_outputs_for_label(self, df_source: pd.DataFrame, label_list: List[str]) -> Dict[str, int]:
+        """
+        Define the number of outputs for each label.
+
+        Args:
+            df_source (pd.DataFrame): DataFrame of csv
+            label_list (List[str]): label list
+
+        Returns:
+            Dict[str, int]: dictionary of the number of outputs for each label
+            eg. _num_outputs_for_label = {label_A: 1, label_B: 1, ...}
+        """
+        _num_outputs_for_label = {label_name: 1 for label_name in label_list}
+        return _num_outputs_for_label
+
 
 class DeepSurvSplitProvider(BaseSplitProvider):
     """
@@ -101,6 +135,7 @@ class DeepSurvSplitProvider(BaseSplitProvider):
             df_source (DataFrame): DataFrame of csv
         """
         super().__init__(df_source)
+        self.period_name = list(df_source.columns[df_source.columns.str.startswith('period')])[0]
         self.df_source = self._cast_csv(df_source)
 
     def _cast_csv(self, df_source: pd.DataFrame) -> pd.DataFrame:
@@ -113,8 +148,6 @@ class DeepSurvSplitProvider(BaseSplitProvider):
         Returns:
             pd.DataFrame: cast DataFrame of csv
         """
-        self.period_name = list(df_source.columns[df_source.columns.str.startswith('period')])[0]
-
         _cast_input = {input_name: float for input_name in self.input_list}
         _cast_label = {label_name: int for label_name in self.label_list}
         _cast_period = {self.period_name: int}
@@ -122,20 +155,35 @@ class DeepSurvSplitProvider(BaseSplitProvider):
         _df_source = df_source.astype(_cast)
         return _df_source
 
+    def _define_num_outputs_for_label(self, df_source: pd.DataFrame, label_list: List[str]) -> Dict[str, int]:
+        """
+        Define the number of outputs for each label.
 
-def make_split_provider(csv_path: str, task: str) -> Union[ClsSplitProvider, RegSplitProvider, DeepSurvSplitProvider]:
+        Args:
+            df_source (pd.DataFrame): DataFrame of csv
+            label_list (List[str]): label list
+
+        Returns:
+            Dict[str, int]: dictionary of the number of outputs for each label
+            eg. _num_outputs_for_label = {label_A: 1}
+        """
+        _num_outputs_for_label = {label_name: 1 for label_name in label_list}
+        return _num_outputs_for_label
+
+
+def make_split_provider(csvpath: str, task: str) -> Union[ClsSplitProvider, RegSplitProvider, DeepSurvSplitProvider]:
     """
     Parse csv by depending on task.
 
     Args:
-        csv_path (str): path to csv
+        csvpath (str): path to csv
         task (str): task
 
     Returns:
         Union[ClsSplitProvider, RegSplitProvider, DeepSurvSplitProvider]: SplitProvide for task
     """
 
-    _df_source = pd.read_csv(csv_path)
+    _df_source = pd.read_csv(csvpath)
     _df_excluded = _df_source[_df_source['split'] != 'exclude'].copy()
 
     if task == 'classification':
