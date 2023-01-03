@@ -136,7 +136,7 @@ def make_split_provider(csv_path: str, task: str) -> Union[ClsSplitProvider, Reg
     """
 
     _df_source = pd.read_csv(csv_path)
-    _df_excluded = _df_source[_df_source['split'] != 'exclude'].copy()
+    _df_excluded = _df_source[_df_source['split'] != 'exclude']
 
     if task == 'classification':
         sp = ClsSplitProvider(_df_excluded)
