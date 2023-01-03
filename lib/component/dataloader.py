@@ -474,8 +474,10 @@ def create_dataloader(
     # args never has both 'batch_size' and 'test_batch_size'.
     if params.isTrain:
         batch_size = params.batch_size
+        shuffle = True
     else:
         batch_size = params.test_batch_size
+        shuffle = False
 
     if params.sampler == 'yes':
         assert ((params.task == 'classification') or (params.task == 'deepsurv')), 'Cannot make sampler in regression.'
@@ -484,7 +486,6 @@ def create_dataloader(
         sampler = _make_sampler(split_data)
     else:
         # When pramas.sampler == 'no'
-        shuffle = True
         sampler = None
 
     split_loader = DataLoader(
