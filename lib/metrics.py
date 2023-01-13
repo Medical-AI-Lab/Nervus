@@ -104,7 +104,7 @@ class ROCMixin:
         Returns:
             LabelMetrics: metrics of 'val' and 'test'
         """
-        required_columns = list(df_inst.columns[df_inst.columns.str.contains(label_name)]) + ['split']
+        required_columns = [column_name for column_name in df_inst.columns if label_name in column_name] + ['split']
         df_label = df_inst[required_columns]
         POSITIVE = 1
         positive_pred_name = 'pred_' + label_name + '_' + str(POSITIVE)
@@ -130,7 +130,7 @@ class ROCMixin:
         Returns:
             LabelMetrics: metrics of 'val' and 'test'
         """
-        required_columns = list(df_inst.columns[df_inst.columns.str.contains(label_name)]) + ['split']
+        required_columns = [column_name for column_name in df_inst.columns if label_name in column_name] + ['split']
         df_label = df_inst[required_columns]
 
         pred_name_list = list(df_label.columns[df_label.columns.str.startswith('pred')])
@@ -217,7 +217,7 @@ class YYMixin:
         Returns:
             LabelMetrics: metrics of 'val' and 'test'
         """
-        required_columns = list(df_inst.columns[df_inst.columns.str.contains(label_name)]) + ['split']
+        required_columns = [column_name for column_name in df_inst.columns if label_name in column_name] + ['split']
         df_label = df_inst[required_columns]
         label_metrics = LabelMetrics()
         for split in ['val', 'test']:
@@ -267,7 +267,7 @@ class C_IndexMixin:
         Returns:
             LabelMetrics: metrics of 'val' and 'test'
         """
-        required_columns = list(df_inst.columns[df_inst.columns.str.contains(label_name)]) + ['periods', 'split']
+        required_columns = [column_name for column_name in df_inst.columns if label_name in column_name] + ['periods', 'split']
         df_label = df_inst[required_columns]
         label_metrics = LabelMetrics()
         for split in ['val', 'test']:
@@ -326,7 +326,7 @@ class MetricsMixin:
         Returns:
             Dict[str, Dict[str, LabelMetrics]]: dictionary of institution and dictionary of label and its LabelMetrics
             eg. {
-                instA: {label_1: LabelMetrics(), label_2: LabelMetrics(), ...}, 
+                instA: {label_1: LabelMetrics(), label_2: LabelMetrics(), ...},
                 instB: {label_1: LabelMetrics(), label_2: LabelMetrics()}, ...},
                 ...}
         """
