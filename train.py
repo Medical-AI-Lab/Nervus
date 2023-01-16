@@ -59,12 +59,18 @@ def main(opt):
     params.save_parameter()
 
 
+
 if __name__ == '__main__':
     set_logger()
-    datetime_name = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
-    logger.logger.info(f"\nTraining started at {datetime_name}.\n")
 
-    opt = check_train_options(datetime_name)
-    main(opt)
+    try:
+        datetime_name = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
+        logger.logger.info(f"\nTraining started at {datetime_name}.\n")
 
-    logger.logger.info('\nTraining finished.\n')
+        opt = check_train_options(datetime_name)
+        main(opt)
+
+        logger.logger.info('\nTraining finished.\n')
+
+    except:
+        logger.logger.info('', exc_info=True)

@@ -28,23 +28,12 @@ class BaseLogger:
         return logging.getLogger('nervus.{}'.format(name))
 
     @classmethod
-    def set_level(cls, level: int) -> None:
-        """
-        Set logging level.
-
-        Args:
-            level (int): logging level
-        """
-        _root_logger = logging.getLogger('nervus')
-        _root_logger.setLevel(level)
-
-    @classmethod
     def _init_logger(cls) -> None:
         """
         Configure logger.
         """
         _root_logger = logging.getLogger('nervus')
-        _root_logger.setLevel(logging.INFO)
+        _root_logger.setLevel(logging.DEBUG)
 
         # file handler
         log_dir = Path('./logs')

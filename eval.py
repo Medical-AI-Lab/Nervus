@@ -114,9 +114,14 @@ def main(opt):
 
 if __name__ == '__main__':
     set_logger()
-    logger.logger.info('\nEvaluation started.\n')
 
-    opt = check_eval_options()
-    main(opt)
+    try:
+        logger.logger.info('\nEvaluation started.\n')
 
-    logger.logger.info('Evaluation done.\n')
+        opt = check_eval_options()
+        main(opt)
+
+        logger.logger.info('Evaluation done.\n')
+
+    except:
+        logger.logger.info('', exc_info=True)
