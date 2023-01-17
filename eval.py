@@ -6,9 +6,11 @@ from pathlib import Path
 import glob
 import re
 import json
-from lib import set_eval, set_logger
-from lib import Logger as logger
+from lib import set_eval, BaseLogger
 from typing import List
+
+
+logger = BaseLogger.get_logger(__name__)
 
 
 class EvalOptions:
@@ -102,21 +104,25 @@ def main(opt):
     task = check_task(args.datetime_dir)
     task_eval = set_eval(task)
 
-    logger.logger.info(f"Calculating metrics of {task} for {args.datetime_dir}.\n")
+    logger.info(f"Calculating metrics of {task} for {args.datetime_dir}.\n")
 
     for likelihood_path in likelihood_paths:
-        logger.logger.info(likelihood_path.name)
+        logger.info(likelihood_path.name)
         task_eval.make_metrics(likelihood_path)
-        logger.logger.info('')
+        logger.info('')
 
-    logger.logger.info('\nUpdated summary.')
+    logger.info('\nUpdated summary.')
 
 
 if __name__ == '__main__':
-    set_logger()
-    logger.logger.info('\nEvaluation started.\n')
+    try:
+        logger.info('\nEvaluation started.\n')
 
-    opt = check_eval_options()
-    main(opt)
+        opt = check_eval_options()
+        main(opt)
 
-    logger.logger.info('Evaluation done.\n')
+    except Exception as e:
+        logger.error(e, exc_info=True)
+
+    else:
+        logger.info('\nEvaluation finished.\n')

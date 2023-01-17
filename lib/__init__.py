@@ -4,7 +4,7 @@
 from .options import check_train_options, check_test_options
 from .framework import create_model, set_params
 from .metrics import set_eval
-from .logger import Logger, set_logger
+from .logger import BaseLogger
 
 __all__ = [
             'check_train_options',
@@ -12,6 +12,5 @@ __all__ = [
             'set_params',
             'create_model',
             'set_eval',
-            'Logger',
-            'set_logger'
+            'BaseLogger'
         ]

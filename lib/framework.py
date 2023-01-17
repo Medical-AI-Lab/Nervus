@@ -15,9 +15,12 @@ from .component import (
                 create_dataloader,
                 create_net
                 )
-from .logger import Logger as logger
+from .logger import BaseLogger
 from typing import List, Dict, Tuple, Union
 import argparse
+
+
+logger = BaseLogger.get_logger(__name__)
 
 
 class BaseParam:
@@ -68,7 +71,7 @@ class BaseParam:
                 pass
 
         message += f"{'-'*30} End {'-'*48}\n"
-        logger.logger.info(message)
+        logger.info(message)
 
     def _arg2str(self, param: str, arg: Union[str, int, float]) -> str:
         """
@@ -104,8 +107,8 @@ class BaseParam:
         """
         for split, dataloader in self.dataloaders.items():
             total = len(dataloader.dataset)
-            logger.logger.info(f"{split:>5}_data = {total}")
-        logger.logger.info('')
+            logger.info(f"{split:>5}_data = {total}")
+        logger.info('')
 
     def save_parameter(self) -> None:
         """
@@ -510,7 +513,7 @@ class SaveLoadMixin:
         """
         weight = torch.load(weight_path)
         self.network.load_state_dict(weight)
-        logger.logger.info(f"Load weight: {weight_path}.")
+        logger.info(f"Load weight: {weight_path}.")
 
         # Make model compute on GPU after loading weight.
         self._enable_on_gpu_if_available()
