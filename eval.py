@@ -125,4 +125,4 @@ if __name__ == '__main__':
         logger.error(e, exc_info=True)
 
     else:
-        logger.info('Evaluation done.\n')
+        logger.info('\nEvaluation finished.\n')
