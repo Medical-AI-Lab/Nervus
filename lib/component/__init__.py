@@ -8,7 +8,6 @@ from .optimizer import set_optimizer
 from .loss import create_loss_reg
 from .likelihood import set_likelihood
 
-
 __all__ = [
             'make_split_provider',
             'create_dataloader',

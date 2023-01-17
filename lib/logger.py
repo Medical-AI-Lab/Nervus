@@ -15,7 +15,6 @@ class BaseLogger:
     def get_logger(cls, name: str) -> logging.Logger:
         """
         Set logger.
-
         Args:
             name (str): If needed, potentially hierarchical name is desired, eg. lib.net, lib.dataloader, etc.
                         For the details, see https://docs.python.org/3/library/logging.html?highlight=logging#module-logging.
@@ -40,37 +39,12 @@ class BaseLogger:
         log_dir.mkdir(parents=True, exist_ok=True)
         log_path = Path(log_dir, 'log.log')
         fh = logging.FileHandler(log_path)
+        fh.setLevel(logging.DEBUG)
         _root_logger.addHandler(fh)
 
-        # uppper warining
+        # stream handler
         ch = logging.StreamHandler()
-        ch.setLevel(logging.WARNING)
-        format = logging.Formatter('%(levelname)-8s %(message)s')
-        ch.setFormatter(format)
-        ch.addFilter(lambda log_record: log_record.levelno >= logging.WARNING)
+        ch.setLevel(logging.DEBUG)
         _root_logger.addHandler(ch)
 
-        # lower warning
-        ch_info = logging.StreamHandler()
-        ch_info.setLevel(logging.DEBUG)
-        ch_info.addFilter(lambda log_record: log_record.levelno < logging.WARNING)
-        _root_logger.addHandler(ch_info)
-
         cls._unexecuted_configure = False
-
-
-class Logger:
-    """
-    Class to handle logger as global.
-
-    As default, set logger which does nothing.
-    """
-    logger = logging.getLogger('null')
-    logger.addHandler(logging.NullHandler())
-
-
-def set_logger() -> None:
-    """
-    Set logger by orverwriting the default Logger.logger.
-    """
-    Logger.logger = BaseLogger.get_logger('logs')

@@ -7,9 +7,11 @@ from lib import (
         check_train_options,
         set_params,
         create_model,
-        set_logger
+        BaseLogger
         )
-from lib import Logger as logger
+
+
+logger = BaseLogger.get_logger(__name__)
 
 
 def main(opt):
@@ -59,18 +61,16 @@ def main(opt):
     params.save_parameter()
 
 
-
 if __name__ == '__main__':
-    set_logger()
-
     try:
         datetime_name = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
-        logger.logger.info(f"\nTraining started at {datetime_name}.\n")
+        logger.info(f"\nTraining started at {datetime_name}.\n")
 
         opt = check_train_options(datetime_name)
         main(opt)
 
-        logger.logger.info('\nTraining finished.\n')
+    except Exception as e:
+        logger.error(e, exc_info=True)
 
-    except:
-        logger.logger.info('', exc_info=True)
+    else:
+        logger.info('\nTraining finished.\n')

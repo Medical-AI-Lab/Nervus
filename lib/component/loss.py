@@ -4,8 +4,11 @@
 from dataclasses import dataclass, field
 from abc import ABC, abstractmethod
 import torch
-from ..logger import Logger as logger
+from ..logger import BaseLogger
 from typing import List, Dict, Union
+
+
+logger = BaseLogger.get_logger(__name__)
 
 
 @dataclass
@@ -249,7 +252,7 @@ class LossMixin:
         if (epoch > 0) and (_total_epoch_loss.is_val_loss_updated()):
             updated_commemt = '   Updated best val_loss!'
         comment = epoch_comm + ', ' + train_comm + ', ' + val_comm + updated_commemt
-        logger.logger.info(comment)
+        logger.info(comment)
 
 
 class LossWidget(LossRegistory, LossMixin):

@@ -7,11 +7,13 @@ from lib import (
         check_test_options,
         set_params,
         create_model,
-        set_logger
+        BaseLogger
         )
 from lib.component import set_likelihood
-from lib import Logger as logger
 from typing import List
+
+
+logger = BaseLogger.get_logger(__name__)
 
 
 def _collect_weight(weight_dir: str) -> List[Path]:
@@ -41,7 +43,7 @@ def main(opt):
 
     weight_paths = _collect_weight(params.weight_dir)
     for weight_path in weight_paths:
-        logger.logger.info(f"Inference with {weight_path.name}.")
+        logger.info(f"Inference with {weight_path.name}.")
 
         # weight is orverwritten every time weight is loaded.
         model.load_weight(weight_path)
@@ -64,15 +66,14 @@ def main(opt):
 
 
 if __name__ == '__main__':
-    set_logger()
-
     try:
-        logger.logger.info('\nTest started.\n')
+        logger.info('\nTest started.\n')
 
         opt = check_test_options()
         main(opt)
 
-        logger.logger.info('\nTest finished.\n')
+    except Exception as e:
+        logger.error(e, exc_info=True)
 
-    except:
-        logger.logger.info('', exc_info=True)
+    else:
+        logger.info('\nTest finished.\n')

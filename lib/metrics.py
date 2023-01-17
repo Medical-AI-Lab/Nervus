@@ -8,8 +8,11 @@ from sklearn import metrics
 from sklearn.preprocessing import label_binarize
 import matplotlib.pyplot as plt
 from matplotlib import colors as mcolors
-from .logger import Logger as logger
+from .logger import BaseLogger
 from typing import Dict, Union
+
+
+logger = BaseLogger.get_logger(__name__)
 
 
 class MetricsData:
@@ -385,12 +388,12 @@ class MetricsMixin:
         num_splits = len(['val', 'test'])
         _column_val_test_list = [label_list[i:i+num_splits] for i in range(0, len(label_list), num_splits)]  # [[label_1_val, label_1_test], [label_2_val, label_2_test], ...]
         for _, row in df_summary.iterrows():
-            logger.logger.info(row['Institution'])
+            logger.info(row['Institution'])
             for _column_val_test in _column_val_test_list:
                 _label_name = _column_val_test[0].replace('_val', '')
                 _label_name_val = _column_val_test[0]
                 _label_name_test = _column_val_test[1]
-                logger.logger.info(f"{_label_name:<25} val_{metrics_kind}: {row[_label_name_val]:>7}, test_{metrics_kind}: {row[_label_name_test]:>7}")
+                logger.info(f"{_label_name:<25} val_{metrics_kind}: {row[_label_name_val]:>7}, test_{metrics_kind}: {row[_label_name_test]:>7}")
 
     def update_summary(self, df_summary: pd.DataFrame, likelihood_path: Path) -> None:
         """
