@@ -103,6 +103,7 @@ class ClsLikelihood(BaseLikelihood):
         _df_new = pd.DataFrame({
                             'uniqID': data['uniqID'],
                             'imgpath': [str(imgpath) for imgpath in data['imgpath']],
+                            'group': data['group'],
                             'split': data['split']
                             })
 
@@ -162,6 +163,7 @@ class RegLikelihood(BaseLikelihood):
         _df_new = pd.DataFrame({
                             'uniqID': data['uniqID'],
                             'imgpath': [str(imgpath) for imgpath in data['imgpath']],
+                            'group': data['group'],
                             'split': data['split']
                             })
 
@@ -207,6 +209,7 @@ class DeepSurvLikelihood(RegLikelihood):
         _df_new = pd.DataFrame({
                             'uniqID': data['uniqID'],
                             'imgpath': [str(imgpath) for imgpath in data['imgpath']],
+                            'group': data['group'],
                             'split': data['split'],
                             'periods': data['periods']
                             })

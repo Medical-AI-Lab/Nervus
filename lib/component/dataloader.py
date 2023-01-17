@@ -138,6 +138,9 @@ def make_split_provider(csv_path: str, task: str) -> Union[ClsSplitProvider, Reg
     _df_source = pd.read_csv(csv_path)
     _df_excluded = _df_source[_df_source['split'] != 'exclude']
 
+    if not('group' in _df_excluded.columns):
+        _df_excluded['group'] = 'all'
+
     if task == 'classification':
         sp = ClsSplitProvider(_df_excluded)
     elif task == 'regression':
@@ -414,6 +417,7 @@ class LoadDataSet(Dataset, DataSetWidget):
         """
         uniqID = self.df_split.iat[idx, self.col_index_dict['uniqID']]
         imgpath = self.df_split.iat[idx, self.col_index_dict['imgpath']]
+        group = self.df_split.iat[idx, self.col_index_dict['group']]
         inputs_value = self._load_input_value_if_mlp(idx)
         image = self._load_image_if_cnn(idx)
         label_dict = self._load_label(idx)
@@ -423,6 +427,7 @@ class LoadDataSet(Dataset, DataSetWidget):
         _data = {
                 'uniqID': uniqID,
                 'imgpath': imgpath,
+                'group': group,
                 'inputs': inputs_value,
                 'image': image,
                 'labels': label_dict,
