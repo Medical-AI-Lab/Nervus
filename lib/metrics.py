@@ -96,19 +96,19 @@ class ROCMixin:
         label_metrics.set_label_metrics(split, 'tpr', tpr)
         label_metrics.set_label_metrics(split, self.metrics_kind, metrics.auc(fpr, tpr))
 
-    def _cal_label_roc_binary(self, label_name: str, df_inst: pd.DataFrame) -> LabelMetrics:
+    def _cal_label_roc_binary(self, label_name: str, df_group: pd.DataFrame) -> LabelMetrics:
         """
         Calculate ROC for binary class.
 
         Args:
             label_name (str): label name
-            df_inst (pd.DataFrame): likelihood for institution
+            df_group (pd.DataFrame): likelihood for group
 
         Returns:
             LabelMetrics: metrics of 'val' and 'test'
         """
-        required_columns = [column_name for column_name in df_inst.columns if label_name in column_name] + ['split']
-        df_label = df_inst[required_columns]
+        required_columns = [column_name for column_name in df_group.columns if label_name in column_name] + ['split']
+        df_label = df_group[required_columns]
         POSITIVE = 1
         positive_pred_name = 'pred_' + label_name + '_' + str(POSITIVE)
 
@@ -122,19 +122,19 @@ class ROCMixin:
             self._set_roc(label_metrics, split, _fpr, _tpr)
         return label_metrics
 
-    def _cal_label_roc_multi(self, label_name: str, df_inst: pd.DataFrame) -> LabelMetrics:
+    def _cal_label_roc_multi(self, label_name: str, df_group: pd.DataFrame) -> LabelMetrics:
         """
         Calculate ROC for multi-class by macro average.
 
         Args:
             label_name (str): label name
-            df_inst (pd.DataFrame): likelihood for institution
+            df_group (pd.DataFrame): likelihood for group
 
         Returns:
             LabelMetrics: metrics of 'val' and 'test'
         """
-        required_columns = [column_name for column_name in df_inst.columns if label_name in column_name] + ['split']
-        df_label = df_inst[required_columns]
+        required_columns = [column_name for column_name in df_group.columns if label_name in column_name] + ['split']
+        df_label = df_group[required_columns]
 
         pred_name_list = list(df_label.columns[df_label.columns.str.startswith('pred')])
         class_list = [int(pred_name.rsplit('_', 1)[-1]) for pred_name in pred_name_list]  # [pred_label_0, pred_label_1, pred_label_2] -> [0, 1, 2]
@@ -169,23 +169,23 @@ class ROCMixin:
             self._set_roc(label_metrics, split, _fpr['macro'], _tpr['macro'])
         return label_metrics
 
-    def cal_label_metrics(self, label_name: str, df_inst: pd.DataFrame) -> LabelMetrics:
+    def cal_label_metrics(self, label_name: str, df_group: pd.DataFrame) -> LabelMetrics:
         """
         Calculate ROC and AUC for label depending on binary or multi-class.
 
         Args:
             label_name (str):label name
-            df_inst (pd.DataFrame): likelihood for institution
+            df_group (pd.DataFrame): likelihood for group
 
         Returns:
             LabelMetrics: metrics of 'val' and 'test'
         """
-        pred_name_list = df_inst.columns[df_inst.columns.str.startswith('pred_' + label_name)]
+        pred_name_list = df_group.columns[df_group.columns.str.startswith('pred_' + label_name)]
         isMultiClass = (len(pred_name_list) > 2)
         if isMultiClass:
-            label_metrics = self._cal_label_roc_multi(label_name, df_inst)
+            label_metrics = self._cal_label_roc_multi(label_name, df_group)
         else:
-            label_metrics = self._cal_label_roc_binary(label_name, df_inst)
+            label_metrics = self._cal_label_roc_binary(label_name, df_group)
         return label_metrics
 
 
@@ -209,19 +209,19 @@ class YYMixin:
         label_metrics.set_label_metrics(split, 'y_pred', y_pred.values)
         label_metrics.set_label_metrics(split, self.metrics_kind, metrics.r2_score(y_obs, y_pred))
 
-    def cal_label_metrics(self, label_name: str, df_inst: pd.DataFrame) -> LabelMetrics:
+    def cal_label_metrics(self, label_name: str, df_group: pd.DataFrame) -> LabelMetrics:
         """
         Calculate YY and R2 for label.
 
         Args:
             label_name (str): label name
-            df_inst (pd.DataFrame): likelihood for institution
+            df_group (pd.DataFrame): likelihood for group
 
         Returns:
             LabelMetrics: metrics of 'val' and 'test'
         """
-        required_columns = [column_name for column_name in df_inst.columns if label_name in column_name] + ['split']
-        df_label = df_inst[required_columns]
+        required_columns = [column_name for column_name in df_group.columns if label_name in column_name] + ['split']
+        df_label = df_group[required_columns]
         label_metrics = LabelMetrics()
         for split in ['val', 'test']:
             df_split = df_label.query('split == @split')
@@ -259,19 +259,19 @@ class C_IndexMixin:
         value_c_index = concordance_index(periods, (-1)*preds, labels)
         label_metrics.set_label_metrics(split, self.metrics_kind, value_c_index)
 
-    def cal_label_metrics(self, label_name: str, df_inst: pd.DataFrame) -> LabelMetrics:
+    def cal_label_metrics(self, label_name: str, df_group: pd.DataFrame) -> LabelMetrics:
         """
         Calculate C-Index for label.
 
         Args:
             label_name (str): label name
-            df_inst (pd.DataFrame): likelihood for institution
+            df_group (pd.DataFrame): likelihood for group
 
         Returns:
             LabelMetrics: metrics of 'val' and 'test'
         """
-        required_columns = [column_name for column_name in df_inst.columns if label_name in column_name] + ['periods', 'split']
-        df_label = df_inst[required_columns]
+        required_columns = [column_name for column_name in df_group.columns if label_name in column_name] + ['periods', 'split']
+        df_label = df_group[required_columns]
         label_metrics = LabelMetrics()
         for split in ['val', 'test']:
             df_split = df_label.query('split == @split')
@@ -284,59 +284,44 @@ class C_IndexMixin:
 
 class MetricsMixin:
     """
-    Class which has common methods to calculating metrics and making summary.
+    Class to calculate metrics and make summary.
     """
-    def make_format(self, df_likelihood: pd.DataFrame) -> pd.DataFrame:
+    def _cal_group_metrics(self, df_group: pd.DataFrame) -> Dict[str, LabelMetrics]:
         """
-        Format likelihood by adding the column of institution.
+        Calculate metrics for each group.
 
         Args:
-            df_likelihood (pd.DataFrame): DataFrame of likelihood
-
-        Returns:
-            pd.DataFrame: DataFrame of likelihood with column of insitution
-        """
-        # materials/dogcat/imgs/all/Dog_4774_size-64.jpg -> all/Dog_4774_size-64.jpg -> all
-        s_inst = df_likelihood['imgpath'].str.replace('(.*)/imgs/', '', regex=True).str.split('/', expand=True)[0]
-        df_likelihood['Institution'] = s_inst
-        return df_likelihood
-
-    def _cal_inst_metrics(self, df_inst: pd.DataFrame) -> Dict[str, LabelMetrics]:
-        """
-        Calculate metrics for each institution.
-
-        Args:
-            df_inst (pd.DataFrame): likelihood for institution
+            df_group (pd.DataFrame): likelihood for group
 
         Returns:
             Dict[str, LabelMetrics]: dictionary of label and its LabelMetrics
             eg. {{label_1: LabelMetrics(), label_2: LabelMetrics(), ...}
         """
-        label_list = list(df_inst.columns[df_inst.columns.str.startswith('label')])
-        inst_metrics = dict()
+        label_list = list(df_group.columns[df_group.columns.str.startswith('label')])
+        group_metrics = dict()
         for label_name in label_list:
-            label_metrics = self.cal_label_metrics(label_name, df_inst)
-            inst_metrics[label_name] = label_metrics
-        return inst_metrics
+            label_metrics = self.cal_label_metrics(label_name, df_group)
+            group_metrics[label_name] = label_metrics
+        return group_metrics
 
     def cal_whole_metrics(self, df_likelihood: pd.DataFrame) -> Dict[str, Dict[str, LabelMetrics]]:
         """
-        Calculate metrics for all institutions.
+        Calculate metrics for all groups.
 
         Args:
             df_likelihood (pd.DataFrame) : DataFrame of likelihood
 
         Returns:
-            Dict[str, Dict[str, LabelMetrics]]: dictionary of institution and dictionary of label and its LabelMetrics
+            Dict[str, Dict[str, LabelMetrics]]: dictionary of group and dictionary of label and its LabelMetrics
             eg. {
-                instA: {label_1: LabelMetrics(), label_2: LabelMetrics(), ...},
-                instB: {label_1: LabelMetrics(), label_2: LabelMetrics()}, ...},
+                groupA: {label_1: LabelMetrics(), label_2: LabelMetrics(), ...},
+                groupB: {label_1: LabelMetrics(), label_2: LabelMetrics()}, ...},
                 ...}
         """
         whole_metrics = dict()
-        for inst in df_likelihood['Institution'].unique():
-            df_inst = df_likelihood.query('Institution == @inst')
-            whole_metrics[inst] = self._cal_inst_metrics(df_inst)
+        for group in df_likelihood['group'].unique():
+            df_group = df_likelihood.query('group == @group')
+            whole_metrics[group] = self._cal_group_metrics(df_group)
         return whole_metrics
 
     def make_summary(
@@ -349,7 +334,7 @@ class MetricsMixin:
         Make summary.
 
         Args:
-            whole_metrics (Dict[str, Dict[str, LabelMetrics]]): metrics for all institutions
+            whole_metrics (Dict[str, Dict[str, LabelMetrics]]): metrics for all groups
             likelihood_path (Path): path to likelihood
             metrics_kind (str): kind of metrics, ie, 'auc', 'r2', or 'c_index'
 
@@ -359,21 +344,20 @@ class MetricsMixin:
         # likelihood_path =
         # PosixPath('baseset/results/int_cla_multi_output_multi_class/sets/2022-10-04-10-16-27/likelihoods/likelihood_weight_epoch-003_best.csv')
         _datetime_dirpath = likelihood_path.parents[1]  # Path('baseset/results/int_cla_multi_output_multi_class/sets/2022-10-04-10-16-27')
-
         df_summary = pd.DataFrame()
-        for inst, inst_metrics in whole_metrics.items():
+        for group, group_metrics in whole_metrics.items():
             _new = dict()
             _new['datetime'] = [_datetime_dirpath.name]  # '2022-10-04-10-16-27'
             _new['weight'] = [likelihood_path.stem.replace('likelihood_', '') + '.pt']
-            _new['Institution'] = [inst]
-            for label_name, label_metrics in inst_metrics.items():
+            _new['group'] = [group]
+            for label_name, label_metrics in group_metrics.items():
                 _val_metrics = label_metrics.get_label_metrics('val', metrics_kind)
                 _test_metrics = label_metrics.get_label_metrics('test', metrics_kind)
                 _new[label_name + '_val_' + metrics_kind] = [f"{_val_metrics:.2f}"]
                 _new[label_name + '_test_' + metrics_kind] = [f"{_test_metrics:.2f}"]
             df_summary = pd.concat([df_summary, pd.DataFrame(_new)], ignore_index=True)
 
-        df_summary = df_summary.sort_values('Institution')
+        df_summary = df_summary.sort_values('group')
         return df_summary
 
     def print_metrics(self, df_summary: pd.DataFrame, metrics_kind: str) -> None:
@@ -388,7 +372,7 @@ class MetricsMixin:
         num_splits = len(['val', 'test'])
         _column_val_test_list = [label_list[i:i+num_splits] for i in range(0, len(label_list), num_splits)]  # [[label_1_val, label_1_test], [label_2_val, label_2_test], ...]
         for _, row in df_summary.iterrows():
-            logger.info(row['Institution'])
+            logger.info(row['group'])
             for _column_val_test in _column_val_test_list:
                 _label_name = _column_val_test[0].replace('_val', '')
                 _label_name_val = _column_val_test[0]
@@ -418,14 +402,13 @@ class MetricsMixin:
 
     def make_metrics(self, likelihood_path: Path) -> None:
         """
-        Make metrics, substantially this method handles everthing all.
+        Make metrics.
 
         Args:
             likelihood_path (Path): path to likelihood
         """
         df_likelihood = pd.read_csv(likelihood_path)
-        _df_likelihood = self.make_format(df_likelihood)
-        whole_metrics = self.cal_whole_metrics(_df_likelihood)
+        whole_metrics = self.cal_whole_metrics(df_likelihood)
         self.make_save_fig(whole_metrics, likelihood_path, self.fig_kind)
         df_summary = self.make_summary(whole_metrics, likelihood_path, self.metrics_kind)
         self.print_metrics(df_summary, self.metrics_kind)
@@ -436,18 +419,18 @@ class FigROCMixin:
     """
     Class to plot ROC.
     """
-    def _plot_fig_inst_metrics(self, inst: str, inst_metrics: Dict[str, LabelMetrics]) -> plt:
+    def _plot_fig_group_metrics(self, group: str, group_metrics: Dict[str, LabelMetrics]) -> plt:
         """
         Plot ROC.
 
         Args:
-            inst (str): institution
-            inst_metrics (Dict[str, LabelMetrics]): dictionary of label and its LabelMetrics
+            group (str): group
+            group_metrics (Dict[str, LabelMetrics]): dictionary of label and its LabelMetrics
 
         Returns:
             plt: ROC
         """
-        label_list = inst_metrics.keys()
+        label_list = group_metrics.keys()
         num_rows = 1
         num_cols = len(label_list)
         base_size = 7
@@ -456,13 +439,13 @@ class FigROCMixin:
         fig = plt.figure(figsize=(width, height))
 
         for i, label_name in enumerate(label_list):
-            label_metrics = inst_metrics[label_name]
+            label_metrics = group_metrics[label_name]
             offset = i + 1
             ax_i = fig.add_subplot(
                                     num_rows,
                                     num_cols,
                                     offset,
-                                    title=inst + ': ' + label_name,
+                                    title=group + ': ' + label_name,
                                     xlabel='1 - Specificity',
                                     ylabel='Sensitivity',
                                     xmargin=0,
@@ -480,18 +463,18 @@ class FigYYMixin:
     """
     Class to plot YY-graph.
     """
-    def _plot_fig_inst_metrics(self, inst: str, inst_metrics: Dict[str, LabelMetrics]) -> plt:
+    def _plot_fig_group_metrics(self, group: str, group_metrics: Dict[str, LabelMetrics]) -> plt:
         """
         Plot yy.
 
         Args:
-            inst (str): institution
-            inst_metrics (Dict[str, LabelMetrics]): dictionary of label and its LabelMetrics
+            group (str): group
+            group_metrics (Dict[str, LabelMetrics]): dictionary of label and its LabelMetrics
 
         Returns:
             plt: YY-graph
         """
-        label_list = inst_metrics.keys()
+        label_list = group_metrics.keys()
         num_splits = len(['val', 'test'])
         num_rows = 1
         num_cols = len(label_list) * num_splits
@@ -501,7 +484,7 @@ class FigYYMixin:
         fig = plt.figure(figsize=(width, height))
 
         for i, label_name in enumerate(label_list):
-            label_metrics = inst_metrics[label_name]
+            label_metrics = group_metrics[label_name]
             val_offset = (i * num_splits) + 1
             test_offset = val_offset + 1
 
@@ -509,7 +492,7 @@ class FigYYMixin:
                                     num_rows,
                                     num_cols,
                                     val_offset,
-                                    title=inst + ': ' + label_name + '\n' + 'val: Observed-Predicted Plot',
+                                    title=group + ': ' + label_name + '\n' + 'val: Observed-Predicted Plot',
                                     xlabel='Observed',
                                     ylabel='Predicted',
                                     xmargin=0,
@@ -520,7 +503,7 @@ class FigYYMixin:
                                     num_rows,
                                     num_cols,
                                     test_offset,
-                                    title=inst + ': ' + label_name + '\n' + 'test: Observed-Predicted Plot',
+                                    title=group + ': ' + label_name + '\n' + 'test: Observed-Predicted Plot',
                                     xlabel='Observed',
                                     ylabel='Predicted',
                                     xmargin=0,
@@ -565,19 +548,19 @@ class FigMixin:
         Make and save figure.
 
         Args:
-            whole_metrics (Dict[str, Dict[str, LabelMetrics]]): metrics for all institutions
+            whole_metrics (Dict[str, Dict[str, LabelMetrics]]): metrics for all groups
             likelihood_path (Path): path to likelihood
             fig_kind (str): kind of figure, ie. 'roc' or 'yy'
         """
         # likelihood_path =
         # PosixPath('baseset/results/int_cla_multi_output_multi_class/sets/2022-10-04-10-16-27/likelihoods/likelihood_weight_epoch-003_best.csv')
-        for inst, inst_metrics in whole_metrics.items():
-            fig = self._plot_fig_inst_metrics(inst, inst_metrics)
+        for group, group_metrics in whole_metrics.items():
+            fig = self._plot_fig_group_metrics(group, group_metrics)
             _datetime_dirpath = likelihood_path.parents[1]  # -> Path('baseset/results/int_cla_multi_output_multi_class/sets/2022-10-04-10-16-27')
             save_dir = Path(_datetime_dirpath, fig_kind)
             save_dir.mkdir(parents=True, exist_ok=True)
-            # 'likelihood_weight_epoch-010_best.csv'  -> inst_roc_weight_epoch-010_best.png
-            save_path = Path(save_dir, inst + '_' + fig_kind + '_' + likelihood_path.stem.replace('likelihood_', '') + '.png')
+            # 'likelihood_weight_epoch-010_best.csv'  -> group_roc_weight_epoch-010_best.png
+            save_path = Path(save_dir, group + '_' + fig_kind + '_' + likelihood_path.stem.replace('likelihood_', '') + '.png')
             fig.savefig(save_path)
             plt.close()
 
@@ -619,8 +602,7 @@ class DeepSurvEval(MetricsMixin, C_IndexMixin):
         because of no need to plot and save figure.
         """
         df_likelihood = pd.read_csv(likelihood_path)
-        _df_likelihood = self.make_format(df_likelihood)
-        whole_metrics = self.cal_whole_metrics(_df_likelihood)
+        whole_metrics = self.cal_whole_metrics(df_likelihood)
         df_summary = self.make_summary(whole_metrics, likelihood_path, self.metrics_kind)
         self.print_metrics(df_summary, self.metrics_kind)
         self.update_summary(df_summary, likelihood_path)

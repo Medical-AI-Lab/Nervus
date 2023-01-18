@@ -513,7 +513,7 @@ class SaveLoadMixin:
         """
         weight = torch.load(weight_path)
         self.network.load_state_dict(weight)
-        logger.info(f"Load weight: {weight_path}.")
+        logger.info(f"Load weight: {weight_path}.\n")
 
         # Make model compute on GPU after loading weight.
         self._enable_on_gpu_if_available()

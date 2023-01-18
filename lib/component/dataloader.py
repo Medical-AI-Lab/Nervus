@@ -136,7 +136,10 @@ def make_split_provider(csv_path: str, task: str) -> Union[ClsSplitProvider, Reg
     """
 
     _df_source = pd.read_csv(csv_path)
-    _df_excluded = _df_source[_df_source['split'] != 'exclude']
+    _df_excluded = _df_source[_df_source['split'] != 'exclude'].copy()
+
+    if not('group' in _df_excluded.columns):
+        _df_excluded['group'] = 'all'
 
     if task == 'classification':
         sp = ClsSplitProvider(_df_excluded)
@@ -413,21 +416,23 @@ class LoadDataSet(Dataset, DataSetWidget):
             Dict: dictionary of data to be passed model
         """
         uniqID = self.df_split.iat[idx, self.col_index_dict['uniqID']]
+        group = self.df_split.iat[idx, self.col_index_dict['group']]
         imgpath = self.df_split.iat[idx, self.col_index_dict['imgpath']]
+        split = self.df_split.iat[idx, self.col_index_dict['split']]
         inputs_value = self._load_input_value_if_mlp(idx)
         image = self._load_image_if_cnn(idx)
         label_dict = self._load_label(idx)
         periods = self._load_periods_if_deepsurv(idx)
-        split = self.df_split.iat[idx, self.col_index_dict['split']]
 
         _data = {
                 'uniqID': uniqID,
+                'group': group,
                 'imgpath': imgpath,
+                'split': split,
                 'inputs': inputs_value,
                 'image': image,
                 'labels': label_dict,
-                'periods': periods,
-                'split': split
+                'periods': periods
                 }
         return _data
 
