@@ -20,7 +20,7 @@ class Options:
         """
         self.parser = argparse.ArgumentParser(description='Options for training or test')
 
-        # The blow is common argument both at training and test.
+        # CSV
         self.parser.add_argument('--csvpath', type=str, required=True, help='path to csv for training or test')
 
         # GPU Ids
@@ -121,11 +121,9 @@ class Options:
 
         Returns:
             str: path to directory of the latest weight
-            eg. 'materials/docs/[csv_name].csv'
-                -> 'materials/results/[csv_name]/sets/2022-09-30-15-56-60/weights'
+            eg. 'results/<project>/trials/2022-09-30-15-56-60/weights'
         """
-        _dataset_dir = re.findall('(.*)/docs', self.args.csvpath)[0]
-        _weight_dirs = list(Path(_dataset_dir, 'results').glob('*/sets/*/weights'))
+        _weight_dirs = list(Path('results').glob('*/trials/*/weights'))
         assert (_weight_dirs != []), 'No directory of weight.'
         weight_dir = max(_weight_dirs, key=lambda weight_dir: weight_dir.stat().st_mtime)
         return str(weight_dir)
@@ -134,6 +132,9 @@ class Options:
         """
         Parse options.
         """
+        _project = Path(self.args.csvpath).stem
+        setattr(self.args, 'project', _project)
+
         _gpu_ids = self._parse_gpu_ids(self.args.gpu_ids)
         setattr(self.args, 'gpu_ids', _gpu_ids)
 
