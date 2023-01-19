@@ -180,7 +180,7 @@ class TrainParam(BaseParam):
 
         # Directory for saveing paramaters, weights, or learning_curve
         _datetime = self.datetime
-        _save_datetime_dir = str(Path(self._dataset_dir, 'results', self._csv_name, 'sets', _datetime))
+        _save_datetime_dir = str(Path(self._dataset_dir, 'results', self._csv_name, 'trials', _datetime))
         self.save_datetime_dir = _save_datetime_dir
 
         # Dataloader
@@ -251,9 +251,9 @@ class TestParam(BaseParam):
         sp = make_split_provider(self.csvpath, self.task)
         self.device = torch.device(f"cuda:{self.gpu_ids[0]}") if self.gpu_ids != [] else torch.device('cpu')
 
-        # Directory for saving ikelihood
+        # Directory for saving likelihood
         _datetime = _save_datetime_dir.name
-        _save_datetime_dir = str(Path(self._dataset_dir, 'results', self._csv_name, 'sets', _datetime))  # csv_name might be for external dataset
+        _save_datetime_dir = str(Path(self._dataset_dir, 'results', self._csv_name, 'trials', _datetime))  # csv_name might be for external dataset
         self.save_datetime_dir = _save_datetime_dir
 
         # Align splits to be test
