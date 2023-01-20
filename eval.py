@@ -44,9 +44,8 @@ class EvalOptions:
             _likelihood_dir = self._get_latest_likelihood_dir()
             setattr(self.args, 'likelihood_dir', _likelihood_dir)
 
-        _datetime = Path(_likelihood_dir).parents[0].name
+        _datetime = Path(self.args.likelihood_dir).parents[0].name
         setattr(self.args, 'datetime',  _datetime)
-
 
 
 def collect_likelihood(likelihood_dir: str) -> List[Path]:
