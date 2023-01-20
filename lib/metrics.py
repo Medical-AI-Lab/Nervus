@@ -386,8 +386,8 @@ class MetricsMixin:
             df_summary (pd.DataFrame): summary to be added to the previous summary
             likelihood_path (Path): path to likelihood
         """
-        _project_path = likelihood_path.parents[3]
-        summary_dir = Path(_project_path, 'summary')
+        _project_dir = likelihood_path.parents[3]
+        summary_dir = Path(_project_dir, 'summary')
         summary_path = Path(summary_dir, 'summary.csv')
         if summary_path.exists():
             df_prev = pd.read_csv(summary_path)
@@ -549,8 +549,8 @@ class FigMixin:
             likelihood_path (Path): path to likelihood
             fig_kind (str): kind of figure, ie. 'roc' or 'yy'
         """
-        _datetime_path = likelihood_path.parents[1]
-        save_dir = Path(_datetime_path, fig_kind)
+        _datetime_dir = likelihood_path.parents[1]
+        save_dir = Path(_datetime_dir, fig_kind)
         save_dir.mkdir(parents=True, exist_ok=True)
         _fig_name = fig_kind + '_' + likelihood_path.stem.replace('likelihood_', '')
         for group, group_metrics in whole_metrics.items():
