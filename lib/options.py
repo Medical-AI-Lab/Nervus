@@ -131,9 +131,6 @@ class Options:
         """
         Parse options.
         """
-        #_project = Path(self.args.csvpath).stem
-        #setattr(self.args, 'project', _project)
-
         _gpu_ids = self._parse_gpu_ids(self.args.gpu_ids)
         setattr(self.args, 'gpu_ids', _gpu_ids)
 
