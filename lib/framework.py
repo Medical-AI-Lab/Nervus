@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 
 from pathlib import Path
-import re
 import copy
 from abc import ABC, abstractmethod
 import pandas as pd
@@ -36,16 +35,11 @@ class BaseParam:
         for _param, _arg in vars(args).items():
             setattr(self, _param, _arg)
 
-        self._dataset_dir = re.findall('(.*)/docs', self.csvpath)[0]  # should be unique
-        self._csv_name = Path(self.csvpath).stem
-
     def print_parameter(self) -> None:
         """
         Print parameters
         """
         no_print = [
-                    '_dataset_dir',
-                    '_csv_name',
                     'mlp',
                     'net',
                     'input_list',
@@ -115,10 +109,8 @@ class BaseParam:
         Save parameters.
         """
         no_save = [
-                    '_dataset_dir',
-                    '_csv_name',
                     'dataloaders',
-                    'device',  # Need str(self.device) when save
+                    'device',  # Need str(self.device) if save
                     'isTrain',
                     'datetime',
                     'save_datetime_dir'
@@ -180,8 +172,7 @@ class TrainParam(BaseParam):
 
         # Directory for saveing paramaters, weights, or learning_curve
         _datetime = self.datetime
-        _save_datetime_dir = str(Path(self._dataset_dir, 'results', self._csv_name, 'trials', _datetime))
-        self.save_datetime_dir = _save_datetime_dir
+        self.save_datetime_dir = str(Path('results', args.project, 'trials', _datetime))
 
         # Dataloader
         self.dataloaders = {split: create_dataloader(self, sp.df_source, split=split) for split in ['train', 'val']}
@@ -253,8 +244,7 @@ class TestParam(BaseParam):
 
         # Directory for saving likelihood
         _datetime = _save_datetime_dir.name
-        _save_datetime_dir = str(Path(self._dataset_dir, 'results', self._csv_name, 'trials', _datetime))  # csv_name might be for external dataset
-        self.save_datetime_dir = _save_datetime_dir
+        self.save_datetime_dir = str(Path('results', args.project, 'trials', _datetime))
 
         # Align splits to be test
         _splits_in_df_source = sp.df_source['split'].unique().tolist()
@@ -281,7 +271,7 @@ class TestParam(BaseParam):
         if set(splits_in_df_source) < set(arg_test_splits):
             _test_splits = splits_in_df_source  # maybe when external dataset
         elif set(arg_test_splits) < set(splits_in_df_source):
-            _test_splits = arg_test_splits     # ['val', 'test'], or ['test']
+            _test_splits = arg_test_splits      # ['val', 'test'], or ['test']
         else:
             _test_splits = arg_test_splits
         return _test_splits
