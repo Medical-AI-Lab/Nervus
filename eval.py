@@ -108,8 +108,9 @@ def main(opt):
     for likelihood_path in likelihood_paths:
         logger.info(likelihood_path.name)
         task_eval.make_metrics(likelihood_path)
+        logger.info('\n')
 
-    logger.info('\nUpdated summary.')
+    logger.info('Updated summary.')
 
 
 if __name__ == '__main__':
