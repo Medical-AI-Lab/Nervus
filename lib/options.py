@@ -4,7 +4,6 @@
 import argparse
 from distutils.util import strtobool
 from pathlib import Path
-import re
 from typing import List, Tuple, Union
 
 
