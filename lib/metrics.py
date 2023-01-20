@@ -341,14 +341,13 @@ class MetricsMixin:
         Returns:
             pd.DataFrame: summary
         """
-        # likelihood_path =
-        # PosixPath('baseset/results/int_cla_multi_output_multi_class/sets/2022-10-04-10-16-27/likelihoods/likelihood_weight_epoch-003_best.csv')
-        _datetime_dirpath = likelihood_path.parents[1]  # Path('baseset/results/int_cla_multi_output_multi_class/sets/2022-10-04-10-16-27')
+        _datetime = likelihood_path.parents[1].name
+        _weight = likelihood_path.stem.replace('likelihood_', '') + '.pt'
         df_summary = pd.DataFrame()
         for group, group_metrics in whole_metrics.items():
             _new = dict()
-            _new['datetime'] = [_datetime_dirpath.name]  # '2022-10-04-10-16-27'
-            _new['weight'] = [likelihood_path.stem.replace('likelihood_', '') + '.pt']
+            _new['datetime'] = [_datetime]
+            _new['weight'] = [ _weight]
             _new['group'] = [group]
             for label_name, label_metrics in group_metrics.items():
                 _val_metrics = label_metrics.get_label_metrics('val', metrics_kind)
@@ -387,10 +386,8 @@ class MetricsMixin:
             df_summary (pd.DataFrame): summary to be added to the previous summary
             likelihood_path (Path): path to likelihood
         """
-        # likelihood_path =
-        # PosixPath('baseset/results/int_cla_multi_output_multi_class/sets/2022-10-04-10-16-27/likelihoods/likelihood_weight_epoch-003_best.csv')
-        _csv_name_dirpath = likelihood_path.parents[3]  # Path('baseset/results/int_cla_multi_output_multi_class')
-        summary_dir = Path(_csv_name_dirpath, 'summary')
+        _project_path = likelihood_path.parents[3]
+        summary_dir = Path(_project_path, 'summary')
         summary_path = Path(summary_dir, 'summary.csv')
         if summary_path.exists():
             df_prev = pd.read_csv(summary_path)
@@ -552,15 +549,13 @@ class FigMixin:
             likelihood_path (Path): path to likelihood
             fig_kind (str): kind of figure, ie. 'roc' or 'yy'
         """
-        # likelihood_path =
-        # PosixPath('baseset/results/int_cla_multi_output_multi_class/sets/2022-10-04-10-16-27/likelihoods/likelihood_weight_epoch-003_best.csv')
+        _datetime_path = likelihood_path.parents[1]
+        save_dir = Path(_datetime_path, fig_kind)
+        save_dir.mkdir(parents=True, exist_ok=True)
+        _fig_name = fig_kind + '_' + likelihood_path.stem.replace('likelihood_', '')
         for group, group_metrics in whole_metrics.items():
             fig = self._plot_fig_group_metrics(group, group_metrics)
-            _datetime_dirpath = likelihood_path.parents[1]  # -> Path('baseset/results/int_cla_multi_output_multi_class/sets/2022-10-04-10-16-27')
-            save_dir = Path(_datetime_dirpath, fig_kind)
-            save_dir.mkdir(parents=True, exist_ok=True)
-            # 'likelihood_weight_epoch-010_best.csv'  -> group_roc_weight_epoch-010_best.png
-            save_path = Path(save_dir, group + '_' + fig_kind + '_' + likelihood_path.stem.replace('likelihood_', '') + '.png')
+            save_path = Path(save_dir, group + '_' + _fig_name + '.png')
             fig.savefig(save_path)
             plt.close()
 
