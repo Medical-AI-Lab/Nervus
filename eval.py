@@ -3,7 +3,6 @@
 
 import argparse
 from pathlib import Path
-import re
 import json
 from lib import set_eval, BaseLogger
 from typing import List
@@ -68,7 +67,7 @@ def collect_likelihood(likelihood_dir: str) -> List[Path]:
 
 def check_task(datetime_name: str) -> str:
     """
-    Return task.
+    Return task done on datetime_name
 
     Args:
         datetime_dir (str): directory of datetime at traning
@@ -78,8 +77,8 @@ def check_task(datetime_name: str) -> str:
     """
     _parameter_path = list(Path('results').glob('*/trials/' + datetime_name + '/parameters.json'))[0]
     # If you specify the likelihood of an external dataset,
-    # the project name is different from the csv name in training,
-    # but the _datetime_dir is the same as the datatime in training, which is always one.
+    # the project name is different from project name in training,
+    # but the datetime_name is the same as the datatime in training, which is always one.
     with open(_parameter_path) as f:
         _parameters = json.load(f)
     task = _parameters['task']
@@ -100,16 +99,15 @@ def check_eval_options() -> EvalOptions:
 
 def main(opt):
     args = opt.args
-    likelihood_paths = collect_likelihood(args.likelihood_dir)
     task = check_task(args.datetime)
     task_eval = set_eval(task)
+    likelihood_paths = collect_likelihood(args.likelihood_dir)
 
     logger.info(f"Calculating metrics of {task} for {args.likelihood_dir}.\n")
 
     for likelihood_path in likelihood_paths:
         logger.info(likelihood_path.name)
         task_eval.make_metrics(likelihood_path)
-        logger.info('')
 
     logger.info('\nUpdated summary.')
 
@@ -126,3 +124,4 @@ if __name__ == '__main__':
 
     else:
         logger.info('\nEvaluation finished.\n')
+
