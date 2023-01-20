@@ -35,7 +35,7 @@ class BaseLogger:
         _root_logger.setLevel(logging.DEBUG)
         formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
-        log_dir = Path('./logs')
+        log_dir = Path('logs')
         log_dir.mkdir(parents=True, exist_ok=True)
         log_path = Path(log_dir, 'log.log')
 
