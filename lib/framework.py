@@ -234,7 +234,9 @@ class TestParam:
                             'input_list',  # should be used one at trainig
                             'label_list',  # shoudl be used one at trainig
                             'mlp_num_inputs',
-                            'num_outputs_for_label'
+                            'num_outputs_for_label',
+                            'period_name',
+                            'scaler_path'
                             ]
 
         for _param in required_for_test:
