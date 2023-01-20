@@ -234,12 +234,12 @@ class TestParam:
                             'input_list',  # should be used one at trainig
                             'label_list',  # shoudl be used one at trainig
                             'mlp_num_inputs',
-                            'num_outputs_for_label',
-                            'period_name',
-                            'scaler_path'
+                            'num_outputs_for_label'
                             ]
+
         for _param in required_for_test:
-            setattr(self.param, _param, parameters[_param])
+            if _param in parameters:
+                setattr(self.param, _param, parameters[_param])
 
         # No need the below at test
         self.param.augmentation = 'no'
