@@ -72,7 +72,7 @@ for row in $(tail -n +2 "$parameter_csv"); do
   echo "$python $eval_code"
   "$python" "$eval_code"
 
-echo ""
+  echo ""
 
   i=$(($i + 1))
   echo -e ""

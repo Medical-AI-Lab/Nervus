@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 
 from pathlib import Path
-import re
 import copy
 from abc import ABC, abstractmethod
 import pandas as pd
@@ -33,19 +32,17 @@ class BaseParam:
         Args:
             args (argparse.Namespace): options
         """
+
+        setattr(self, 'project', Path(args.csvpath).stem) # Place project at the top.
+
         for _param, _arg in vars(args).items():
             setattr(self, _param, _arg)
-
-        self._dataset_dir = re.findall('(.*)/docs', self.csvpath)[0]  # should be unique
-        self._csv_name = Path(self.csvpath).stem
 
     def print_parameter(self) -> None:
         """
         Print parameters
         """
         no_print = [
-                    '_dataset_dir',
-                    '_csv_name',
                     'mlp',
                     'net',
                     'input_list',
@@ -115,10 +112,8 @@ class BaseParam:
         Save parameters.
         """
         no_save = [
-                    '_dataset_dir',
-                    '_csv_name',
                     'dataloaders',
-                    'device',  # Need str(self.device) when save
+                    'device',  # Need str(self.device) if save
                     'isTrain',
                     'datetime',
                     'save_datetime_dir'
@@ -157,7 +152,7 @@ class BaseParam:
         return parameters
 
 
-class TrainParam(BaseParam):
+class TrainParam:
     """
     Class for setting parameters for training.
     """
@@ -166,25 +161,27 @@ class TrainParam(BaseParam):
         Args:
             args (argparse.Namespace): options
         """
-        super().__init__(args)
+        #super().__init__(args)
+        self.param = BaseParam(args)
+        self.param.project = Path(self.param.csvpath).stem
 
-        sp = make_split_provider(self.csvpath, self.task)
-        self.input_list = list(sp.df_source.columns[sp.df_source.columns.str.startswith('input')])
-        self.label_list = list(sp.df_source.columns[sp.df_source.columns.str.startswith('label')])
-        self.mlp_num_inputs = len(self.input_list)
-        self.num_outputs_for_label = self._define_num_outputs_for_label(sp.df_source, self.label_list)
-        if self.task == 'deepsurv':
-            self.period_name = list(sp.df_source.columns[sp.df_source.columns.str.startswith('period')])[0]
 
-        self.device = torch.device(f"cuda:{self.gpu_ids[0]}") if self.gpu_ids != [] else torch.device('cpu')
+        sp = make_split_provider(self.param.csvpath, self.param.task)
+        self.param.input_list = list(sp.df_source.columns[sp.df_source.columns.str.startswith('input')])
+        self.param.label_list = list(sp.df_source.columns[sp.df_source.columns.str.startswith('label')])
+        self.param.mlp_num_inputs = len(self.param.input_list)
+        self.param.num_outputs_for_label = self._define_num_outputs_for_label(sp.df_source, self.param.label_list)
+        if self.param.task == 'deepsurv':
+            self.param.period_name = list(sp.df_source.columns[sp.df_source.columns.str.startswith('period')])[0]
+
+        self.param.device = torch.device(f"cuda:{self.param.gpu_ids[0]}") if self.param.gpu_ids != [] else torch.device('cpu')
 
         # Directory for saveing paramaters, weights, or learning_curve
-        _datetime = self.datetime
-        _save_datetime_dir = str(Path(self._dataset_dir, 'results', self._csv_name, 'sets', _datetime))
-        self.save_datetime_dir = _save_datetime_dir
+        _datetime = self.param.datetime
+        self.param.save_datetime_dir = str(Path('results', self.param.project, 'trials', _datetime))
 
         # Dataloader
-        self.dataloaders = {split: create_dataloader(self, sp.df_source, split=split) for split in ['train', 'val']}
+        self.param.dataloaders = {split: create_dataloader(self.param, sp.df_source, split=split) for split in ['train', 'val']}
 
     def _define_num_outputs_for_label(self, df_source: pd.DataFrame, label_list: List[str]) -> Dict[str, int]:
         """
@@ -201,16 +198,16 @@ class TrainParam(BaseParam):
                 regression, deepsurv: _num_outputs_for_label = {label_A: 1, label_B: 1, ...}
                 deepsurv:             _num_outputs_for_label = {label_A: 1}
         """
-        if self.task == 'classification':
+        if self.param.task == 'classification':
             _num_outputs_for_label = {label_name: df_source[label_name].nunique() for label_name in label_list}
-        elif (self.task == 'regression') or (self.task == 'deepsurv'):
+        elif (self.param.task == 'regression') or (self.param.task == 'deepsurv'):
             _num_outputs_for_label = {label_name: 1 for label_name in label_list}
         else:
-            raise ValueError(f"Invalid task: {self.task}.")
+            raise ValueError(f"Invalid task: {self.param.task}.")
         return _num_outputs_for_label
 
 
-class TestParam(BaseParam):
+class TestParam:
     """
     Class for setting parameters for test.
     """
@@ -219,12 +216,13 @@ class TestParam(BaseParam):
         Args:
             args (argparse.Namespace): options
         """
-        super().__init__(args)
+        self.param = BaseParam(args)
 
         # Load paramaters
-        _save_datetime_dir = Path(self.weight_dir).parents[0]
+        _save_datetime_dir = Path(self.param.weight_dir).parents[0]
         parameter_path = Path(_save_datetime_dir, 'parameters.json')
-        parameters = self.load_parameter(parameter_path)  # Dict
+        parameters = self.param.load_parameter(parameter_path)
+
         required_for_test = [
                             'task',
                             'model',
@@ -240,28 +238,29 @@ class TestParam(BaseParam):
                             'period_name',
                             'scaler_path'
                             ]
+
         for _param in required_for_test:
-            setattr(self, _param, parameters.get(_param))  # If no exists, set None
+            if _param in parameters:
+                setattr(self.param, _param, parameters[_param])
 
         # No need the below at test
-        self.augmentation = 'no'
-        self.sampler = 'no'
-        self.pretrained = False
+        self.param.augmentation = 'no'
+        self.param.sampler = 'no'
+        self.param.pretrained = False
 
-        sp = make_split_provider(self.csvpath, self.task)
-        self.device = torch.device(f"cuda:{self.gpu_ids[0]}") if self.gpu_ids != [] else torch.device('cpu')
+        sp = make_split_provider(self.param.csvpath, self.param.task)
+        self.param.device = torch.device(f"cuda:{self.param.gpu_ids[0]}") if self.param.gpu_ids != [] else torch.device('cpu')
 
-        # Directory for saving ikelihood
+        # Directory for saving likelihood
         _datetime = _save_datetime_dir.name
-        _save_datetime_dir = str(Path(self._dataset_dir, 'results', self._csv_name, 'sets', _datetime))  # csv_name might be for external dataset
-        self.save_datetime_dir = _save_datetime_dir
+        self.param.save_datetime_dir = str(Path('results', self.param.project, 'trials', _datetime))
 
         # Align splits to be test
         _splits_in_df_source = sp.df_source['split'].unique().tolist()
-        self.test_splits = self._align_test_splits(self.test_splits, _splits_in_df_source)
+        self.param.test_splits = self._align_test_splits(self.param.test_splits, _splits_in_df_source)
 
         # Dataloader
-        self.dataloaders = {split: create_dataloader(self, sp.df_source, split=split) for split in self.test_splits}
+        self.param.dataloaders = {split: create_dataloader(self.param, sp.df_source, split=split) for split in self.param.test_splits}
 
     def _align_test_splits(self, arg_test_splits: List[str], splits_in_df_source: List[str]) -> List[str]:
         """
@@ -281,7 +280,7 @@ class TestParam(BaseParam):
         if set(splits_in_df_source) < set(arg_test_splits):
             _test_splits = splits_in_df_source  # maybe when external dataset
         elif set(arg_test_splits) < set(splits_in_df_source):
-            _test_splits = arg_test_splits     # ['val', 'test'], or ['test']
+            _test_splits = arg_test_splits      # ['val', 'test'], or ['test']
         else:
             _test_splits = arg_test_splits
         return _test_splits
@@ -298,9 +297,9 @@ def set_params(args: argparse.Namespace) -> Union[TrainParam, TestParam]:
         Union[TrainParam, TestParam]: parameters
     """
     if args.isTrain:
-        params = TrainParam(args)
+        params = TrainParam(args).param
     else:
-        params = TestParam(args)
+        params = TestParam(args).param
     return params
 
 
