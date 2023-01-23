@@ -96,7 +96,7 @@ For training and internal validation(tuning),
 ## Model test
 For test trained model,
 
-`python test.py --csvpath datasets/docs/trial.csv --weight_dir results/trial/trials/YYYY-MM-DD-HH-mm-ss/weights`
+`python test.py --csvpath datasets/docs/trial.csv --likelihood_dir results/trial/trials/YYYY-MM-DD-HH-mm-ss/weights`
 
 ### Arguments
 - csvpath: csv filepath name contains test data.
