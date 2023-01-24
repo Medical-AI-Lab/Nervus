@@ -33,7 +33,7 @@ class BaseLogger:
         """
         _root_logger = logging.getLogger('nervus')
         _root_logger.setLevel(logging.DEBUG)
-        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 
         log_dir = Path('logs')
         log_dir.mkdir(parents=True, exist_ok=True)
@@ -44,7 +44,7 @@ class BaseLogger:
         fh_err = logging.FileHandler(log_path)
         fh_err.setLevel(logging.WARNING)
         fh_err.setFormatter(formatter)
-        fh_err.addFilter(lambda log_record: log_record.levelno >= logging.WARNING)
+        fh_err.addFilter(lambda log_record: not ('BdbQuit' in str(log_record.exc_info)) and (log_record.levelno >= logging.WARNING))
         _root_logger.addHandler(fh_err)
 
         ## lower warning
@@ -68,3 +68,4 @@ class BaseLogger:
         _root_logger.addHandler(ch)
 
         cls._unexecuted_configure = False
+
