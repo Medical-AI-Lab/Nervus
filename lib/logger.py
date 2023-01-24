@@ -67,5 +67,5 @@ class BaseLogger:
         ch.addFilter(lambda log_record: log_record.levelno < logging.WARNING)
         _root_logger.addHandler(ch)
 
-
         cls._unexecuted_configure = False
+
