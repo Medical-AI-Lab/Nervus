@@ -33,7 +33,7 @@ class BaseParam:
             args (argparse.Namespace): options
         """
 
-        setattr(self, 'project', Path(args.csvpath).stem) # Place project at the top.
+        setattr(self, 'project', Path(args.csvpath).stem)  # Place project at the top.
 
         for _param, _arg in vars(args).items():
             setattr(self, _param, _arg)
@@ -164,7 +164,6 @@ class TrainParam:
         #super().__init__(args)
         self.param = BaseParam(args)
         self.param.project = Path(self.param.csvpath).stem
-
 
         sp = make_split_provider(self.param.csvpath, self.param.task)
         self.param.input_list = list(sp.df_source.columns[sp.df_source.columns.str.startswith('input')])
@@ -301,6 +300,87 @@ def set_params(args: argparse.Namespace) -> Union[TrainParam, TestParam]:
     else:
         params = TestParam(args).param
     return params
+
+
+class ParamContainer:
+    pass
+
+class ParamDispatcher:
+    _dataloader_param = [
+                        'task',
+                        'isTrain',
+                        'batch_size',
+                        'test_batch_size',
+                        'label_list',
+                        'input_list',
+                        'label_list',
+                        'period_name',
+                        'mlp',
+                        'net',
+                        'scaler_path',
+                        'in_channel',
+                        'normalize_image',
+                        'augmentation',
+                        'sampler',
+                    ]
+
+    # create_net
+    _net_param = [
+                'mlp',
+                'net',
+                'num_outputs_for_label',
+                'mlp_num_inputs',
+                'in_channel',
+                'vit_image_size',
+                'pretrained'
+                ]
+
+    #BaseModel
+    _model_param = [
+                    'task',
+                    'isTrain',
+                    'criterion',
+                    'device',
+                    'optimizer',
+                    'lr',
+                    'label_list',
+                    ]
+
+    # train
+    _train_conf_param = [
+                        'epoch',
+                        'save_weight_policy',
+                        'save_datetime_dir'
+                        ]
+
+    # test
+    _test_conf_param = [
+                        'task',
+                        'weight_dir',
+                        'num_outputs_for_label',
+                        'test_splits',
+                        'save_datetime_dir'
+                        ]
+
+    param_table = {
+        'dataloader': _dataloader_param,
+        'net_param': _net_param,
+        'model_param': _model_param,
+        'train_conf_param': _train_conf_param,
+        'test_conf_param': _test_conf_param
+        }
+
+    def __init__(self, params):
+        self.params = params
+
+
+    @classmethod
+    def dispach_param(cls, params:Union[TrainParam, TestParam]) -> None:
+        dataloader_param = ParamContainer()
+        net_param = ParamContainer()
+        model_param = ParamContainer()
+        train_conf_param = ParamContainer()
+        test_conf_param = ParamContainer()
 
 
 class BaseModel(ABC):
