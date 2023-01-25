@@ -13,7 +13,11 @@ from torch.utils.data.sampler import WeightedRandomSampler
 from PIL import Image
 from sklearn.preprocessing import MinMaxScaler
 import pickle
+from ..logger import BaseLogger
 from typing import List, Dict, Union
+
+
+logger = BaseLogger.get_logger(__name__)
 
 
 class BaseSplitProvider(ABC):
@@ -26,7 +30,7 @@ class BaseSplitProvider(ABC):
             df_source (DataFrame): DataFrame of csv
         """
         self.input_list = list(df_source.columns[df_source.columns.str.startswith('input')])
-        self.label_list = list(df_source.columns[df_source.columns.str.startswith('label')])  #! externalの時、label_から始まらない時ある
+        self.label_list = list(df_source.columns[df_source.columns.str.startswith('label')])
 
     @abstractmethod
     def _cast_csv(self) -> pd.DataFrame:
@@ -123,19 +127,19 @@ class DeepSurvSplitProvider(BaseSplitProvider):
         return _df_source
 
 
-def make_split_provider(csv_path: str, task: str) -> Union[ClsSplitProvider, RegSplitProvider, DeepSurvSplitProvider]:
+def make_split_provider(csvpath: str, task: str) -> Union[ClsSplitProvider, RegSplitProvider, DeepSurvSplitProvider]:
     """
     Parse csv by depending on task.
 
     Args:
-        csv_path (str): path to csv
+        csvpath (str): path to csv
         task (str): task
 
     Returns:
         Union[ClsSplitProvider, RegSplitProvider, DeepSurvSplitProvider]: SplitProvide for task
     """
 
-    _df_source = pd.read_csv(csv_path)
+    _df_source = pd.read_csv(csvpath)
     _df_excluded = _df_source[_df_source['split'] != 'exclude'].copy()
 
     if not('group' in _df_excluded.columns):
@@ -501,3 +505,16 @@ def create_dataloader(
                             sampler=sampler
                             )
     return split_loader
+
+
+#def print_dataset_info(dataloaders: Dict[DataLoader]) -> None:
+#    """
+#    Print dataset size for each split.
+#
+#    Args:
+#        dataloaders (Dict[DataLoader]): dataloaders for each split
+#    """
+#    for split, dataloader in dataloaders.items():
+#        total = len(dataloader.dataset)
+#        logger.info(f"{split:>5}_data = {total}")
+#    logger.info('')

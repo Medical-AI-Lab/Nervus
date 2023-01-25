@@ -50,7 +50,7 @@ class BaseParam:
                     'period_name',
                     'mlp_num_inputs',
                     'num_outputs_for_label',
-                    'dataloaders',
+                    #'dataloaders',
                     'datetime',
                     'device',
                     'isTrain'
@@ -98,14 +98,14 @@ class BaseParam:
                 str_arg = str(arg)
         return str_arg
 
-    def print_dataset_info(self) -> None:
-        """
-        Print dataset size for each split.
-        """
-        for split, dataloader in self.dataloaders.items():
-            total = len(dataloader.dataset)
-            logger.info(f"{split:>5}_data = {total}")
-        logger.info('')
+    #def print_dataset_info(self) -> None:
+    #    """
+    #    Print dataset size for each split.
+    #    """
+    #    for split, dataloader in self.dataloaders.items():
+    #        total = len(dataloader.dataset)
+    #        logger.info(f"{split:>5}_data = {total}")
+    #    logger.info('')
 
     def save_parameter(self) -> None:
         """
@@ -163,7 +163,6 @@ class TrainParam:
         """
         #super().__init__(args)
         self.param = BaseParam(args)
-        self.param.project = Path(self.param.csvpath).stem
 
         sp = make_split_provider(self.param.csvpath, self.param.task)
         self.param.input_list = list(sp.df_source.columns[sp.df_source.columns.str.startswith('input')])
@@ -180,7 +179,7 @@ class TrainParam:
         self.param.save_datetime_dir = str(Path('results', self.param.project, 'trials', _datetime))
 
         # Dataloader
-        self.param.dataloaders = {split: create_dataloader(self.param, sp.df_source, split=split) for split in ['train', 'val']}
+        #self.param.dataloaders = {split: create_dataloader(self.param, sp.df_source, split=split) for split in ['train', 'val']}
 
     def _define_num_outputs_for_label(self, df_source: pd.DataFrame, label_list: List[str]) -> Dict[str, int]:
         """
@@ -259,7 +258,7 @@ class TestParam:
         self.param.test_splits = self._align_test_splits(self.param.test_splits, _splits_in_df_source)
 
         # Dataloader
-        self.param.dataloaders = {split: create_dataloader(self.param, sp.df_source, split=split) for split in self.param.test_splits}
+        #self.param.dataloaders = {split: create_dataloader(self.param, sp.df_source, split=split) for split in self.param.test_splits}
 
     def _align_test_splits(self, arg_test_splits: List[str], splits_in_df_source: List[str]) -> List[str]:
         """
@@ -307,60 +306,64 @@ class ParamContainer:
 
 class ParamDispatcher:
     _dataloader_param = [
-                        'task',
-                        'isTrain',
-                        'batch_size',
-                        'test_batch_size',
-                        'label_list',
-                        'input_list',
-                        'label_list',
-                        'period_name',
-                        'mlp',
-                        'net',
-                        'scaler_path',
-                        'in_channel',
-                        'normalize_image',
-                        'augmentation',
-                        'sampler',
+                    'task',
+                    'isTrain',
+                    'batch_size',
+                    'test_batch_size',
+                    'label_list',
+                    'input_list',
+                    'label_list',
+                    'period_name',
+                    'mlp',
+                    'net',
+                    'scaler_path',
+                    'in_channel',
+                    'normalize_image',
+                    'augmentation',
+                    'sampler'
                     ]
 
     # create_net
     _net_param = [
-                'mlp',
-                'net',
-                'num_outputs_for_label',
-                'mlp_num_inputs',
-                'in_channel',
-                'vit_image_size',
-                'pretrained'
-                ]
+            'mlp',
+            'net',
+            'num_outputs_for_label',
+            'mlp_num_inputs',
+            'in_channel',
+            'vit_image_size',
+            'pretrained'
+            ]
 
     #BaseModel
     _model_param = [
-                    'task',
-                    'isTrain',
-                    'criterion',
-                    'device',
-                    'optimizer',
-                    'lr',
-                    'label_list',
-                    ]
+            'task',
+            'isTrain',
+            'criterion',
+            'device',
+            'optimizer',
+            'lr',
+            'label_list',
+            ]
 
     # train
     _train_conf_param = [
-                        'epoch',
-                        'save_weight_policy',
-                        'save_datetime_dir'
-                        ]
+                'epoch',
+                'save_weight_policy',
+                'save_datetime_dir'
+                ]
 
     # test
     _test_conf_param = [
-                        'task',
-                        'weight_dir',
-                        'num_outputs_for_label',
-                        'test_splits',
-                        'save_datetime_dir'
-                        ]
+                'task',
+                'weight_dir',
+                'num_outputs_for_label',
+                'test_splits',
+                'save_datetime_dir'
+                ]
+
+    # likelihood
+    _likeilhood_param = []
+
 
     param_table = {
         'dataloader': _dataloader_param,
@@ -370,17 +373,19 @@ class ParamDispatcher:
         'test_conf_param': _test_conf_param
         }
 
-    def __init__(self, params):
-        self.params = params
-
 
     @classmethod
-    def dispach_param(cls, params:Union[TrainParam, TestParam]) -> None:
-        dataloader_param = ParamContainer()
-        net_param = ParamContainer()
-        model_param = ParamContainer()
-        train_conf_param = ParamContainer()
-        test_conf_param = ParamContainer()
+    def dispach_param(cls, param_type: str, params: Union[TrainParam, TestParam]) -> None:
+        _params = ParamContainer()
+
+        for param_name in cls.param_table[param_type]:
+            _arg = getattr(params, param_name)
+            setattr(_params, param_name, _arg)
+
+        return _params
+
+
+
 
 
 class BaseModel(ABC):
@@ -394,7 +399,7 @@ class BaseModel(ABC):
         Args:
             param (Union[TrainParam, TestParam]): parameters
         """
-        self.init_network(params)
+        self.network = self.init_network(params)
 
         if params.isTrain:
             from .component import set_criterion, set_optimizer, create_loss_reg
@@ -404,9 +409,9 @@ class BaseModel(ABC):
         else:
             pass
 
-        self.label_list = params.label_list
-        self.device = params.device
-        self.gpu_ids = params.gpu_ids
+        #self.label_list = params.label_list
+        #self.device = params.device
+        #self.gpu_ids = params.gpu_ids
 
     def init_network(self, params: Union[TrainParam, TestParam]) -> None:
         """
@@ -415,7 +420,7 @@ class BaseModel(ABC):
         Args:
             params (Union[TrainParam, TestParam]): parameters
         """
-        self.network = create_net(
+        _network = create_net(
                                 params.mlp,
                                 params.net,
                                 params.num_outputs_for_label,
@@ -424,6 +429,7 @@ class BaseModel(ABC):
                                 params.vit_image_size,
                                 params.pretrained
                                 )
+        return _network
 
     def train(self) -> None:
         """
