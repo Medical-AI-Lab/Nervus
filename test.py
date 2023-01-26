@@ -9,7 +9,7 @@ from lib import (
         create_model,
         BaseLogger
         )
-from lib.component import set_likelihood
+from lib.component import create_dataloader, print_dataset_info,  set_likelihood
 from typing import List
 
 
@@ -35,9 +35,10 @@ def _collect_weight(weight_dir: str) -> List[Path]:
 def main(opt):
     params = set_params(opt.args)
     params.print_parameter()
-    params.print_dataset_info()
 
-    dataloaders = params.dataloaders
+    dataloaders = {split: create_dataloader(params, split=split) for split in params.test_splits}
+    print_dataset_info(dataloaders)
+
     model = create_model(params)
     likelihood = set_likelihood(params.task, params.num_outputs_for_label, params.save_datetime_dir)
 

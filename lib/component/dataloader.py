@@ -223,6 +223,10 @@ class InputDataMixin:
         inputs_value = torch.from_numpy(inputs_value.astype(np.float32)).clone()
         return inputs_value
 
+    def save_scaler(self, save_scaler_path: str):
+        with open(save_scaler_path, 'wb') as f:
+            pickle.dump(self.scaler, f)
+
 
 class ImageMixin:
     """
@@ -344,17 +348,15 @@ class LoadDataSet(Dataset, DataSetWidget):
     def __init__(
                 self,
                 params,
-                df_source: pd.DataFrame,
                 split: str
                 ) -> None:
         """
         Args:
             params (ModelParam): paramater for model
-            df_source (DataFrame): DataFrame of csv
             split (str): split
         """
         self.params = params
-        self.df_source = df_source
+        self.df_source = self.params.df_source
         self.split = split
 
         self.input_list = self.params.input_list
@@ -464,21 +466,19 @@ def _make_sampler(split_data: LoadDataSet) -> WeightedRandomSampler:
 
 def create_dataloader(
                     params,
-                    df_source: pd.DataFrame,
                     split: str = None
                     ) -> DataLoader:
     """
     Creeate data loader ofr split.
 
     Args:
-        params (ModelParam): paramater for model
-        df_source (DataFrame): DataFrame of csv
+        params (ModelParam): paramater for dataloader
         split (str): split. Defaults to None.
 
     Returns:
         DataLoader: data loader
     """
-    split_data = LoadDataSet(params, df_source, split)
+    split_data = LoadDataSet(params, split)
 
     # args never has both 'batch_size' and 'test_batch_size'.
     if params.isTrain:
@@ -507,14 +507,15 @@ def create_dataloader(
     return split_loader
 
 
-#def print_dataset_info(dataloaders: Dict[DataLoader]) -> None:
-#    """
-#    Print dataset size for each split.
-#
-#    Args:
-#        dataloaders (Dict[DataLoader]): dataloaders for each split
-#    """
-#    for split, dataloader in dataloaders.items():
-#        total = len(dataloader.dataset)
-#        logger.info(f"{split:>5}_data = {total}")
-#    logger.info('')
+def print_dataset_info(dataloaders: Dict) -> None:
+    """
+    Print dataset size for each split.
+
+    Args:
+        dataloaders (Dict[DataLoader]): dataloaders for each split
+    """
+    for split, dataloader in dataloaders.items():
+        total = len(dataloader.dataset)
+        logger.info(f"{split:>5}_data = {total}")
+    logger.info('')
+

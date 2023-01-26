@@ -11,7 +11,6 @@ import json
 import pickle
 from .component import (
                 make_split_provider,
-                create_dataloader,
                 create_net
                 )
 from .logger import BaseLogger
@@ -43,6 +42,7 @@ class BaseParam:
         Print parameters
         """
         no_print = [
+                    'df_source',
                     'mlp',
                     'net',
                     'input_list',
@@ -50,7 +50,6 @@ class BaseParam:
                     'period_name',
                     'mlp_num_inputs',
                     'num_outputs_for_label',
-                    #'dataloaders',
                     'datetime',
                     'device',
                     'isTrain'
@@ -98,37 +97,22 @@ class BaseParam:
                 str_arg = str(arg)
         return str_arg
 
-    #def print_dataset_info(self) -> None:
-    #    """
-    #    Print dataset size for each split.
-    #    """
-    #    for split, dataloader in self.dataloaders.items():
-    #        total = len(dataloader.dataset)
-    #        logger.info(f"{split:>5}_data = {total}")
-    #    logger.info('')
-
     def save_parameter(self) -> None:
         """
         Save parameters.
         """
         no_save = [
-                    'dataloaders',
+                    'df_source',
+                    #'dataloaders',
                     'device',  # Need str(self.device) if save
                     'isTrain',
                     'datetime',
-                    'save_datetime_dir'
+                    'save_datetime_dir',
                     ]
         saved = dict()
         for _param, _arg in vars(self).items():
             if _param not in no_save:
                 saved[_param] = _arg
-
-        # Save scaler
-        if hasattr(self.dataloaders['train'].dataset, 'scaler'):
-            scaler = self.dataloaders['train'].dataset.scaler
-            saved['scaler_path'] = str(Path(self.save_datetime_dir, 'scaler.pkl'))
-            with open(saved['scaler_path'], 'wb') as f:
-                pickle.dump(scaler, f)
 
         # Save parameters
         save_dir = Path(self.save_datetime_dir)
@@ -152,7 +136,7 @@ class BaseParam:
         return parameters
 
 
-class TrainParam:
+class TrainParam(BaseParam):
     """
     Class for setting parameters for training.
     """
@@ -161,33 +145,34 @@ class TrainParam:
         Args:
             args (argparse.Namespace): options
         """
-        #super().__init__(args)
-        self.param = BaseParam(args)
+        super().__init__(args)
 
-        sp = make_split_provider(self.param.csvpath, self.param.task)
-        self.param.input_list = list(sp.df_source.columns[sp.df_source.columns.str.startswith('input')])
-        self.param.label_list = list(sp.df_source.columns[sp.df_source.columns.str.startswith('label')])
-        self.param.mlp_num_inputs = len(self.param.input_list)
-        self.param.num_outputs_for_label = self._define_num_outputs_for_label(sp.df_source, self.param.label_list)
-        if self.param.task == 'deepsurv':
-            self.param.period_name = list(sp.df_source.columns[sp.df_source.columns.str.startswith('period')])[0]
+        sp = make_split_provider(self.csvpath, self.task)
+        self.df_source = sp.df_source
 
-        self.param.device = torch.device(f"cuda:{self.param.gpu_ids[0]}") if self.param.gpu_ids != [] else torch.device('cpu')
+        self.input_list = list(self.df_source.columns[self.df_source.columns.str.startswith('input')])
+        self.label_list = list(self.df_source.columns[self.df_source.columns.str.startswith('label')])
+
+        self.mlp_num_inputs = len(self.input_list)
+        self.num_outputs_for_label = self._define_num_outputs_for_label(self.df_source, self.label_list, self.task)
+
+        if self.task == 'deepsurv':
+            self.period_name = list(self.df_source.columns[self.df_source.columns.str.startswith('period')])[0]
+
+        self.device = torch.device(f"cuda:{self.gpu_ids[0]}") if self.gpu_ids != [] else torch.device('cpu')
 
         # Directory for saveing paramaters, weights, or learning_curve
-        _datetime = self.param.datetime
-        self.param.save_datetime_dir = str(Path('results', self.param.project, 'trials', _datetime))
+        _datetime = self.datetime
+        self.save_datetime_dir = str(Path('results', self.project, 'trials', _datetime))
 
-        # Dataloader
-        #self.param.dataloaders = {split: create_dataloader(self.param, sp.df_source, split=split) for split in ['train', 'val']}
-
-    def _define_num_outputs_for_label(self, df_source: pd.DataFrame, label_list: List[str]) -> Dict[str, int]:
+    def _define_num_outputs_for_label(self, df_source: pd.DataFrame, label_list: List[str], task :str) -> Dict[str, int]:
         """
         Define the number of outputs for each label.
 
         Args:
             df_source (pd.DataFrame): DataFrame of csv
             label_list (List[str]): label list
+            task: str
 
         Returns:
             Dict[str, int]: dictionary of the number of outputs for each label
@@ -196,16 +181,16 @@ class TrainParam:
                 regression, deepsurv: _num_outputs_for_label = {label_A: 1, label_B: 1, ...}
                 deepsurv:             _num_outputs_for_label = {label_A: 1}
         """
-        if self.param.task == 'classification':
+        if task == 'classification':
             _num_outputs_for_label = {label_name: df_source[label_name].nunique() for label_name in label_list}
-        elif (self.param.task == 'regression') or (self.param.task == 'deepsurv'):
+        elif (task == 'regression') or (task == 'deepsurv'):
             _num_outputs_for_label = {label_name: 1 for label_name in label_list}
         else:
-            raise ValueError(f"Invalid task: {self.param.task}.")
+            raise ValueError(f"Invalid task: {task}.")
         return _num_outputs_for_label
 
 
-class TestParam:
+class TestParam(BaseParam):
     """
     Class for setting parameters for test.
     """
@@ -214,12 +199,12 @@ class TestParam:
         Args:
             args (argparse.Namespace): options
         """
-        self.param = BaseParam(args)
+        super().__init__(args)
 
         # Load paramaters
-        _save_datetime_dir = Path(self.param.weight_dir).parents[0]
+        _save_datetime_dir = Path(self.weight_dir).parents[0]
         parameter_path = Path(_save_datetime_dir, 'parameters.json')
-        parameters = self.param.load_parameter(parameter_path)
+        parameters = self.load_parameter(parameter_path)
 
         required_for_test = [
                             'task',
@@ -239,26 +224,25 @@ class TestParam:
 
         for _param in required_for_test:
             if _param in parameters:
-                setattr(self.param, _param, parameters[_param])
+                setattr(self, _param, parameters[_param])
 
         # No need the below at test
-        self.param.augmentation = 'no'
-        self.param.sampler = 'no'
-        self.param.pretrained = False
+        self.augmentation = 'no'
+        self.sampler = 'no'
+        self.pretrained = False
 
-        sp = make_split_provider(self.param.csvpath, self.param.task)
-        self.param.device = torch.device(f"cuda:{self.param.gpu_ids[0]}") if self.param.gpu_ids != [] else torch.device('cpu')
+        sp = make_split_provider(self.csvpath, self.task)
+        self.df_source = sp.df_source
+
+        self.device = torch.device(f"cuda:{self.gpu_ids[0]}") if self.gpu_ids != [] else torch.device('cpu')
 
         # Directory for saving likelihood
         _datetime = _save_datetime_dir.name
-        self.param.save_datetime_dir = str(Path('results', self.param.project, 'trials', _datetime))
+        self.save_datetime_dir = str(Path('results', self.project, 'trials', _datetime))
 
         # Align splits to be test
-        _splits_in_df_source = sp.df_source['split'].unique().tolist()
-        self.param.test_splits = self._align_test_splits(self.param.test_splits, _splits_in_df_source)
-
-        # Dataloader
-        #self.param.dataloaders = {split: create_dataloader(self.param, sp.df_source, split=split) for split in self.param.test_splits}
+        _splits_in_df_source = self.df_source['split'].unique().tolist()
+        self.test_splits = self._align_test_splits(self.test_splits, _splits_in_df_source)
 
     def _align_test_splits(self, arg_test_splits: List[str], splits_in_df_source: List[str]) -> List[str]:
         """
@@ -295,9 +279,9 @@ def set_params(args: argparse.Namespace) -> Union[TrainParam, TestParam]:
         Union[TrainParam, TestParam]: parameters
     """
     if args.isTrain:
-        params = TrainParam(args).param
+        params = TrainParam(args)
     else:
-        params = TestParam(args).param
+        params = TestParam(args)
     return params
 
 
@@ -320,7 +304,8 @@ class ParamDispatcher:
                     'in_channel',
                     'normalize_image',
                     'augmentation',
-                    'sampler'
+                    'sampler',
+                    'save_datetime_dir'  # for saveing scaler
                     ]
 
     # create_net
@@ -364,7 +349,6 @@ class ParamDispatcher:
     # likelihood
     _likeilhood_param = []
 
-
     param_table = {
         'dataloader': _dataloader_param,
         'net_param': _net_param,
@@ -385,9 +369,6 @@ class ParamDispatcher:
         return _params
 
 
-
-
-
 class BaseModel(ABC):
     """
     Class to construct model. This class is the base class to construct model.
@@ -399,19 +380,20 @@ class BaseModel(ABC):
         Args:
             param (Union[TrainParam, TestParam]): parameters
         """
-        self.network = self.init_network(params)
+        self.params = params
+        self.label_list = self.params.label_list
+        self.device = self.params.device
+        self.gpu_ids = self.params.gpu_ids
 
-        if params.isTrain:
+        self.network = self.init_network(self.params)
+
+        if self.params.isTrain:
             from .component import set_criterion, set_optimizer, create_loss_reg
-            self.criterion = set_criterion(params.criterion, params.device)
-            self.optimizer = set_optimizer(params.optimizer, self.network, params.lr)
-            self.loss_reg = create_loss_reg(params.task, self.criterion, params.label_list, params.device)
+            self.criterion = set_criterion(self.params.criterion, self.params.device)
+            self.optimizer = set_optimizer(self.params.optimizer, self.network, self.params.lr)
+            self.loss_reg = create_loss_reg(self.params.task, self.criterion, self.params.label_list, self.params.device)
         else:
             pass
-
-        #self.label_list = params.label_list
-        #self.device = params.device
-        #self.gpu_ids = params.gpu_ids
 
     def init_network(self, params: Union[TrainParam, TestParam]) -> None:
         """
@@ -421,14 +403,14 @@ class BaseModel(ABC):
             params (Union[TrainParam, TestParam]): parameters
         """
         _network = create_net(
-                                params.mlp,
-                                params.net,
-                                params.num_outputs_for_label,
-                                params.mlp_num_inputs,
-                                params.in_channel,
-                                params.vit_image_size,
-                                params.pretrained
-                                )
+                            params.mlp,
+                            params.net,
+                            params.num_outputs_for_label,
+                            params.mlp_num_inputs,
+                            params.in_channel,
+                            params.vit_image_size,
+                            params.pretrained
+                            )
         return _network
 
     def train(self) -> None:
@@ -458,12 +440,14 @@ class BaseModel(ABC):
     def set_data(self, data: Dict) -> Dict:
         pass
         # data = {
-        #         'imgpath': imgpath,
-        #         'inputs': inputs_value,
-        #         'image': image,
-        #         'labels': label_dict,
-        #         'periods': periods,
-        #         'split': split
+        #        'uniqID': uniqID,
+        #        'group': group,
+        #        'imgpath': imgpath,
+        #        'split': split,
+        #        'inputs': inputs_value,
+        #        'image': image,
+        #        'labels': label_dict,
+        #        'periods': periods
         #        }
 
     def multi_label_to_device(self, multi_label: Dict[str, Union[int, float]]) -> Dict[str, Union[int, float]]:

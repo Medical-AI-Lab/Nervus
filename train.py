@@ -9,6 +9,7 @@ from lib import (
         create_model,
         BaseLogger
         )
+from lib.component import create_dataloader, print_dataset_info
 
 
 logger = BaseLogger.get_logger(__name__)
@@ -17,9 +18,10 @@ logger = BaseLogger.get_logger(__name__)
 def main(opt):
     params = set_params(opt.args)
     params.print_parameter()
-    params.print_dataset_info()
 
-    dataloaders = params.dataloaders
+    dataloaders = {split: create_dataloader(params, split=split) for split in ['train', 'val']}
+    print_dataset_info(dataloaders)
+
     model = create_model(params)
 
     for epoch in range(params.epochs):
@@ -58,6 +60,11 @@ def main(opt):
 
     model.save_learning_curve(params.save_datetime_dir)
     model.save_weight(params.save_datetime_dir, as_best=True)
+
+    if params.input_list != []:
+        params.scaler_path = params.save_datetime_dir + '/' + 'scaler.pkl'
+        dataloaders['train'].dataset.save_scaler(params.scaler_path)
+
     params.save_parameter()
 
 
