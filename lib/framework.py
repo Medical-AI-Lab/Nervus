@@ -288,12 +288,12 @@ class ParamContainer:
     pass
 
 class ParamDispatcher:
-    _split_provider = [
-                    'csvpath',
-                    'task'
-                    ]
+    #_split_provider = [
+    #                'csvpath',
+    #                'task'
+    #                ]
 
-    _dataloader_param = [
+    dataloader_param = [
                     'df_source',
                     'task',
                     'isTrain',
@@ -313,17 +313,20 @@ class ParamDispatcher:
                     'save_datetime_dir'  # for saveing scaler
                     ]
 
-    _net_param = [
+    net_param = [
             'mlp',
             'net',
             'num_outputs_for_label',
             'mlp_num_inputs',
             'in_channel',
             'vit_image_size',
-            'pretrained'
+            'pretrained',
+            'gpu_ids'
             ]
 
-    _model_param = [
+    model_param = \
+            net_param + \
+            [
             'task',
             'isTrain',
             'criterion',
@@ -333,13 +336,13 @@ class ParamDispatcher:
             'label_list',
             ]
 
-    _train_conf_param = [
-                'epoch',
+    train_conf_param = [
+                'epochs',
                 'save_weight_policy',
                 'save_datetime_dir'
                 ]
 
-    _test_conf_param = [
+    test_conf_param = [
                 'task',
                 'weight_dir',
                 'num_outputs_for_label',
@@ -348,46 +351,18 @@ class ParamDispatcher:
                 ]
 
     # likelihood
-    _likelihood_param = [
+    likelihood_param = [
                         'task',
                         'num_outputs_for_label',
                         'save_datetime_dir'
                         ]
 
-    fixed_groups = {
-                    'split_provider': _split_provider,
-                    'dataloader': _dataloader_param,
-                    'net_param': _net_param,
-                    'model_param': _model_param
-                    }
-
-    train_groups = {
-                    'train_conf_param': _train_conf_param,
-                    }
-
-    test_groups = {
-                    'test_conf_param': _test_conf_param,
-                    'likelibhood': _likelihood_param
-                }
-
-
-def dispatch_param(params: Union[TrainParam, TestParam]) -> Dict[str, ParamContainer]:
-    if params.isTrain:
-        groups = {**ParamDispatcher.fixed_groups, **ParamDispatcher.train_groups}
-    else:
-        groups = {**ParamDispatcher.fixed_groups, **ParamDispatcher.test_groups}
-
-    _params_dict = dict()
-    for group in ParamDispatcher.param_table.keys():
-        _params = ParamContainer()
-
-        for param_name in ParamDispatcher.param_table[group]:
-            _arg = getattr(params, param_name, None)
-            setattr(_params, param_name, _arg)
-
-        _params_dict[group] = _params
-    return _params_dict
-
+def dispatch_param(group_name: str, params: Union[TrainParam, TestParam]) -> Dict[str, ParamContainer]:
+    _params = ParamContainer()
+    for param_name in getattr(ParamDispatcher, group_name):
+        _arg = getattr(params, param_name, None)
+        setattr(_params, param_name, _arg)
+    return _params
 
 
 class BaseModel(ABC):

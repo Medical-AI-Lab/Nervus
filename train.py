@@ -6,6 +6,7 @@ import torch
 from lib import (
         check_train_options,
         set_params,
+        dispatch_param,
         create_model,
         BaseLogger
         )
@@ -19,12 +20,20 @@ def main(opt):
     params = set_params(opt.args)
     params.print_parameter()
 
-    dataloaders = {split: create_dataloader(params, split=split) for split in ['train', 'val']}
+    dataloader_param = dispatch_param('dataloader_param', params)
+    model_param = dispatch_param('model_param', params)
+    train_conf_param = dispatch_param('train_conf_param', params)
+
+    epochs = train_conf_param.epochs
+    save_weight_policy = train_conf_param.save_weight_policy
+    save_datetime_dir= train_conf_param.save_datetime_dir
+
+    dataloaders = {split: create_dataloader(dataloader_param, split=split) for split in ['train', 'val']}
     print_dataset_info(dataloaders)
 
-    model = create_model(params)
+    model = create_model(model_param)
 
-    for epoch in range(params.epochs):
+    for epoch in range(epochs):
         for phase in ['train', 'val']:
             if phase == 'train':
                 model.train()
@@ -51,18 +60,18 @@ def main(opt):
             dataset_size = len(split_dataloader.dataset)
             model.cal_epoch_loss(epoch, phase, dataset_size=dataset_size)
 
-        model.print_epoch_loss(params.epochs, epoch)
+        model.print_epoch_loss(epochs, epoch)
 
         if model.is_total_val_loss_updated():
             model.store_weight()
-            if (epoch > 0) and (params.save_weight_policy == 'each'):
-                model.save_weight(params.save_datetime_dir, as_best=False)
+            if (epoch > 0) and (save_weight_policy == 'each'):
+                model.save_weight(save_datetime_dir, as_best=False)
 
-    model.save_learning_curve(params.save_datetime_dir)
-    model.save_weight(params.save_datetime_dir, as_best=True)
+    model.save_learning_curve(save_datetime_dir)
+    model.save_weight(save_datetime_dir, as_best=True)
 
-    if params.input_list != []:
-        params.scaler_path = params.save_datetime_dir + '/' + 'scaler.pkl'
+    if dataloader_param.input_list != []:
+        params.scaler_path = save_datetime_dir + '/' + 'scaler.pkl'
         dataloaders['train'].dataset.save_scaler(params.scaler_path)
 
     params.save_parameter()

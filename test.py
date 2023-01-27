@@ -6,10 +6,11 @@ import torch
 from lib import (
         check_test_options,
         set_params,
+        dispatch_param,
         create_model,
         BaseLogger
         )
-from lib.component import create_dataloader, print_dataset_info,  set_likelihood
+from lib.component import create_dataloader, print_dataset_info, set_likelihood
 from typing import List
 
 
@@ -36,13 +37,24 @@ def main(opt):
     params = set_params(opt.args)
     params.print_parameter()
 
-    dataloaders = {split: create_dataloader(params, split=split) for split in params.test_splits}
+    dataloader_param = dispatch_param('dataloader_param', params)
+    model_param = dispatch_param('model_param', params)
+    likelihood_param = dispatch_param('likelihood_param', params)
+    test_conf_param = dispatch_param('test_conf_param', params)
+
+    test_splits = test_conf_param.test_splits
+    task = likelihood_param.task
+    num_outputs_for_label = likelihood_param.num_outputs_for_label
+    save_datetime_dir = likelihood_param.save_datetime_dir
+    weight_dir = test_conf_param.weight_dir
+
+    dataloaders = {split: create_dataloader(dataloader_param, split=split) for split in test_splits}
     print_dataset_info(dataloaders)
 
-    model = create_model(params)
-    likelihood = set_likelihood(params.task, params.num_outputs_for_label, params.save_datetime_dir)
+    model = create_model(model_param )
+    likelihood = set_likelihood(task, num_outputs_for_label, save_datetime_dir)
 
-    weight_paths = _collect_weight(params.weight_dir)
+    weight_paths = _collect_weight(weight_dir)
     for weight_path in weight_paths:
         logger.info(f"Inference with {weight_path.name}.")
 
@@ -60,7 +72,7 @@ def main(opt):
                     output = model(in_data)
                     likelihood.make_likelihood(data, output)
 
-        likelihood.save_likelihood(params.save_datetime_dir, weight_path.stem)
+        likelihood.save_likelihood(save_datetime_dir, weight_path.stem)
 
         if len(weight_paths) > 1:
             model.init_network(params)
