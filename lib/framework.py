@@ -8,7 +8,7 @@ import pandas as pd
 import torch
 import torch.nn as nn
 import json
-import pickle
+# import pickle
 from .component import (
                 make_split_provider,
                 create_net
@@ -103,7 +103,6 @@ class BaseParam:
         """
         no_save = [
                     'df_source',
-                    #'dataloaders',
                     'device',  # Need str(self.device) if save
                     'isTrain',
                     'datetime',
@@ -289,7 +288,13 @@ class ParamContainer:
     pass
 
 class ParamDispatcher:
+    _split_provider = [
+                    'csvpath',
+                    'task'
+                    ]
+
     _dataloader_param = [
+                    'df_source',
                     'task',
                     'isTrain',
                     'batch_size',
@@ -308,7 +313,6 @@ class ParamDispatcher:
                     'save_datetime_dir'  # for saveing scaler
                     ]
 
-    # create_net
     _net_param = [
             'mlp',
             'net',
@@ -319,7 +323,6 @@ class ParamDispatcher:
             'pretrained'
             ]
 
-    #BaseModel
     _model_param = [
             'task',
             'isTrain',
@@ -330,14 +333,12 @@ class ParamDispatcher:
             'label_list',
             ]
 
-    # train
     _train_conf_param = [
                 'epoch',
                 'save_weight_policy',
                 'save_datetime_dir'
                 ]
 
-    # test
     _test_conf_param = [
                 'task',
                 'weight_dir',
@@ -347,26 +348,46 @@ class ParamDispatcher:
                 ]
 
     # likelihood
-    _likeilhood_param = []
+    _likelihood_param = [
+                        'task',
+                        'num_outputs_for_label',
+                        'save_datetime_dir'
+                        ]
 
-    param_table = {
-        'dataloader': _dataloader_param,
-        'net_param': _net_param,
-        'model_param': _model_param,
-        'train_conf_param': _train_conf_param,
-        'test_conf_param': _test_conf_param
-        }
+    fixed_groups = {
+                    'split_provider': _split_provider,
+                    'dataloader': _dataloader_param,
+                    'net_param': _net_param,
+                    'model_param': _model_param
+                    }
+
+    train_groups = {
+                    'train_conf_param': _train_conf_param,
+                    }
+
+    test_groups = {
+                    'test_conf_param': _test_conf_param,
+                    'likelibhood': _likelihood_param
+                }
 
 
-    @classmethod
-    def dispach_param(cls, param_type: str, params: Union[TrainParam, TestParam]) -> None:
+def dispatch_param(params: Union[TrainParam, TestParam]) -> Dict[str, ParamContainer]:
+    if params.isTrain:
+        groups = {**ParamDispatcher.fixed_groups, **ParamDispatcher.train_groups}
+    else:
+        groups = {**ParamDispatcher.fixed_groups, **ParamDispatcher.test_groups}
+
+    _params_dict = dict()
+    for group in ParamDispatcher.param_table.keys():
         _params = ParamContainer()
 
-        for param_name in cls.param_table[param_type]:
-            _arg = getattr(params, param_name)
+        for param_name in ParamDispatcher.param_table[group]:
+            _arg = getattr(params, param_name, None)
             setattr(_params, param_name, _arg)
 
-        return _params
+        _params_dict[group] = _params
+    return _params_dict
+
 
 
 class BaseModel(ABC):
