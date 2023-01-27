@@ -106,6 +106,7 @@ class DeepSurvSplitProvider(BaseSplitProvider):
         """
         super().__init__(df_source)
         self.df_source = self._cast_csv(df_source)
+        self.period_name = list(self.df_source.columns[self.df_source.columns.str.startswith('period')])[0]
 
     def _cast_csv(self, df_source: pd.DataFrame) -> pd.DataFrame:
         """

@@ -20,13 +20,19 @@ def main(opt):
     params = set_params(opt.args)
     params.print_parameter()
 
-    dataloader_param = dispatch_param('dataloader_param', params)
-    model_param = dispatch_param('model_param', params)
-    train_conf_param = dispatch_param('train_conf_param', params)
+
+
+    dataloader_param = dispatch_param('dataloader', params)
+    model_param = dispatch_param('model', params)
+    train_conf_param = dispatch_param('train_conf', params)
+    #dataloader_param = params.dispatch_param('dataloader_param')
 
     epochs = train_conf_param.epochs
     save_weight_policy = train_conf_param.save_weight_policy
     save_datetime_dir= train_conf_param.save_datetime_dir
+
+
+
 
     dataloaders = {split: create_dataloader(dataloader_param, split=split) for split in ['train', 'val']}
     print_dataset_info(dataloaders)

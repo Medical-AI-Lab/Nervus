@@ -8,7 +8,6 @@ import pandas as pd
 import torch
 import torch.nn as nn
 import json
-# import pickle
 from .component import (
                 make_split_provider,
                 create_net
@@ -21,22 +20,7 @@ import argparse
 logger = BaseLogger.get_logger(__name__)
 
 
-class BaseParam:
-    """
-    Set up configure for traning or test.
-    Integrate args and parameters.
-    """
-    def __init__(self, args: argparse.Namespace) -> None:
-        """
-        Args:
-            args (argparse.Namespace): options
-        """
-
-        setattr(self, 'project', Path(args.csvpath).stem)  # Place project at the top.
-
-        for _param, _arg in vars(args).items():
-            setattr(self, _param, _arg)
-
+class ParamMixin:
     def print_parameter(self) -> None:
         """
         Print parameters
@@ -135,6 +119,23 @@ class BaseParam:
         return parameters
 
 
+class BaseParam(ParamMixin):
+    """
+    Set up configure for traning or test.
+    Integrate args and parameters.
+    """
+    def __init__(self, args: argparse.Namespace) -> None:
+        """
+        Args:
+            args (argparse.Namespace): options
+        """
+
+        setattr(self, 'project', Path(args.csvpath).stem)  # Place project at the top.
+
+        for _param, _arg in vars(args).items():
+            setattr(self, _param, _arg)
+
+
 class TrainParam(BaseParam):
     """
     Class for setting parameters for training.
@@ -149,14 +150,16 @@ class TrainParam(BaseParam):
         sp = make_split_provider(self.csvpath, self.task)
         self.df_source = sp.df_source
 
-        self.input_list = list(self.df_source.columns[self.df_source.columns.str.startswith('input')])
-        self.label_list = list(self.df_source.columns[self.df_source.columns.str.startswith('label')])
-
+        #self.input_list = list(self.df_source.columns[self.df_source.columns.str.startswith('input')])
+        #self.label_list = list(self.df_source.columns[self.df_source.columns.str.startswith('label')])
+        self.input_list = sp.input_list
+        self.label_list = sp.label_list
         self.mlp_num_inputs = len(self.input_list)
         self.num_outputs_for_label = self._define_num_outputs_for_label(self.df_source, self.label_list, self.task)
 
         if self.task == 'deepsurv':
-            self.period_name = list(self.df_source.columns[self.df_source.columns.str.startswith('period')])[0]
+            #self.period_name = list(self.df_source.columns[self.df_source.columns.str.startswith('period')])[0]
+            self.period_name = sp.period_name
 
         self.device = torch.device(f"cuda:{self.gpu_ids[0]}") if self.gpu_ids != [] else torch.device('cpu')
 
@@ -225,13 +228,13 @@ class TestParam(BaseParam):
             if _param in parameters:
                 setattr(self, _param, parameters[_param])
 
+        sp = make_split_provider(self.csvpath, self.task)  # After task is define
+        self.df_source = sp.df_source
+
         # No need the below at test
         self.augmentation = 'no'
         self.sampler = 'no'
         self.pretrained = False
-
-        sp = make_split_provider(self.csvpath, self.task)
-        self.df_source = sp.df_source
 
         self.device = torch.device(f"cuda:{self.gpu_ids[0]}") if self.gpu_ids != [] else torch.device('cpu')
 
@@ -288,32 +291,36 @@ class ParamContainer:
     pass
 
 class ParamDispatcher:
-    #_split_provider = [
+    #def __init__(self, isTrain):
+
+    #split_provider = [
     #                'csvpath',
-    #                'task'
+    #                'task',
+    #                'label_list',
+    #                'input_list',
+    #                'period_name'
     #                ]
 
-    dataloader_param = [
-                    'df_source',
-                    'task',
-                    'isTrain',
-                    'batch_size',
-                    'test_batch_size',
-                    'label_list',
-                    'input_list',
-                    'label_list',
-                    'period_name',
-                    'mlp',
-                    'net',
-                    'scaler_path',
-                    'in_channel',
-                    'normalize_image',
-                    'augmentation',
-                    'sampler',
-                    'save_datetime_dir'  # for saveing scaler
-                    ]
+    dataloader = [
+                'isTrain',
+                'df_source',
+                'task',
+                'label_list',
+                'input_list',
+                'period_name',
+                'batch_size',
+                'test_batch_size',
+                'mlp',
+                'net',
+                'scaler_path',
+                'in_channel',
+                'normalize_image',
+                'augmentation',
+                'sampler',
+                'save_datetime_dir'  # for saveing scaler
+                ]
 
-    net_param = [
+    net = [
             'mlp',
             'net',
             'num_outputs_for_label',
@@ -324,8 +331,8 @@ class ParamDispatcher:
             'gpu_ids'
             ]
 
-    model_param = \
-            net_param + \
+    model = \
+            net + \
             [
             'task',
             'isTrain',
@@ -336,13 +343,13 @@ class ParamDispatcher:
             'label_list',
             ]
 
-    train_conf_param = [
+    train_conf = [
                 'epochs',
                 'save_weight_policy',
                 'save_datetime_dir'
                 ]
 
-    test_conf_param = [
+    test_conf = [
                 'task',
                 'weight_dir',
                 'num_outputs_for_label',
@@ -357,11 +364,15 @@ class ParamDispatcher:
                         'save_datetime_dir'
                         ]
 
+
 def dispatch_param(group_name: str, params: Union[TrainParam, TestParam]) -> Dict[str, ParamContainer]:
     _params = ParamContainer()
     for param_name in getattr(ParamDispatcher, group_name):
-        _arg = getattr(params, param_name, None)
-        setattr(_params, param_name, _arg)
+        if hasattr(params, param_name):
+            _arg = getattr(params, param_name)
+            setattr(_params, param_name, _arg)
+        else:
+            pass
     return _params
 
 

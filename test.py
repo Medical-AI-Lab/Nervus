@@ -37,16 +37,22 @@ def main(opt):
     params = set_params(opt.args)
     params.print_parameter()
 
-    dataloader_param = dispatch_param('dataloader_param', params)
-    model_param = dispatch_param('model_param', params)
-    likelihood_param = dispatch_param('likelihood_param', params)
-    test_conf_param = dispatch_param('test_conf_param', params)
+
+
+
+    dataloader_param = dispatch_param('dataloader', params)
+    model_param = dispatch_param('model', params)
+    likelihood_param = dispatch_param('likelihood', params)
+    test_conf_param = dispatch_param('test_conf', params)
 
     test_splits = test_conf_param.test_splits
     task = likelihood_param.task
     num_outputs_for_label = likelihood_param.num_outputs_for_label
     save_datetime_dir = likelihood_param.save_datetime_dir
     weight_dir = test_conf_param.weight_dir
+
+
+
 
     dataloaders = {split: create_dataloader(dataloader_param, split=split) for split in test_splits}
     print_dataset_info(dataloaders)
