@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+from __future__ import annotations
 from pathlib import Path
 import copy
 from abc import ABC, abstractmethod
@@ -8,10 +9,7 @@ import pandas as pd
 import torch
 import torch.nn as nn
 import json
-from .component import (
-                make_split_provider,
-                create_net
-                )
+from .component import make_split_provider, create_net
 from .logger import BaseLogger
 from typing import List, Dict, Tuple, Union
 import argparse
@@ -36,7 +34,7 @@ class ParamMixin:
                     'num_outputs_for_label',
                     'datetime',
                     'device',
-                    'isTrain'
+                    'isTrain',
                     ]
 
         phase = 'Training' if self.isTrain else 'Test'
@@ -81,9 +79,12 @@ class ParamMixin:
                 str_arg = str(arg)
         return str_arg
 
-    def save_parameter(self) -> None:
+    def save_parameter(self, save_datetime_dir: str) -> None:
         """
         Save parameters.
+
+        Args:
+            save_datetime_dir (str): save_datetime_dir
         """
         no_save = [
                     'df_source',
@@ -98,7 +99,7 @@ class ParamMixin:
                 saved[_param] = _arg
 
         # Save parameters
-        save_dir = Path(self.save_datetime_dir)
+        save_dir = Path(save_datetime_dir)
         save_dir.mkdir(parents=True, exist_ok=True)
         save_path = str(Path(save_dir, 'parameters.json'))
         with open(save_path, 'w') as f:
@@ -149,16 +150,17 @@ class TrainParam(BaseParam):
 
         sp = make_split_provider(self.csvpath, self.task)
         self.df_source = sp.df_source
-
-        #self.input_list = list(self.df_source.columns[self.df_source.columns.str.startswith('input')])
-        #self.label_list = list(self.df_source.columns[self.df_source.columns.str.startswith('label')])
         self.input_list = sp.input_list
         self.label_list = sp.label_list
         self.mlp_num_inputs = len(self.input_list)
         self.num_outputs_for_label = self._define_num_outputs_for_label(self.df_source, self.label_list, self.task)
 
+        if self.input_list != []:
+            self.scaling = 'yes'
+        else:
+            self.scaling = 'no'
+
         if self.task == 'deepsurv':
-            #self.period_name = list(self.df_source.columns[self.df_source.columns.str.startswith('period')])[0]
             self.period_name = sp.period_name
 
         self.device = torch.device(f"cuda:{self.gpu_ids[0]}") if self.gpu_ids != [] else torch.device('cpu')
@@ -204,8 +206,8 @@ class TestParam(BaseParam):
         super().__init__(args)
 
         # Load paramaters
-        _save_datetime_dir = Path(self.weight_dir).parents[0]
-        parameter_path = Path(_save_datetime_dir, 'parameters.json')
+        _train_save_datetime_dir = Path(self.weight_dir).parents[0]
+        parameter_path = Path(_train_save_datetime_dir, 'parameters.json')
         parameters = self.load_parameter(parameter_path)
 
         required_for_test = [
@@ -221,15 +223,15 @@ class TestParam(BaseParam):
                             'mlp_num_inputs',
                             'num_outputs_for_label',
                             'period_name',
-                            'scaler_path'
+                            'scaling'
                             ]
 
         for _param in required_for_test:
             if _param in parameters:
                 setattr(self, _param, parameters[_param])
 
-        sp = make_split_provider(self.csvpath, self.task)  # After task is define
-        self.df_source = sp.df_source
+        if self.scaling == 'yes':
+            setattr(self, 'scaler_path', str(Path(_train_save_datetime_dir, 'scaler.pkl')))
 
         # No need the below at test
         self.augmentation = 'no'
@@ -239,8 +241,11 @@ class TestParam(BaseParam):
         self.device = torch.device(f"cuda:{self.gpu_ids[0]}") if self.gpu_ids != [] else torch.device('cpu')
 
         # Directory for saving likelihood
-        _datetime = _save_datetime_dir.name
+        _datetime = _train_save_datetime_dir.name
         self.save_datetime_dir = str(Path('results', self.project, 'trials', _datetime))
+
+        sp = make_split_provider(self.csvpath, self.task)  # After task is define
+        self.df_source = sp.df_source
 
         # Align splits to be test
         _splits_in_df_source = self.df_source['split'].unique().tolist()
@@ -270,37 +275,7 @@ class TestParam(BaseParam):
         return _test_splits
 
 
-def set_params(args: argparse.Namespace) -> Union[TrainParam, TestParam]:
-    """
-    Set parameters depending on training or test
-
-    Args:
-        args (argparse.Namespace): args
-
-    Returns:
-        Union[TrainParam, TestParam]: parameters
-    """
-    if args.isTrain:
-        params = TrainParam(args)
-    else:
-        params = TestParam(args)
-    return params
-
-
-class ParamContainer:
-    pass
-
 class ParamDispatcher:
-    #def __init__(self, isTrain):
-
-    #split_provider = [
-    #                'csvpath',
-    #                'task',
-    #                'label_list',
-    #                'input_list',
-    #                'period_name'
-    #                ]
-
     dataloader = [
                 'isTrain',
                 'df_source',
@@ -312,12 +287,12 @@ class ParamDispatcher:
                 'test_batch_size',
                 'mlp',
                 'net',
+                'scaling',
                 'scaler_path',
                 'in_channel',
                 'normalize_image',
                 'augmentation',
-                'sampler',
-                'save_datetime_dir'  # for saveing scaler
+                'sampler'
                 ]
 
     net = [
@@ -357,23 +332,58 @@ class ParamDispatcher:
                 'save_datetime_dir'
                 ]
 
-    # likelihood
-    likelihood_param = [
-                        'task',
-                        'num_outputs_for_label',
-                        'save_datetime_dir'
-                        ]
+
+class ParamContainer(ParamDispatcher):
+    def __init__(self):
+        pass
+
+    @classmethod
+    def dispatch_params(cls, params: Union[TrainParam, TestParam], group_name: str) -> ParamContainer:
+        for param_name in getattr(cls, group_name):
+            if hasattr(params, param_name):
+                _arg = getattr(params, param_name)
+                setattr(cls, param_name, _arg)
+        return cls
 
 
-def dispatch_param(group_name: str, params: Union[TrainParam, TestParam]) -> Dict[str, ParamContainer]:
-    _params = ParamContainer()
-    for param_name in getattr(ParamDispatcher, group_name):
-        if hasattr(params, param_name):
-            _arg = getattr(params, param_name)
-            setattr(_params, param_name, _arg)
-        else:
-            pass
-    return _params
+def set_params(args: argparse.Namespace) -> Union[TrainParam, TestParam]:
+    """
+    Set parameters depending on training or test
+
+    Args:
+        args (argparse.Namespace): args
+
+    Returns:
+        Union[TrainParam, TestParam]: parameters
+    """
+    if args.isTrain:
+        params = TrainParam(args)
+        return params
+    else:
+        params = TestParam(args)
+        return params
+
+
+def dispatch_params(params:Union[TrainParam, TestParam]) -> Dict[str, ParamContainer]:
+    _params = dict()
+    if params.isTrain:
+        _params['dataloader'] = ParamContainer.dispatch_params(params, 'dataloader')
+        _params['model'] = ParamContainer.dispatch_params(params, 'model')
+        _params['train_conf'] = ParamContainer.dispatch_params(params, 'train_conf')
+
+        # Delete after passing dataloader
+        del params.df_source
+
+        return _params
+    else:
+        _params['dataloader'] = ParamContainer.dispatch_params(params, 'dataloader')
+        _params['model'] = ParamContainer.dispatch_params(params, 'model')
+        _params['test_conf'] = ParamContainer.dispatch_params(params, 'test_conf')
+
+        # Delete after passing dataloader
+        del params.df_source
+
+        return _params
 
 
 class BaseModel(ABC):

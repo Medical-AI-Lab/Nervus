@@ -6,7 +6,7 @@ import torch
 from lib import (
         check_test_options,
         set_params,
-        dispatch_param,
+        dispatch_params,
         create_model,
         BaseLogger
         )
@@ -37,22 +37,16 @@ def main(opt):
     params = set_params(opt.args)
     params.print_parameter()
 
+    params_groups = dispatch_params(params)
+    dataloader_param = params_groups['dataloader']
+    model_param = params_groups['model']
+    test_conf_param = params_groups['test_conf']
 
-
-
-    dataloader_param = dispatch_param('dataloader', params)
-    model_param = dispatch_param('model', params)
-    likelihood_param = dispatch_param('likelihood', params)
-    test_conf_param = dispatch_param('test_conf', params)
-
+    task = test_conf_param.task
     test_splits = test_conf_param.test_splits
-    task = likelihood_param.task
-    num_outputs_for_label = likelihood_param.num_outputs_for_label
-    save_datetime_dir = likelihood_param.save_datetime_dir
+    num_outputs_for_label = test_conf_param.num_outputs_for_label
+    save_datetime_dir = test_conf_param.save_datetime_dir
     weight_dir = test_conf_param.weight_dir
-
-
-
 
     dataloaders = {split: create_dataloader(dataloader_param, split=split) for split in test_splits}
     print_dataset_info(dataloaders)

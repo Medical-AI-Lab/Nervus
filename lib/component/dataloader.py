@@ -177,26 +177,33 @@ class InputDataMixin:
     """
     Class to normalizes input data.
     """
-    def _make_scaler(self, scaler_path: Path = None) -> MinMaxScaler:
+    def _make_scaler(self) -> MinMaxScaler:
         """
-        Normalizes inputa data by min-max normalization with train data.
-
-        Args:
-            scaler_path (Path, optional): path to dumpe slacer. Defaults to None.
+        Make scaler to mormalize inputa data by min-max normalization with train data.
 
         Returns:
             MinMaxScaler: scaler
         """
-        assert (self.input_list != []), 'No tabular data.'
-        if scaler_path is None:
-            scaler = MinMaxScaler()
-            _df_train = self.df_source[self.df_source['split'] == 'train']  # should be normalized with min and max of training data
-            _ = scaler.fit(_df_train[self.input_list])                      # fit only
-        else:
-            # load scalaer created at training.
+        scaler = MinMaxScaler()
+        _df_train = self.df_source[self.df_source['split'] == 'train']  # should be normalized with min and max of training data
+        _ = scaler.fit(_df_train[self.input_list])                      # fit only
+        return scaler
+
+    def save_scaler(self, save_datetime_dir: str) -> None:
+        """
+        Save scaler
+
+        Args:
+            save_scaler_path (str): save_datetime_dir
+        """
+        save_scaler_path = save_datetime_dir + '/' + 'scaler.pkl'
+        with open(save_scaler_path, 'wb') as f:
+            pickle.dump(self.scaler, f)
+
+    def load_scaler(self, scaler_path :str) -> None:
             with open(scaler_path, 'rb') as f:
                 scaler = pickle.load(f)
-        return scaler
+            return scaler
 
     def _load_input_value_if_mlp(self, idx: int) -> Union[torch.Tensor, str]:
         """
@@ -223,10 +230,6 @@ class InputDataMixin:
         inputs_value = np.array(inputs_value, dtype=np.float64)
         inputs_value = torch.from_numpy(inputs_value.astype(np.float32)).clone()
         return inputs_value
-
-    def save_scaler(self, save_scaler_path: str):
-        with open(save_scaler_path, 'wb') as f:
-            pickle.dump(self.scaler, f)
 
 
 class ImageMixin:
@@ -369,13 +372,15 @@ class LoadDataSet(Dataset, DataSetWidget):
         self.df_split = self.df_source[self.df_source['split'] == self.split]
         self.col_index_dict = {col_name: self.df_split.columns.get_loc(col_name) for col_name in self.df_split.columns}
 
-        if (self.params.mlp is not None):
-            if hasattr(self.params, 'scaler_path') and (self.params.scaler_path is not None):
-                scaler_path = self.params.scaler_path
+        # For input data
+        if params.scaling == 'yes':
+            if params.isTrain:
+                self.scaler = self._make_scaler()
             else:
-                scaler_path = None
-            self.scaler = self._make_scaler(scaler_path)
+                # load scaler used when training.
+                self.scaler = self.load_scaler(self.params.scaler_path)
 
+        # For image
         if (self.params.net is not None):
             self.augmentation = self._make_augmentations()
             self.transform = self._make_transforms()
@@ -481,7 +486,6 @@ def create_dataloader(
     """
     split_data = LoadDataSet(params, split)
 
-    # args never has both 'batch_size' and 'test_batch_size'.
     if params.isTrain:
         batch_size = params.batch_size
         shuffle = True

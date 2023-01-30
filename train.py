@@ -6,7 +6,7 @@ import torch
 from lib import (
         check_train_options,
         set_params,
-        dispatch_param,
+        dispatch_params,
         create_model,
         BaseLogger
         )
@@ -20,19 +20,14 @@ def main(opt):
     params = set_params(opt.args)
     params.print_parameter()
 
-
-
-    dataloader_param = dispatch_param('dataloader', params)
-    model_param = dispatch_param('model', params)
-    train_conf_param = dispatch_param('train_conf', params)
-    #dataloader_param = params.dispatch_param('dataloader_param')
+    params_groups = dispatch_params(params)
+    dataloader_param = params_groups['dataloader']
+    model_param = params_groups['model']
+    train_conf_param = params_groups['train_conf']
 
     epochs = train_conf_param.epochs
     save_weight_policy = train_conf_param.save_weight_policy
-    save_datetime_dir= train_conf_param.save_datetime_dir
-
-
-
+    save_datetime_dir = train_conf_param.save_datetime_dir
 
     dataloaders = {split: create_dataloader(dataloader_param, split=split) for split in ['train', 'val']}
     print_dataset_info(dataloaders)
@@ -76,11 +71,10 @@ def main(opt):
     model.save_learning_curve(save_datetime_dir)
     model.save_weight(save_datetime_dir, as_best=True)
 
-    if dataloader_param.input_list != []:
-        params.scaler_path = save_datetime_dir + '/' + 'scaler.pkl'
-        dataloaders['train'].dataset.save_scaler(params.scaler_path)
+    if dataloader_param.scaling == 'yes':
+        dataloaders['train'].dataset.save_scaler(save_datetime_dir)
 
-    params.save_parameter()
+    params.save_parameter(save_datetime_dir)
 
 
 if __name__ == '__main__':
