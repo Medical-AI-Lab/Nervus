@@ -37,6 +37,15 @@ class ParamMixin:
                     'isTrain',
                     ]
 
+        if not self.isTrain:
+            no_print = \
+                    no_print + \
+                    [
+                    'augmentation',
+                    'sampler',
+                    'pretrained'
+                    ]
+
         phase = 'Training' if self.isTrain else 'Test'
         message = ''
         message += f"{'-'*25} Options for {phase} {'-'*33}\n"
@@ -87,7 +96,6 @@ class ParamMixin:
             save_datetime_dir (str): save_datetime_dir
         """
         no_save = [
-                    'df_source',
                     'device',  # Need str(self.device) if save
                     'isTrain',
                     'datetime',
@@ -154,14 +162,15 @@ class TrainParam(BaseParam):
         self.label_list = sp.label_list
         self.mlp_num_inputs = len(self.input_list)
         self.num_outputs_for_label = self._define_num_outputs_for_label(self.df_source, self.label_list, self.task)
+        del sp.df_source  # Delete to save moemory
+
+        if self.task == 'deepsurv':
+            self.period_name = sp.period_name
 
         if self.input_list != []:
             self.scaling = 'yes'
         else:
             self.scaling = 'no'
-
-        if self.task == 'deepsurv':
-            self.period_name = sp.period_name
 
         self.device = torch.device(f"cuda:{self.gpu_ids[0]}") if self.gpu_ids != [] else torch.device('cpu')
 
@@ -246,6 +255,7 @@ class TestParam(BaseParam):
 
         sp = make_split_provider(self.csvpath, self.task)  # After task is define
         self.df_source = sp.df_source
+        del sp.df_source  # Delete to save moemory
 
         # Align splits to be test
         _splits_in_df_source = self.df_source['split'].unique().tolist()
@@ -276,6 +286,9 @@ class TestParam(BaseParam):
 
 
 class ParamDispatcher:
+    """
+    Class to register parameter for groups.
+    """
     dataloader = [
                 'isTrain',
                 'df_source',
@@ -334,11 +347,27 @@ class ParamDispatcher:
 
 
 class ParamContainer(ParamDispatcher):
+    """
+    Class to store parameters for each group.
+
+    Args:
+        ParamDispatcher (ParamDispatcher): class for dispatching parematers
+    """
     def __init__(self):
         pass
 
     @classmethod
-    def dispatch_params(cls, params: Union[TrainParam, TestParam], group_name: str) -> ParamContainer:
+    def dispatch_params_by_group(cls, params: Union[TrainParam, TestParam], group_name: str) -> ParamContainer:
+        """
+        Displatch parameters depenidng on group.
+
+        Args:
+            params (Union[TrainParam, TestParam]): parameters
+            group_name (str): group
+
+        Returns:
+            ParamContainer: class containing parameters for group
+        """
         for param_name in getattr(cls, group_name):
             if hasattr(params, param_name):
                 _arg = getattr(params, param_name)
@@ -365,24 +394,24 @@ def set_params(args: argparse.Namespace) -> Union[TrainParam, TestParam]:
 
 
 def dispatch_params(params:Union[TrainParam, TestParam]) -> Dict[str, ParamContainer]:
+    """
+
+    Args:
+        params (Union[TrainParam, TestParam]): _description_
+
+    Returns:
+        Dict[str, ParamContainer]: class containing parameters for each group
+    """
     _params = dict()
     if params.isTrain:
-        _params['dataloader'] = ParamContainer.dispatch_params(params, 'dataloader')
-        _params['model'] = ParamContainer.dispatch_params(params, 'model')
-        _params['train_conf'] = ParamContainer.dispatch_params(params, 'train_conf')
-
-        # Delete after passing dataloader
-        del params.df_source
-
+        _params['dataloader'] = ParamContainer.dispatch_params_by_group(params, 'dataloader')
+        _params['model'] = ParamContainer.dispatch_params_by_group(params, 'model')
+        _params['train_conf'] = ParamContainer.dispatch_params_by_group(params, 'train_conf')
         return _params
     else:
-        _params['dataloader'] = ParamContainer.dispatch_params(params, 'dataloader')
-        _params['model'] = ParamContainer.dispatch_params(params, 'model')
-        _params['test_conf'] = ParamContainer.dispatch_params(params, 'test_conf')
-
-        # Delete after passing dataloader
-        del params.df_source
-
+        _params['dataloader'] = ParamContainer.dispatch_params_by_group(params, 'dataloader')
+        _params['model'] = ParamContainer.dispatch_params_by_group(params, 'model')
+        _params['test_conf'] = ParamContainer.dispatch_params_by_group(params, 'test_conf')
         return _params
 
 

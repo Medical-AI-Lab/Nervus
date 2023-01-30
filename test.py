@@ -36,11 +36,11 @@ def _collect_weight(weight_dir: str) -> List[Path]:
 def main(opt):
     params = set_params(opt.args)
     params.print_parameter()
-
     params_groups = dispatch_params(params)
     dataloader_param = params_groups['dataloader']
     model_param = params_groups['model']
     test_conf_param = params_groups['test_conf']
+    del params.df_source
 
     task = test_conf_param.task
     test_splits = test_conf_param.test_splits
@@ -75,6 +75,7 @@ def main(opt):
         likelihood.save_likelihood(save_datetime_dir, weight_path.stem)
 
         if len(weight_paths) > 1:
+            del model.network
             model.init_network(params)
 
 

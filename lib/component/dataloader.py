@@ -201,9 +201,15 @@ class InputDataMixin:
             pickle.dump(self.scaler, f)
 
     def load_scaler(self, scaler_path :str) -> None:
-            with open(scaler_path, 'rb') as f:
-                scaler = pickle.load(f)
-            return scaler
+        """
+        Load scaler.
+
+        Args:
+            scaler_path (str): path tp scaler
+        """
+        with open(scaler_path, 'rb') as f:
+            scaler = pickle.load(f)
+        return scaler
 
     def _load_input_value_if_mlp(self, idx: int) -> Union[torch.Tensor, str]:
         """
