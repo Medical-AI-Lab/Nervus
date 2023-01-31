@@ -19,7 +19,6 @@ logger = BaseLogger.get_logger(__name__)
 def main(opt):
     params = set_params(opt.args)
     params.print_parameter()
-
     params_groups = dispatch_params(params)
     dataloader_param = params_groups['dataloader']
     model_param = params_groups['model']

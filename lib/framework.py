@@ -162,7 +162,6 @@ class TrainParam(BaseParam):
         self.label_list = sp.label_list
         self.mlp_num_inputs = len(self.input_list)
         self.num_outputs_for_label = self._define_num_outputs_for_label(self.df_source, self.label_list, self.task)
-        del sp.df_source  # Delete to save moemory
 
         if self.task == 'deepsurv':
             self.period_name = sp.period_name
@@ -255,7 +254,6 @@ class TestParam(BaseParam):
 
         sp = make_split_provider(self.csvpath, self.task)  # After task is define
         self.df_source = sp.df_source
-        del sp.df_source  # Delete to save moemory
 
         # Align splits to be test
         _splits_in_df_source = self.df_source['split'].unique().tolist()
