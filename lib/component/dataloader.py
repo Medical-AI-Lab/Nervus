@@ -141,7 +141,7 @@ def make_split_provider(csvpath: str, task: str) -> Union[ClsSplitProvider, RegS
     """
 
     _df_source = pd.read_csv(csvpath)
-    _df_excluded = _df_source[_df_source['split'] != 'exclude'].copy()
+    _df_excluded = _df_source[_df_source['split'] != 'exclude']
 
     if not('group' in _df_excluded.columns):
         _df_excluded['group'] = 'all'

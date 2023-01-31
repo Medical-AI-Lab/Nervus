@@ -255,7 +255,7 @@ class TestParam(BaseParam):
         _datetime = _train_save_datetime_dir.name
         self.save_datetime_dir = str(Path('results', self.project, 'trials', _datetime))
 
-        sp = make_split_provider(self.csvpath, self.task)  # After task is define
+        sp = make_split_provider(self.csvpath, self.task)  # should be done after task is loaded.
         self.df_source = sp.df_source
 
         # Align splits to be test
