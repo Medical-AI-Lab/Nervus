@@ -24,6 +24,7 @@ class ParamMixin:
         Print parameters
         """
         no_print = [
+                    'isTrain',
                     'df_source',
                     'mlp',
                     'net',
@@ -34,15 +35,14 @@ class ParamMixin:
                     'num_outputs_for_label',
                     'datetime',
                     'device',
-                    'isTrain',
                     'dataloader_params',
-                    'model_params'
+                    'model_params',
+                    'train_conf_params',
+                    'test_conf_params'
                     ]
 
-        if self.isTrain:
-            no_print = no_print + ['train_conf_params']
-        else:
-            no_print = no_print + ['test_conf_params'] + ['augmentation', 'sampler', 'pretrained']
+        if not self.isTrain:
+            no_print = no_print + ['augmentation', 'sampler', 'pretrained']
 
         phase = 'Training' if self.isTrain else 'Test'
         message = ''
@@ -94,11 +94,17 @@ class ParamMixin:
             save_datetime_dir (str): save_datetime_dir
         """
         no_save = [
-                    'device',  # Need str(self.device) if save
                     'isTrain',
+                    'device',  # Need str(self.device) if save
+                    'df_source',
                     'datetime',
                     'save_datetime_dir',
+                    'dataloader_params',
+                    'model_params',
+                    'train_conf_params',
+                    'test_conf_params'
                     ]
+
         saved = dict()
         for _param, _arg in vars(self).items():
             if _param not in no_save:
@@ -172,8 +178,7 @@ class TrainParam(BaseParam):
         self.device = torch.device(f"cuda:{self.gpu_ids[0]}") if self.gpu_ids != [] else torch.device('cpu')
 
         # Directory for saveing paramaters, weights, or learning_curve
-        _datetime = self.datetime
-        self.save_datetime_dir = str(Path('results', self.project, 'trials', _datetime))
+        self.save_datetime_dir = str(Path('results', self.project, 'trials', self.datetime))
 
     def _define_num_outputs_for_label(self, df_source: pd.DataFrame, label_list: List[str], task :str) -> Dict[str, int]:
         """
@@ -349,7 +354,7 @@ class ParamContainer(ParamDispatcher):
     Args:
         ParamDispatcher (ParamDispatcher): class for dispatching parematers
     """
-    def __init__(self):
+    def __init__(self) -> None:
         pass
 
     @classmethod
