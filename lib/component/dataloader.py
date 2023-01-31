@@ -196,7 +196,7 @@ class InputDataMixin:
         Args:
             save_scaler_path (str): save_datetime_dir
         """
-        save_scaler_path = save_datetime_dir + '/' + 'scaler.pkl'
+        save_scaler_path = Path(save_datetime_dir, 'scaler.pkl')
         with open(save_scaler_path, 'wb') as f:
             pickle.dump(self.scaler, f)
 

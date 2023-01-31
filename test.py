@@ -6,7 +6,6 @@ import torch
 from lib import (
         check_test_options,
         set_params,
-        dispatch_params,
         create_model,
         BaseLogger
         )
@@ -36,21 +35,17 @@ def _collect_weight(weight_dir: str) -> List[Path]:
 def main(opt):
     params = set_params(opt.args)
     params.print_parameter()
-    params_groups = dispatch_params(params)
-    dataloader_param = params_groups['dataloader']
-    model_param = params_groups['model']
-    test_conf_param = params_groups['test_conf']
 
-    task = test_conf_param.task
-    test_splits = test_conf_param.test_splits
-    num_outputs_for_label = test_conf_param.num_outputs_for_label
-    save_datetime_dir = test_conf_param.save_datetime_dir
-    weight_dir = test_conf_param.weight_dir
+    task = params.test_conf_params.task
+    test_splits = params.test_conf_params.test_splits
+    num_outputs_for_label = params.test_conf_params.num_outputs_for_label
+    save_datetime_dir = params.test_conf_params.save_datetime_dir
+    weight_dir = params.test_conf_params.weight_dir
 
-    dataloaders = {split: create_dataloader(dataloader_param, split=split) for split in test_splits}
+    dataloaders = {split: create_dataloader(params.dataloader_params, split=split) for split in test_splits}
     print_dataset_info(dataloaders)
 
-    model = create_model(model_param )
+    model = create_model(params.model_params)
     likelihood = set_likelihood(task, num_outputs_for_label, save_datetime_dir)
 
     weight_paths = _collect_weight(weight_dir)

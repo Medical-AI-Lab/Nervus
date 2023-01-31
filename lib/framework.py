@@ -35,16 +35,14 @@ class ParamMixin:
                     'datetime',
                     'device',
                     'isTrain',
+                    'dataloader_params',
+                    'model_params'
                     ]
 
-        if not self.isTrain:
-            no_print = \
-                    no_print + \
-                    [
-                    'augmentation',
-                    'sampler',
-                    'pretrained'
-                    ]
+        if self.isTrain:
+            no_print = no_print + ['train_conf_params']
+        else:
+            no_print = no_print + ['test_conf_params'] + ['augmentation', 'sampler', 'pretrained']
 
         phase = 'Training' if self.isTrain else 'Test'
         message = ''
@@ -136,7 +134,7 @@ class BaseParam(ParamMixin):
     def __init__(self, args: argparse.Namespace) -> None:
         """
         Args:
-            args (argparse.Namespace): options
+            args (argparse.Namespace): arguments
         """
 
         setattr(self, 'project', Path(args.csvpath).stem)  # Place project at the top.
@@ -152,7 +150,7 @@ class TrainParam(BaseParam):
     def __init__(self, args: argparse.Namespace) -> None:
         """
         Args:
-            args (argparse.Namespace): options
+            args (argparse.Namespace): arguments
         """
         super().__init__(args)
 
@@ -209,7 +207,7 @@ class TestParam(BaseParam):
     def __init__(self, args: argparse.Namespace) -> None:
         """
         Args:
-            args (argparse.Namespace): options
+            args (argparse.Namespace): arguments
         """
         super().__init__(args)
 
@@ -375,7 +373,7 @@ class ParamContainer(ParamDispatcher):
 
 def set_params(args: argparse.Namespace) -> Union[TrainParam, TestParam]:
     """
-    Set parameters depending on training or test
+    Set parameters depending on training or test and dispatch them.
 
     Args:
         args (argparse.Namespace): args
@@ -385,44 +383,28 @@ def set_params(args: argparse.Namespace) -> Union[TrainParam, TestParam]:
     """
     if args.isTrain:
         params = TrainParam(args)
+        params.dataloader_params = ParamContainer.dispatch_params_by_group(params, 'dataloader')
+        params.model_params = ParamContainer.dispatch_params_by_group(params, 'model')
+        params.train_conf_params = ParamContainer.dispatch_params_by_group(params, 'train_conf')
         return params
     else:
         params = TestParam(args)
+        params.dataloader_params = ParamContainer.dispatch_params_by_group(params, 'dataloader')
+        params.model_params = ParamContainer.dispatch_params_by_group(params, 'model')
+        params.test_conf_params = ParamContainer.dispatch_params_by_group(params, 'test_conf')
         return params
-
-
-def dispatch_params(params:Union[TrainParam, TestParam]) -> Dict[str, ParamContainer]:
-    """
-
-    Args:
-        params (Union[TrainParam, TestParam]): _description_
-
-    Returns:
-        Dict[str, ParamContainer]: class containing parameters for each group
-    """
-    _params = dict()
-    if params.isTrain:
-        _params['dataloader'] = ParamContainer.dispatch_params_by_group(params, 'dataloader')
-        _params['model'] = ParamContainer.dispatch_params_by_group(params, 'model')
-        _params['train_conf'] = ParamContainer.dispatch_params_by_group(params, 'train_conf')
-        return _params
-    else:
-        _params['dataloader'] = ParamContainer.dispatch_params_by_group(params, 'dataloader')
-        _params['model'] = ParamContainer.dispatch_params_by_group(params, 'model')
-        _params['test_conf'] = ParamContainer.dispatch_params_by_group(params, 'test_conf')
-        return _params
 
 
 class BaseModel(ABC):
     """
     Class to construct model. This class is the base class to construct model.
     """
-    def __init__(self, params: Union[TrainParam, TestParam]) -> None:
+    def __init__(self, params: ParamContainer) -> None:
         """
         Class to define Model
 
         Args:
-            param (Union[TrainParam, TestParam]): parameters
+            param (ParamContainer): parameters
         """
         self.params = params
         self.label_list = self.params.label_list
@@ -439,12 +421,12 @@ class BaseModel(ABC):
         else:
             pass
 
-    def init_network(self, params: Union[TrainParam, TestParam]) -> None:
+    def init_network(self, params: ParamContainer) -> None:
         """
         Creates network.
 
         Args:
-            params (Union[TrainParam, TestParam]): parameters
+            params (ParamContainer): parameters
         """
         _network = create_net(
                             params.mlp,
@@ -667,10 +649,10 @@ class MLPModel(ModelWidget):
     Class for MLP model
     """
 
-    def __init__(self, params: Union[TrainParam, TestParam]) -> None:
+    def __init__(self, params: ParamContainer) -> None:
         """
         Args:
-            params: (Union[TrainParam, TestParam]): parameters
+            params: (ParamContainer): parameters
         """
         super().__init__(params)
 
@@ -731,10 +713,10 @@ class CVModel(ModelWidget):
     """
     Class for CNN or ViT model
     """
-    def __init__(self, params: Union[TrainParam, TestParam]) -> None:
+    def __init__(self, params: ParamContainer) -> None:
         """
         Args:
-            params: (Union[TrainParam, TestParam]): parameters
+            params: (ParamContainer): parameters
         """
         super().__init__(params)
 
@@ -795,10 +777,10 @@ class FusionModel(ModelWidget):
     """
     Class for MLP+CNN or MLP+ViT model.
     """
-    def __init__(self, params: Union[TrainParam, TestParam]) -> None:
+    def __init__(self, params: ParamContainer) -> None:
         """
         Args:
-            params: (Union[TrainParam, TestParam]): parameters
+            params: (ParamContainer): parameters
         """
         super().__init__(params)
 
@@ -863,10 +845,10 @@ class MLPDeepSurv(ModelWidget):
     """
     Class for DeepSurv model with MLP
     """
-    def __init__(self, params: Union[TrainParam, TestParam]) -> None:
+    def __init__(self, params: ParamContainer) -> None:
         """
         Args:
-            params (Union[TrainParam, TestParam]): parameters
+            params (ParamContainer): parameters
         """
         super().__init__(params)
 
@@ -931,10 +913,10 @@ class CVDeepSurv(ModelWidget):
     """
     Class for DeepSurv model with CNN or ViT
     """
-    def __init__(self, params: Union[TrainParam, TestParam]) -> None:
+    def __init__(self, params: ParamContainer) -> None:
         """
         Args:
-            params: (Union[TrainParam, TestParam]): parameters
+            params: (ParamContainer): parameters
         """
         super().__init__(params)
 
@@ -994,14 +976,15 @@ class CVDeepSurv(ModelWidget):
         _periods = labels['periods'].float().to(self.device)
         self.loss_reg.cal_batch_loss(output, _labels, _periods, self.network)
 
+
 class FusionDeepSurv(ModelWidget):
     """
     Class for DeepSurv model with MLP+CNN or MLP+ViT model.
     """
-    def __init__(self, params: Union[TrainParam, TestParam]) -> None:
+    def __init__(self, params: ParamContainer) -> None:
         """
         Args:
-            params: (Union[TrainParam, TestParam]): parameters
+            params: (ParamContainer): parameters
         """
         super().__init__(params)
 
@@ -1060,12 +1043,12 @@ class FusionDeepSurv(ModelWidget):
         self.loss_reg.cal_batch_loss(output, _labels, _periods, self.network)
 
 
-def create_model(params: Union[TrainParam, TestParam]) -> nn.Module:
+def create_model(params: ParamContainer) -> nn.Module:
     """
     Construct model.
 
     Args:
-        params (Union[TrainParam, TestParam]: parameters
+        params (ParamContainer): parameters
 
     Returns:
         nn.Module: model

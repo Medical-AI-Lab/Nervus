@@ -6,7 +6,6 @@ import torch
 from lib import (
         check_train_options,
         set_params,
-        dispatch_params,
         create_model,
         BaseLogger
         )
@@ -19,19 +18,15 @@ logger = BaseLogger.get_logger(__name__)
 def main(opt):
     params = set_params(opt.args)
     params.print_parameter()
-    params_groups = dispatch_params(params)
-    dataloader_param = params_groups['dataloader']
-    model_param = params_groups['model']
-    train_conf_param = params_groups['train_conf']
 
-    epochs = train_conf_param.epochs
-    save_weight_policy = train_conf_param.save_weight_policy
-    save_datetime_dir = train_conf_param.save_datetime_dir
+    epochs = params.train_conf_params.epochs
+    save_weight_policy = params.train_conf_params.save_weight_policy
+    save_datetime_dir = params.train_conf_params.save_datetime_dir
 
-    dataloaders = {split: create_dataloader(dataloader_param, split=split) for split in ['train', 'val']}
+    dataloaders = {split: create_dataloader(params.dataloader_params, split=split) for split in ['train', 'val']}
     print_dataset_info(dataloaders)
 
-    model = create_model(model_param)
+    model = create_model(params.model_params)
 
     for epoch in range(epochs):
         for phase in ['train', 'val']:
@@ -70,7 +65,7 @@ def main(opt):
     model.save_learning_curve(save_datetime_dir)
     model.save_weight(save_datetime_dir, as_best=True)
 
-    if dataloader_param.scaling == 'yes':
+    if params.dataloader_params.scaling == 'yes':
         dataloaders['train'].dataset.save_scaler(save_datetime_dir)
 
     params.save_parameter(save_datetime_dir)
