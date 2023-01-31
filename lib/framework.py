@@ -35,6 +35,7 @@ class ParamMixin:
                     'num_outputs_for_label',
                     'datetime',
                     'device',
+                    'scaler_path',
                     'dataloader_params',
                     'model_params',
                     'train_conf_params',
