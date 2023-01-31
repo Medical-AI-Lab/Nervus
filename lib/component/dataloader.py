@@ -144,7 +144,7 @@ def make_split_provider(csvpath: str, task: str) -> Union[ClsSplitProvider, RegS
     _df_excluded = _df_source[_df_source['split'] != 'exclude']
 
     if not('group' in _df_excluded.columns):
-        _df_excluded['group'] = 'all'
+        _df_excluded = _df_excluded.assign(group='all')
 
     if task == 'classification':
         sp = ClsSplitProvider(_df_excluded)
@@ -155,7 +155,6 @@ def make_split_provider(csvpath: str, task: str) -> Union[ClsSplitProvider, RegS
     else:
         raise ValueError(f"Invalid task: {task}.")
     return sp
-
 
 #
 # The below is for dataloader.
