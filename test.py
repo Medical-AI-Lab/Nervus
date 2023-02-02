@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from pathlib import Path
 import torch
 from lib import (
         check_test_options,
@@ -15,26 +14,9 @@ from lib.component import (
         print_dataset_info,
         set_likelihood
         )
-from typing import List
 
 
 logger = BaseLogger.get_logger(__name__)
-
-
-def _collect_weight(weight_dir: str) -> List[Path]:
-    """
-    Return list of weight paths.
-
-    Args:
-        weight_dir (st): path to directory of weights
-
-    Returns:
-        List[Path]: list of weight paths
-    """
-    weight_paths = list(Path(weight_dir).glob('*.pt'))
-    assert weight_paths != [], f"No weight in {weight_dir}."
-    weight_paths.sort(key=lambda path: path.stat().st_mtime)
-    return weight_paths
 
 
 def main(opt):
@@ -45,7 +27,7 @@ def main(opt):
     test_splits = params.test_conf_params.test_splits
     num_outputs_for_label = params.test_conf_params.num_outputs_for_label
     save_datetime_dir = params.test_conf_params.save_datetime_dir
-    weight_dir = params.test_conf_params.weight_dir
+    weight_paths = params.test_conf_params.weight_paths
 
     dataloaders = {split: create_dataloader(params.dataloader_params, split=split) for split in test_splits}
     print_dataset_info(dataloaders)
@@ -53,9 +35,8 @@ def main(opt):
     model = create_model(params.model_params)
     likelihood = set_likelihood(task, num_outputs_for_label, save_datetime_dir)
 
-    weight_paths = _collect_weight(weight_dir)
     for weight_path in weight_paths:
-        logger.info(f"Inference with {weight_path.name}.")
+        logger.info(f"Inference ...")
 
         # weight is orverwritten every time weight is loaded.
         model.load_weight(weight_path)

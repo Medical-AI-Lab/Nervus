@@ -127,6 +127,21 @@ class Options:
         weight_dir = max(_weight_dirs, key=lambda weight_dir: weight_dir.stat().st_mtime)
         return str(weight_dir)
 
+    def _collect_weight(self, weight_dir: str) -> List[str]:
+        """
+        Return list of weight paths.
+
+        Args:
+            weight_dir (st): path to directory of weights
+
+        Returns:
+            List[Path]: list of weight paths
+        """
+        _weight_paths = list(Path(weight_dir).glob('*.pt'))
+        assert _weight_paths != [], f"No weight in {weight_dir}."
+        _weight_paths.sort(key=lambda path: path.stat().st_mtime)
+        return _weight_paths
+
     def parse(self) -> None:
         """
         Parse options.
@@ -142,11 +157,14 @@ class Options:
             _pretrained = bool(self.args.pretrained)   # strtobool('False') = 0 (== False)
             setattr(self.args, 'pretrained', _pretrained)
         else:
+            setattr(self.args, 'test_splits', self.args.test_splits.split('-'))
+
             if self.args.weight_dir is None:
                 _weight_dir = self._get_latest_weight_dir()
                 setattr(self.args, 'weight_dir',  _weight_dir)
 
-            setattr(self.args, 'test_splits', self.args.test_splits.split('-'))
+            _weight_paths = self._collect_weight(self.args.weight_dir)
+            setattr(self.args, 'weight_paths', _weight_paths)
 
 
 def check_train_options(datetime_name: str) -> Options:

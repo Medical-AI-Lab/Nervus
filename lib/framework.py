@@ -272,6 +272,7 @@ class ParamGroup:
     test_conf = [
                 'task',
                 'weight_dir',
+                'weight_paths',
                 'num_outputs_for_label',
                 'test_splits',
                 'save_datetime_dir'
@@ -344,6 +345,7 @@ def print_parameters(params: Union[TrainParam, TestParam]) -> None:
                 'num_outputs_for_label',
                 'datetime',
                 'device',
+                'weight_paths',
                 'dataloader_params',
                 'model_params',
                 'train_conf_params',
