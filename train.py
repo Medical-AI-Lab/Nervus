@@ -64,11 +64,9 @@ def main(opt):
 
     model.save_learning_curve(save_datetime_dir)
     model.save_weight(save_datetime_dir, as_best=True)
-
-    if params.dataloader_params.scaling == 'yes':
-        dataloaders['train'].dataset.save_scaler(save_datetime_dir)
-
     params.save_parameter(save_datetime_dir)
+    if params.model_params.mlp is not None:
+        dataloaders['train'].dataset.save_scaler(save_datetime_dir)
 
 
 if __name__ == '__main__':

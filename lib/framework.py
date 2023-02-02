@@ -171,14 +171,7 @@ class TrainParam(BaseParam):
         if self.task == 'deepsurv':
             self.period_name = sp.period_name
 
-        if self.input_list != []:
-            self.scaling = 'yes'
-        else:
-            self.scaling = 'no'
-
         self.device = torch.device(f"cuda:{self.gpu_ids[0]}") if self.gpu_ids != [] else torch.device('cpu')
-
-        # Directory for saveing paramaters, weights, or learning_curve
         self.save_datetime_dir = str(Path('results', self.project, 'trials', self.datetime))
 
     def _define_num_outputs_for_label(self, df_source: pd.DataFrame, label_list: List[str], task :str) -> Dict[str, int]:
@@ -234,18 +227,17 @@ class TestParam(BaseParam):
                             'label_list',  # shoudl be used one at trainig
                             'mlp_num_inputs',
                             'num_outputs_for_label',
-                            'period_name',
-                            'scaling'
+                            'period_name'
                             ]
 
         for _param in required_for_test:
             if _param in parameters:
                 setattr(self, _param, parameters[_param])
 
-        if self.scaling == 'yes':
+        if self.mlp is not None:
             setattr(self, 'scaler_path', str(Path(_train_save_datetime_dir, 'scaler.pkl')))
 
-        # No need the below at test
+        # No need at test
         self.augmentation = 'no'
         self.sampler = 'no'
         self.pretrained = False
@@ -302,7 +294,6 @@ class ParamDispatcher:
                 'test_batch_size',
                 'mlp',
                 'net',
-                'scaling',
                 'scaler_path',
                 'in_channel',
                 'normalize_image',

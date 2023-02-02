@@ -105,8 +105,8 @@ class DeepSurvSplitProvider(BaseSplitProvider):
             df_source (DataFrame): DataFrame of csv
         """
         super().__init__(df_source)
+        self.period_name = list(df_source.columns[df_source.columns.str.startswith('period')])[0]
         self.df_source = self._cast_csv(df_source)
-        self.period_name = list(self.df_source.columns[self.df_source.columns.str.startswith('period')])[0]
 
     def _cast_csv(self, df_source: pd.DataFrame) -> pd.DataFrame:
         """
@@ -118,8 +118,6 @@ class DeepSurvSplitProvider(BaseSplitProvider):
         Returns:
             pd.DataFrame: cast DataFrame of csv
         """
-        self.period_name = list(df_source.columns[df_source.columns.str.startswith('period')])[0]
-
         _cast_input = {input_name: float for input_name in self.input_list}
         _cast_label = {label_name: int for label_name in self.label_list}
         _cast_period = {self.period_name: int}
@@ -282,9 +280,6 @@ class ImageMixin:
             else:
                 # ie. self.params.in_channel == 3
                 _transforms.append(transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]))
-        else:
-            # ie. self.params.normalize_image == 'no'
-            pass
 
         _transforms = transforms.Compose(_transforms)
         return _transforms
@@ -378,7 +373,7 @@ class LoadDataSet(Dataset, DataSetWidget):
         self.col_index_dict = {col_name: self.df_split.columns.get_loc(col_name) for col_name in self.df_split.columns}
 
         # For input data
-        if params.scaling == 'yes':
+        if self.params.mlp is not None:
             if params.isTrain:
                 self.scaler = self._make_scaler()
             else:
@@ -517,12 +512,12 @@ def create_dataloader(
     return split_loader
 
 
-def print_dataset_info(dataloaders: Dict) -> None:
+def print_dataset_info(dataloaders: Dict[str, DataLoader]) -> None:
     """
     Print dataset size for each split.
 
     Args:
-        dataloaders (Dict[DataLoader]): dataloaders for each split
+        dataloaders (Dict[str, DataLoader]): dataloaders for each split
     """
     for split, dataloader in dataloaders.items():
         total = len(dataloader.dataset)
