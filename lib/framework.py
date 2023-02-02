@@ -284,9 +284,9 @@ class ParamDispatcher:
     Class to register parameter for groups.
     """
     dataloader = [
+                'task',
                 'isTrain',
                 'df_source',
-                'task',
                 'label_list',
                 'input_list',
                 'period_name',
