@@ -28,9 +28,6 @@ class BaseParam:
         Args:
             args (argparse.Namespace): arguments
         """
-
-        setattr(self, 'project', Path(args.csvpath).stem)  # Place project at the top.
-
         for _param, _arg in vars(args).items():
             setattr(self, _param, _arg)
 
@@ -113,8 +110,6 @@ class TrainParam(ParamWidget):
         if self.task == 'deepsurv':
             self.period_name = sp.period_name
 
-        self.save_datetime_dir = str(Path('results', self.project, 'trials', self.datetime))
-
     def _define_num_outputs_for_label(self, df_source: pd.DataFrame, label_list: List[str], task :str) -> Dict[str, int]:
         """
         Define the number of outputs for each label.
@@ -152,9 +147,7 @@ class TestParam(ParamWidget):
         super().__init__(args)
 
         # Load paramaters
-        _train_save_datetime_dir = Path(self.weight_dir).parents[0]
-        parameter_path = Path(_train_save_datetime_dir, 'parameters.json')
-        parameters = self.load_parameter(parameter_path)
+        parameters = self.load_parameter(self.parameter_path)
 
         required_for_test = [
                             'task',
@@ -181,16 +174,13 @@ class TestParam(ParamWidget):
         self.pretrained = False
 
         if self.mlp is not None:
-            setattr(self, 'scaler_path', str(Path(_train_save_datetime_dir, 'scaler.pkl')))
+            setattr(self, 'scaler_path', str(Path(self.train_save_datetime_dir, 'scaler.pkl')))
 
         sp = make_split_provider(self.csvpath, self.task)  # should be done after task is loaded.
         self.df_source = sp.df_source
 
         _splits_in_df_source = self.df_source['split'].unique().tolist()
         self.test_splits = self._align_test_splits(self.test_splits, _splits_in_df_source)
-
-        _datetime = _train_save_datetime_dir.name
-        self.save_datetime_dir = str(Path('results', self.project, 'trials', _datetime))
 
     def _align_test_splits(self, arg_test_splits: List[str], splits_in_df_source: List[str]) -> List[str]:
         """
@@ -331,6 +321,9 @@ def print_parameters(params: Union[TrainParam, TestParam]) -> None:
     Args:
         params (Union[TrainParam, TestParam]): parameters
     """
+
+    # --- print order ---
+
     no_print = [
                 'isTrain',
                 'df_source',
@@ -344,6 +337,8 @@ def print_parameters(params: Union[TrainParam, TestParam]) -> None:
                 'datetime',
                 'device',
                 'weight_paths',
+                'train_save_datetime_dir',
+                'parameter_path',
                 'dataloader_params',
                 'model_params',
                 'train_conf_params',

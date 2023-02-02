@@ -153,6 +153,9 @@ class Options:
         _device = torch.device(f"cuda:{self.args.gpu_ids[0]}") if self.args.gpu_ids != [] else torch.device('cpu')
         setattr(self.args, 'device', _device)
 
+        _project = Path(self.args.csvpath).stem
+        setattr(self.args, 'project', _project)
+
         if self.args.isTrain:
             _mlp, _net = self._parse_model(self.args.model)
             setattr(self.args, 'mlp', _mlp)
@@ -160,6 +163,10 @@ class Options:
 
             _pretrained = bool(self.args.pretrained)   # strtobool('False') = 0 (== False)
             setattr(self.args, 'pretrained', _pretrained)
+
+            _save_datetime_dir = str(Path('results', self.args.project, 'trials', self.args.datetime))
+            setattr(self.args, 'save_datetime_dir', _save_datetime_dir)
+
         else:
             setattr(self.args, 'test_splits', self.args.test_splits.split('-'))
 
@@ -169,6 +176,18 @@ class Options:
 
             _weight_paths = self._collect_weight(self.args.weight_dir)
             setattr(self.args, 'weight_paths', _weight_paths)
+
+            _train_save_datetime_dir = Path(self.args.weight_dir).parents[0]
+            setattr(self.args, 'train_save_datetime_dir', _train_save_datetime_dir)
+
+            _parameter_path = Path(self.args.train_save_datetime_dir, 'parameters.json')
+            setattr(self.args, 'parameter_path', _parameter_path)
+
+            _save_datetime_dir = str(Path('results', self.args.project, 'trials', self.args.train_save_datetime_dir))
+            setattr(self.args, 'save_datetime_dir', _save_datetime_dir)
+
+            #if self.args.mlp is not None:
+            #    setattr(self, 'scaler_path', str(Path(self.args.train_save_datetime_dir, 'scaler.pkl')))
 
 
 def check_train_options(datetime_name: str) -> Options:
