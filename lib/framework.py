@@ -113,7 +113,6 @@ class TrainParam(ParamWidget):
         if self.task == 'deepsurv':
             self.period_name = sp.period_name
 
-        self.device = torch.device(f"cuda:{self.gpu_ids[0]}") if self.gpu_ids != [] else torch.device('cpu')
         self.save_datetime_dir = str(Path('results', self.project, 'trials', self.datetime))
 
     def _define_num_outputs_for_label(self, df_source: pd.DataFrame, label_list: List[str], task :str) -> Dict[str, int]:
@@ -190,7 +189,6 @@ class TestParam(ParamWidget):
         _splits_in_df_source = self.df_source['split'].unique().tolist()
         self.test_splits = self._align_test_splits(self.test_splits, _splits_in_df_source)
 
-        self.device = torch.device(f"cuda:{self.gpu_ids[0]}") if self.gpu_ids != [] else torch.device('cpu')
         _datetime = _train_save_datetime_dir.name
         self.save_datetime_dir = str(Path('results', self.project, 'trials', _datetime))
 

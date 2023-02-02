@@ -4,6 +4,7 @@
 import argparse
 from distutils.util import strtobool
 from pathlib import Path
+import torch
 from typing import List, Tuple, Union
 
 
@@ -148,6 +149,9 @@ class Options:
         """
         _gpu_ids = self._parse_gpu_ids(self.args.gpu_ids)
         setattr(self.args, 'gpu_ids', _gpu_ids)
+
+        _device = torch.device(f"cuda:{self.args.gpu_ids[0]}") if self.args.gpu_ids != [] else torch.device('cpu')
+        setattr(self.args, 'device', _device)
 
         if self.args.isTrain:
             _mlp, _net = self._parse_model(self.args.model)
