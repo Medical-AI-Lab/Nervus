@@ -218,7 +218,7 @@ class TestParam(ParamWidget):
         return _test_splits
 
 
-class ParamDispatcher:
+class ParamGroup:
     """
     Class to register parameter for groups.
     """
@@ -278,20 +278,14 @@ class ParamDispatcher:
                 ]
 
 
-class ParamStore(ParamDispatcher):
+class ParamStore:
     """
     Class to store parameters for each group.
-
-    Args:
-        ParamDispatcher (ParamDispatcher): class for dispatching parematers
     """
-    def __init__(self) -> None:
-        pass
-
     @classmethod
     def dispatch_params_by_group(cls, params: Union[TrainParam, TestParam], group_name: str) -> ParamStore:
         """
-        Displatch parameters depenidng on group.
+        Dispatch parameters depenidng on group.
 
         Args:
             params (Union[TrainParam, TestParam]): parameters
@@ -300,7 +294,7 @@ class ParamStore(ParamDispatcher):
         Returns:
             ParamStore: class containing parameters for group
         """
-        for param_name in getattr(cls, group_name):
+        for param_name in getattr(ParamGroup, group_name):
             if hasattr(params, param_name):
                 _arg = getattr(params, param_name)
                 setattr(cls, param_name, _arg)

@@ -8,7 +8,7 @@ from lib import (
         set_params,
         print_parameters,
         create_model,
-        BaseLogger,
+        BaseLogger
         )
 from lib.component import create_dataloader, print_dataset_info
 
