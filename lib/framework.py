@@ -18,6 +18,23 @@ import argparse
 logger = BaseLogger.get_logger(__name__)
 
 
+class BaseParam:
+    """
+    Set up configure for traning or test.
+    Integrate args and parameters.
+    """
+    def __init__(self, args: argparse.Namespace) -> None:
+        """
+        Args:
+            args (argparse.Namespace): arguments
+        """
+
+        setattr(self, 'project', Path(args.csvpath).stem)  # Place project at the top.
+
+        for _param, _arg in vars(args).items():
+            setattr(self, _param, _arg)
+
+
 class ParamMixin:
     def print_parameter(self) -> None:
         """
@@ -35,7 +52,6 @@ class ParamMixin:
                     'num_outputs_for_label',
                     'datetime',
                     'device',
-                    'scaler_path',
                     'dataloader_params',
                     'model_params',
                     'train_conf_params',
@@ -133,24 +149,14 @@ class ParamMixin:
         return parameters
 
 
-class BaseParam(ParamMixin):
+class ParamWidget(BaseParam, ParamMixin):
     """
-    Set up configure for traning or test.
-    Integrate args and parameters.
+    Class for a widget to inherit multiple classes simultaneously.
     """
-    def __init__(self, args: argparse.Namespace) -> None:
-        """
-        Args:
-            args (argparse.Namespace): arguments
-        """
-
-        setattr(self, 'project', Path(args.csvpath).stem)  # Place project at the top.
-
-        for _param, _arg in vars(args).items():
-            setattr(self, _param, _arg)
+    pass
 
 
-class TrainParam(BaseParam):
+class TrainParam(ParamWidget):
     """
     Class for setting parameters for training.
     """
@@ -199,7 +205,7 @@ class TrainParam(BaseParam):
         return _num_outputs_for_label
 
 
-class TestParam(BaseParam):
+class TestParam(ParamWidget):
     """
     Class for setting parameters for test.
     """
@@ -225,35 +231,32 @@ class TestParam(BaseParam):
                             'net',
                             'input_list',  # should be used one at trainig
                             'label_list',  # shoudl be used one at trainig
+                            'period_name',
                             'mlp_num_inputs',
-                            'num_outputs_for_label',
-                            'period_name'
+                            'num_outputs_for_label'
                             ]
 
         for _param in required_for_test:
             if _param in parameters:
                 setattr(self, _param, parameters[_param])
 
-        if self.mlp is not None:
-            setattr(self, 'scaler_path', str(Path(_train_save_datetime_dir, 'scaler.pkl')))
-
         # No need at test
         self.augmentation = 'no'
         self.sampler = 'no'
         self.pretrained = False
 
-        self.device = torch.device(f"cuda:{self.gpu_ids[0]}") if self.gpu_ids != [] else torch.device('cpu')
-
-        # Directory for saving likelihood
-        _datetime = _train_save_datetime_dir.name
-        self.save_datetime_dir = str(Path('results', self.project, 'trials', _datetime))
+        if self.mlp is not None:
+            setattr(self, 'scaler_path', str(Path(_train_save_datetime_dir, 'scaler.pkl')))
 
         sp = make_split_provider(self.csvpath, self.task)  # should be done after task is loaded.
         self.df_source = sp.df_source
 
-        # Align splits to be test
         _splits_in_df_source = self.df_source['split'].unique().tolist()
         self.test_splits = self._align_test_splits(self.test_splits, _splits_in_df_source)
+
+        self.device = torch.device(f"cuda:{self.gpu_ids[0]}") if self.gpu_ids != [] else torch.device('cpu')
+        _datetime = _train_save_datetime_dir.name
+        self.save_datetime_dir = str(Path('results', self.project, 'trials', _datetime))
 
     def _align_test_splits(self, arg_test_splits: List[str], splits_in_df_source: List[str]) -> List[str]:
         """
@@ -411,10 +414,10 @@ class BaseModel(ABC):
         self.network = self.init_network(self.params)
 
         if self.params.isTrain:
-            from .component import set_criterion, set_optimizer, create_loss_reg
+            from .component import set_criterion, set_optimizer, create_loss_store
             self.criterion = set_criterion(self.params.criterion, self.params.device)
             self.optimizer = set_optimizer(self.params.optimizer, self.network, self.params.lr)
-            self.loss_reg = create_loss_reg(self.params.task, self.criterion, self.params.label_list, self.params.device)
+            self.loss_store = create_loss_store(self.params.task, self.criterion, self.params.label_list, self.params.device)
         else:
             pass
 
@@ -493,7 +496,7 @@ class BaseModel(ABC):
         """
         Backward
         """
-        self.loss = self.loss_reg.batch_loss['total']
+        self.loss = self.loss_store.batch_loss['total']
         self.loss.backward()
 
     def optimize_parameters(self) -> None:
@@ -514,7 +517,7 @@ class BaseModel(ABC):
         Args:
             batch_size (int): batch size. Defaults to None.
         """
-        self.loss_reg.cal_running_loss(batch_size)
+        self.loss_store.cal_running_loss(batch_size)
 
     def cal_epoch_loss(self, epoch: int, phase: str, dataset_size: int) -> None:
         """
@@ -525,7 +528,7 @@ class BaseModel(ABC):
             phase (str): phase, ie. 'train' or 'val'
             dataset_size (int): dataset size. Defaults to None.
         """
-        self.loss_reg.cal_epoch_loss(epoch, phase, dataset_size)
+        self.loss_store.cal_epoch_loss(epoch, phase, dataset_size)
 
     def is_total_val_loss_updated(self) -> bool:
         """
@@ -534,7 +537,7 @@ class BaseModel(ABC):
         Returns:
             bool: True if val loss updated, otherwise False.
         """
-        _total_epoch_loss = self.loss_reg.epoch_loss['total']
+        _total_epoch_loss = self.loss_store.epoch_loss['total']
         is_updated = _total_epoch_loss.is_val_loss_updated()
         return is_updated
 
@@ -546,7 +549,7 @@ class BaseModel(ABC):
             num_epochs (int): total numger of epochs
             epoch (int): current epoch number
         """
-        self.loss_reg.print_epoch_loss(num_epochs, epoch)
+        self.loss_store.print_epoch_loss(num_epochs, epoch)
 
 
 class SaveLoadMixin:
@@ -562,7 +565,7 @@ class SaveLoadMixin:
         """
         Store weight.
         """
-        self.acting_best_epoch = self.loss_reg.epoch_loss['total'].get_best_epoch()
+        self.acting_best_epoch = self.loss_store.epoch_loss['total'].get_best_epoch()
         _network = copy.deepcopy(self.network)
         if hasattr(_network, 'module'):
             # When DataParallel used, move weight to CPU.
@@ -620,7 +623,7 @@ class SaveLoadMixin:
         """
         save_dir = Path(save_datetime_dir, 'learning_curve')
         save_dir.mkdir(parents=True, exist_ok=True)
-        epoch_loss = self.loss_reg.epoch_loss
+        epoch_loss = self.loss_store.epoch_loss
         for label_name in self.label_list + ['total']:
             each_epoch_loss = epoch_loss[label_name]
             df_each_epoch_loss = pd.DataFrame({
@@ -703,7 +706,7 @@ class MLPModel(ModelWidget):
             labels (Dict[str, Union[int, float]]): labels
         """
         _labels = self.multi_label_to_device(labels['labels'])
-        self.loss_reg.cal_batch_loss(output, _labels)
+        self.loss_store.cal_batch_loss(output, _labels)
 
 
 class CVModel(ModelWidget):
@@ -767,7 +770,7 @@ class CVModel(ModelWidget):
             labels (Dict[str, Union[int, float]]): labels
         """
         _labels = self.multi_label_to_device(labels['labels'])
-        self.loss_reg.cal_batch_loss(output, _labels)
+        self.loss_store.cal_batch_loss(output, _labels)
 
 
 class FusionModel(ModelWidget):
@@ -835,7 +838,7 @@ class FusionModel(ModelWidget):
             labels (Dict): labels
         """
         _labels = self.multi_label_to_device(labels['labels'])
-        self.loss_reg.cal_batch_loss(output, _labels)
+        self.loss_store.cal_batch_loss(output, _labels)
 
 
 class MLPDeepSurv(ModelWidget):
@@ -903,7 +906,7 @@ class MLPDeepSurv(ModelWidget):
         """
         _labels = self.multi_label_to_device(labels['labels'])
         _periods = labels['periods'].float().to(self.device)
-        self.loss_reg.cal_batch_loss(output, _labels, _periods, self.network)
+        self.loss_store.cal_batch_loss(output, _labels, _periods, self.network)
 
 
 class CVDeepSurv(ModelWidget):
@@ -971,7 +974,7 @@ class CVDeepSurv(ModelWidget):
         """
         _labels = self.multi_label_to_device(labels['labels'])
         _periods = labels['periods'].float().to(self.device)
-        self.loss_reg.cal_batch_loss(output, _labels, _periods, self.network)
+        self.loss_store.cal_batch_loss(output, _labels, _periods, self.network)
 
 
 class FusionDeepSurv(ModelWidget):
@@ -1037,7 +1040,7 @@ class FusionDeepSurv(ModelWidget):
         """
         _labels = self.multi_label_to_device(labels['labels'])
         _periods = labels['periods'].float().to(self.device)
-        self.loss_reg.cal_batch_loss(output, _labels, _periods, self.network)
+        self.loss_store.cal_batch_loss(output, _labels, _periods, self.network)
 
 
 def create_model(params: ParamContainer) -> nn.Module:
