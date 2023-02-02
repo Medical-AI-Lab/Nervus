@@ -36,73 +36,9 @@ class BaseParam:
 
 
 class ParamMixin:
-    def print_parameter(self) -> None:
-        """
-        Print parameters
-        """
-        no_print = [
-                    'isTrain',
-                    'df_source',
-                    'mlp',
-                    'net',
-                    'input_list',
-                    'label_list',
-                    'period_name',
-                    'mlp_num_inputs',
-                    'num_outputs_for_label',
-                    'datetime',
-                    'device',
-                    'dataloader_params',
-                    'model_params',
-                    'train_conf_params',
-                    'test_conf_params'
-                    ]
-
-        if not self.isTrain:
-            no_print = no_print + ['augmentation', 'sampler', 'pretrained']
-
-        phase = 'Training' if self.isTrain else 'Test'
-        message = ''
-        message += f"{'-'*25} Options for {phase} {'-'*33}\n"
-
-        for _param, _arg in vars(self).items():
-            if _param not in no_print:
-                _str_arg = self._arg2str(_param, _arg)
-                message += '{:>25}: {:<40}\n'.format(_param, _str_arg)
-            else:
-                pass
-
-        message += f"{'-'*30} End {'-'*48}\n"
-        logger.info(message)
-
-    def _arg2str(self, param: str, arg: Union[str, int, float]) -> str:
-        """
-        Convert argument to string.
-
-        Args:
-            param (str): parameter
-            arg (Union[str, int, float]): argument
-
-        Returns:
-            str: strings of argument
-        """
-        if param == 'lr':
-            if arg is None:
-                str_arg = 'Default'
-            else:
-                str_arg = str(param)
-        elif param == 'gpu_ids':
-            if arg == []:
-                str_arg = 'CPU selected'
-            else:
-                str_arg = f"{arg}  (Primary GPU:{arg[0]})"
-        else:
-            if arg is None:
-                str_arg = 'No need'
-            else:
-                str_arg = str(arg)
-        return str_arg
-
+    """
+    class for save and load parameters
+    """
     def save_parameter(self, save_datetime_dir: str) -> None:
         """
         Save parameters.
@@ -342,7 +278,7 @@ class ParamDispatcher:
                 ]
 
 
-class ParamContainer(ParamDispatcher):
+class ParamStore(ParamDispatcher):
     """
     Class to store parameters for each group.
 
@@ -353,7 +289,7 @@ class ParamContainer(ParamDispatcher):
         pass
 
     @classmethod
-    def dispatch_params_by_group(cls, params: Union[TrainParam, TestParam], group_name: str) -> ParamContainer:
+    def dispatch_params_by_group(cls, params: Union[TrainParam, TestParam], group_name: str) -> ParamStore:
         """
         Displatch parameters depenidng on group.
 
@@ -362,7 +298,7 @@ class ParamContainer(ParamDispatcher):
             group_name (str): group
 
         Returns:
-            ParamContainer: class containing parameters for group
+            ParamStore: class containing parameters for group
         """
         for param_name in getattr(cls, group_name):
             if hasattr(params, param_name):
@@ -383,28 +319,100 @@ def set_params(args: argparse.Namespace) -> Union[TrainParam, TestParam]:
     """
     if args.isTrain:
         params = TrainParam(args)
-        params.dataloader_params = ParamContainer.dispatch_params_by_group(params, 'dataloader')
-        params.model_params = ParamContainer.dispatch_params_by_group(params, 'model')
-        params.train_conf_params = ParamContainer.dispatch_params_by_group(params, 'train_conf')
+        params.dataloader_params = ParamStore.dispatch_params_by_group(params, 'dataloader')
+        params.model_params = ParamStore.dispatch_params_by_group(params, 'model')
+        params.train_conf_params = ParamStore.dispatch_params_by_group(params, 'train_conf')
         return params
     else:
         params = TestParam(args)
-        params.dataloader_params = ParamContainer.dispatch_params_by_group(params, 'dataloader')
-        params.model_params = ParamContainer.dispatch_params_by_group(params, 'model')
-        params.test_conf_params = ParamContainer.dispatch_params_by_group(params, 'test_conf')
+        params.dataloader_params = ParamStore.dispatch_params_by_group(params, 'dataloader')
+        params.model_params = ParamStore.dispatch_params_by_group(params, 'model')
+        params.test_conf_params = ParamStore.dispatch_params_by_group(params, 'test_conf')
         return params
+
+
+def print_parameters(params: Union[TrainParam, TestParam]) -> None:
+    """
+    Print parameters
+
+    Args:
+        params (Union[TrainParam, TestParam]): parameters
+    """
+    no_print = [
+                'isTrain',
+                'df_source',
+                'mlp',
+                'net',
+                'input_list',
+                'label_list',
+                'period_name',
+                'mlp_num_inputs',
+                'num_outputs_for_label',
+                'datetime',
+                'device',
+                'dataloader_params',
+                'model_params',
+                'train_conf_params',
+                'test_conf_params'
+                ]
+
+    if not params.isTrain:
+        no_print = no_print + ['augmentation', 'sampler', 'pretrained']
+
+    def _arg2str(param: str, arg: Union[str, int, float, None]) -> str:
+        """
+        Convert argument to string.
+
+        Args:
+            param (str): parameter
+            arg (Union[str, int, float, None): argument
+
+        Returns:
+            str: strings of argument
+        """
+        if param == 'lr':
+            if arg is None:
+                str_arg = 'Default'
+            else:
+                str_arg = str(param)
+            return str_arg
+        elif param == 'gpu_ids':
+            if arg == []:
+                str_arg = 'CPU selected'
+            else:
+                str_arg = f"{arg}  (Primary GPU:{arg[0]})"
+            return str_arg
+        else:
+            if arg is None:
+                str_arg = 'No need'
+            else:
+                str_arg = str(arg)
+            return str_arg
+
+    # Print
+    phase = 'Training' if params.isTrain else 'Test'
+    message = ''
+    message += f"{'-'*25} Options for {phase} {'-'*33}\n"
+
+    for _param, _arg in vars(params).items():
+        if _param not in no_print:
+            _str_arg = _arg2str(_param, _arg)
+            message += '{:>25}: {:<40}\n'.format(_param, _str_arg)
+
+    message += f"{'-'*30} End {'-'*48}\n"
+    logger.info(message)
 
 
 class BaseModel(ABC):
     """
     Class to construct model. This class is the base class to construct model.
     """
-    def __init__(self, params: ParamContainer) -> None:
+    def __init__(self, params: ParamStore) -> None:
         """
         Class to define Model
 
         Args:
-            param (ParamContainer): parameters
+            param (ParamStore): parameters
         """
         self.params = params
         self.label_list = self.params.label_list
@@ -421,12 +429,12 @@ class BaseModel(ABC):
         else:
             pass
 
-    def init_network(self, params: ParamContainer) -> None:
+    def init_network(self, params: ParamStore) -> None:
         """
         Creates network.
 
         Args:
-            params (ParamContainer): parameters
+            params (ParamStore): parameters
         """
         _network = create_net(
                             params.mlp,
@@ -552,7 +560,7 @@ class BaseModel(ABC):
         self.loss_store.print_epoch_loss(num_epochs, epoch)
 
 
-class SaveLoadMixin:
+class ModelMixin:
     """
     Class including methods for save or load weight, or learning_curve.
     """
@@ -637,7 +645,7 @@ class SaveLoadMixin:
             df_each_epoch_loss.to_csv(save_path, index=False)
 
 
-class ModelWidget(BaseModel, SaveLoadMixin):
+class ModelWidget(BaseModel, ModelMixin):
     """
     Class for a widget to inherit multiple classes simultaneously
     """
@@ -649,10 +657,10 @@ class MLPModel(ModelWidget):
     Class for MLP model
     """
 
-    def __init__(self, params: ParamContainer) -> None:
+    def __init__(self, params: ParamStore) -> None:
         """
         Args:
-            params: (ParamContainer): parameters
+            params: (ParamStore): parameters
         """
         super().__init__(params)
 
@@ -713,10 +721,10 @@ class CVModel(ModelWidget):
     """
     Class for CNN or ViT model
     """
-    def __init__(self, params: ParamContainer) -> None:
+    def __init__(self, params: ParamStore) -> None:
         """
         Args:
-            params: (ParamContainer): parameters
+            params: (ParamStore): parameters
         """
         super().__init__(params)
 
@@ -777,10 +785,10 @@ class FusionModel(ModelWidget):
     """
     Class for MLP+CNN or MLP+ViT model.
     """
-    def __init__(self, params: ParamContainer) -> None:
+    def __init__(self, params: ParamStore) -> None:
         """
         Args:
-            params: (ParamContainer): parameters
+            params: (ParamStore): parameters
         """
         super().__init__(params)
 
@@ -845,10 +853,10 @@ class MLPDeepSurv(ModelWidget):
     """
     Class for DeepSurv model with MLP
     """
-    def __init__(self, params: ParamContainer) -> None:
+    def __init__(self, params: ParamStore) -> None:
         """
         Args:
-            params (ParamContainer): parameters
+            params (ParamStore): parameters
         """
         super().__init__(params)
 
@@ -913,10 +921,10 @@ class CVDeepSurv(ModelWidget):
     """
     Class for DeepSurv model with CNN or ViT
     """
-    def __init__(self, params: ParamContainer) -> None:
+    def __init__(self, params: ParamStore) -> None:
         """
         Args:
-            params: (ParamContainer): parameters
+            params: (ParamStore): parameters
         """
         super().__init__(params)
 
@@ -981,10 +989,10 @@ class FusionDeepSurv(ModelWidget):
     """
     Class for DeepSurv model with MLP+CNN or MLP+ViT model.
     """
-    def __init__(self, params: ParamContainer) -> None:
+    def __init__(self, params: ParamStore) -> None:
         """
         Args:
-            params: (ParamContainer): parameters
+            params: (ParamStore): parameters
         """
         super().__init__(params)
 
@@ -1043,12 +1051,12 @@ class FusionDeepSurv(ModelWidget):
         self.loss_store.cal_batch_loss(output, _labels, _periods, self.network)
 
 
-def create_model(params: ParamContainer) -> nn.Module:
+def create_model(params: ParamStore) -> nn.Module:
     """
     Construct model.
 
     Args:
-        params (ParamContainer): parameters
+        params (ParamStore): parameters
 
     Returns:
         nn.Module: model

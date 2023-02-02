@@ -6,10 +6,15 @@ import torch
 from lib import (
         check_test_options,
         set_params,
+        print_parameters,
         create_model,
         BaseLogger
         )
-from lib.component import create_dataloader, print_dataset_info, set_likelihood
+from lib.component import (
+        create_dataloader,
+        print_dataset_info,
+        set_likelihood
+        )
 from typing import List
 
 
@@ -34,7 +39,7 @@ def _collect_weight(weight_dir: str) -> List[Path]:
 
 def main(opt):
     params = set_params(opt.args)
-    params.print_parameter()
+    print_parameters(params)
 
     task = params.test_conf_params.task
     test_splits = params.test_conf_params.test_splits

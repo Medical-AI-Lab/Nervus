@@ -6,8 +6,9 @@ import torch
 from lib import (
         check_train_options,
         set_params,
+        print_parameters,
         create_model,
-        BaseLogger
+        BaseLogger,
         )
 from lib.component import create_dataloader, print_dataset_info
 
@@ -17,7 +18,7 @@ logger = BaseLogger.get_logger(__name__)
 
 def main(opt):
     params = set_params(opt.args)
-    params.print_parameter()
+    print_parameters(params)
 
     epochs = params.train_conf_params.epochs
     save_weight_policy = params.train_conf_params.save_weight_policy
@@ -64,10 +65,9 @@ def main(opt):
 
     model.save_learning_curve(save_datetime_dir)
     model.save_weight(save_datetime_dir, as_best=True)
-    params.save_parameter(save_datetime_dir)
     if params.model_params.mlp is not None:
         dataloaders['train'].dataset.save_scaler(save_datetime_dir)
-
+    params.save_parameter(save_datetime_dir)
 
 if __name__ == '__main__':
     try:
