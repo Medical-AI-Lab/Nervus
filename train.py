@@ -5,8 +5,6 @@ import datetime
 import torch
 from lib import (
         check_train_options,
-        set_params,
-        print_parameters,
         create_model,
         BaseLogger
         )
@@ -17,8 +15,9 @@ logger = BaseLogger.get_logger(__name__)
 
 
 def main(opt):
-    params = set_params(opt.args)
-    print_parameters(params)
+    breakpoint()
+    #params = set_params(opt.args)
+    #print_parameters(params)
 
     epochs = params.train_conf_params.epochs
     save_weight_policy = params.train_conf_params.save_weight_policy
@@ -66,8 +65,9 @@ def main(opt):
     model.save_learning_curve(save_datetime_dir)
     model.save_weight(save_datetime_dir, as_best=True)
     if params.model_params.mlp is not None:
-        dataloaders['train'].dataset.save_scaler(save_datetime_dir)
+        dataloaders['train'].dataset.save_scaler(save_datetime_dir + '/' + 'scaker.pkl')
     params.save_parameter(save_datetime_dir)
+
 
 if __name__ == '__main__':
     try:
@@ -75,6 +75,8 @@ if __name__ == '__main__':
         logger.info(f"\nTraining started at {datetime_name}.\n")
 
         opt = check_train_options(datetime_name)
+        breakpoint()
+
         main(opt)
 
     except Exception as e:

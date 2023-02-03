@@ -1,9 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from pathlib import Path
-from abc import ABC, abstractmethod
-import pandas as pd
+# import pandas as pd
 import numpy as np
 import torch
 import torchvision.transforms as transforms
@@ -19,140 +17,6 @@ from typing import List, Dict, Union
 
 logger = BaseLogger.get_logger(__name__)
 
-
-class BaseSplitProvider(ABC):
-    """
-    Class to cast label and tabular data.
-    """
-    def __init__(self, df_source: pd.DataFrame) -> None:
-        """
-        Args:
-            df_source (DataFrame): DataFrame of csv
-        """
-        self.input_list = list(df_source.columns[df_source.columns.str.startswith('input')])
-        self.label_list = list(df_source.columns[df_source.columns.str.startswith('label')])
-
-    @abstractmethod
-    def _cast_csv(self) -> pd.DataFrame:
-        raise NotImplementedError
-
-
-class ClsSplitProvider(BaseSplitProvider):
-    """
-    Class to cast label and tabular data for classification.
-    """
-    def __init__(self, df_source: pd.DataFrame) -> None:
-        """
-        Args:
-            df_source (DataFrame): DataFrame of csv
-        """
-        super().__init__(df_source)
-        self.df_source = self._cast_csv(df_source)
-
-    def _cast_csv(self, df_source: pd.DataFrame) -> pd.DataFrame:
-        """
-        Cast columns for classification.
-
-        Args:
-            df_source (DataFrame): DataFrame of csv
-
-        Returns:
-            pd.DataFrame: cast DataFrame of csv
-        """
-        _cast_input = {input_name: float for input_name in self.input_list}
-        _cast_label = {label_name: int for label_name in self.label_list}
-        _cast = {**_cast_input, **_cast_label}
-        _df_source = df_source.astype(_cast)
-        return _df_source
-
-
-class RegSplitProvider(BaseSplitProvider):
-    """
-    Class to cast label and tabular data for regression.
-    """
-    def __init__(self, df_source: pd.DataFrame) -> None:
-        """
-        Args:
-            df_source (DataFrame): DataFrame of csv
-        """
-        super().__init__(df_source)
-        self.df_source = self._cast_csv(df_source)
-
-    def _cast_csv(self, df_source: pd.DataFrame) -> pd.DataFrame:
-        """
-        Cast columns for regression.
-
-        Args:
-            df_source (DataFrame): DataFrame of csv
-
-        Returns:
-            pd.DataFrame: cast DataFrame of csv
-        """
-        _cast_input = {input_name: float for input_name in self.input_list}
-        _cast_label = {label_name: float for label_name in self.label_list}
-        _cast = {**_cast_input, **_cast_label}
-        _df_source = df_source.astype(_cast)
-        return _df_source
-
-
-class DeepSurvSplitProvider(BaseSplitProvider):
-    """
-    Class to cast label and tabular data for deepsurv.
-    """
-    def __init__(self, df_source: pd.DataFrame) -> None:
-        """
-        Args:
-            df_source (DataFrame): DataFrame of csv
-        """
-        super().__init__(df_source)
-        self.period_name = list(df_source.columns[df_source.columns.str.startswith('period')])[0]
-        self.df_source = self._cast_csv(df_source)
-
-    def _cast_csv(self, df_source: pd.DataFrame) -> pd.DataFrame:
-        """
-        Cast columns for deepsurv.
-
-        Args:
-            df_source (DataFrame): DataFrame of csv
-
-        Returns:
-            pd.DataFrame: cast DataFrame of csv
-        """
-        _cast_input = {input_name: float for input_name in self.input_list}
-        _cast_label = {label_name: int for label_name in self.label_list}
-        _cast_period = {self.period_name: int}
-        _cast = {**_cast_input, **_cast_label, **_cast_period}
-        _df_source = df_source.astype(_cast)
-        return _df_source
-
-
-def make_split_provider(csvpath: str, task: str) -> Union[ClsSplitProvider, RegSplitProvider, DeepSurvSplitProvider]:
-    """
-    Parse csv by depending on task.
-
-    Args:
-        csvpath (str): path to csv
-        task (str): task
-
-    Returns:
-        Union[ClsSplitProvider, RegSplitProvider, DeepSurvSplitProvider]: SplitProvide for task
-    """
-
-    _df_source = pd.read_csv(csvpath)
-    _df_excluded = _df_source[_df_source['split'] != 'exclude']
-
-    if not('group' in _df_excluded.columns):
-        _df_excluded = _df_excluded.assign(group='all')
-
-    if task == 'classification':
-        sp = ClsSplitProvider(_df_excluded)
-    elif task == 'regression':
-        sp = RegSplitProvider(_df_excluded)
-    elif task == 'deepsurv':
-        sp = DeepSurvSplitProvider(_df_excluded)
-    else:
-        raise ValueError(f"Invalid task: {task}.")
-    return sp
 
 #
 # The below is for dataloader.
@@ -186,15 +50,15 @@ class InputDataMixin:
         _ = scaler.fit(_df_train[self.input_list])                      # fit only
         return scaler
 
-    def save_scaler(self, save_datetime_dir: str) -> None:
+    def save_scaler(self, scaler_path :str) -> None:
         """
         Save scaler
 
         Args:
-            save_scaler_path (str): save_datetime_dir
+            scaler_path (str): path for saving scaler.
         """
-        save_scaler_path = Path(save_datetime_dir, 'scaler.pkl')
-        with open(save_scaler_path, 'wb') as f:
+        #save_scaler_path = Path(save_datetime_dir, 'scaler.pkl')
+        with open(scaler_path, 'wb') as f:
             pickle.dump(self.scaler, f)
 
     def load_scaler(self, scaler_path :str) -> None:
@@ -523,4 +387,3 @@ def print_dataset_info(dataloaders: Dict[str, DataLoader]) -> None:
         total = len(dataloader.dataset)
         logger.info(f"{split:>5}_data = {total}")
     logger.info('')
-

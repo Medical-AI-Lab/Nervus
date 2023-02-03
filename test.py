@@ -5,7 +5,6 @@ import torch
 from lib import (
         check_test_options,
         set_params,
-        print_parameters,
         create_model,
         BaseLogger
         )

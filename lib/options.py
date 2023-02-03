@@ -1,11 +1,17 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+from __future__ import annotations
 import argparse
 from distutils.util import strtobool
 from pathlib import Path
+import json
 import torch
-from typing import List, Tuple, Union
+from typing import List, Dict, Tuple, Union
+
+from abc import ABC, abstractmethod
+import pandas as pd
+
 
 
 class Options:
@@ -133,61 +139,359 @@ class Options:
         Return list of weight paths.
 
         Args:
-            weight_dir (st): path to directory of weights
+            weight_dir (str): path to directory of weights
 
         Returns:
-            List[Path]: list of weight paths
+            List[str]: list of weight paths
         """
         _weight_paths = list(Path(weight_dir).glob('*.pt'))
         assert _weight_paths != [], f"No weight in {weight_dir}."
         _weight_paths.sort(key=lambda path: path.stat().st_mtime)
-        return _weight_paths
+        __weight_paths = [str(weight_path) for weight_path in _weight_paths]
+        return __weight_paths
 
-    def parse(self) -> None:
+
+    def _train_parse(self) -> None:
+        _mlp, _net = self._parse_model(self.args.model)
+        setattr(self.args, 'mlp', _mlp)
+        setattr(self.args, 'net', _net)
+
+        _pretrained = bool(self.args.pretrained)   # strtobool('False') = 0 (== False)
+        setattr(self.args, 'pretrained', _pretrained)
+
+        _save_datetime_dir = str(Path('results', self.args.project, 'trials', self.args.datetime))
+        setattr(self.args, 'save_datetime_dir', _save_datetime_dir)
+
+        # Prepare file name when saving in advance
+        # weight_dir name , weight name
+        # scaler name
+        # parameters.json
+
+        # Read csv
+
+        if self.args.mlp is not None:
+            setattr(self.args, 'scaler_path', str(Path(self.args.save_datetime_dir, 'scaler.pkl')))
+
+        return self.args
+
+
+    def _test_parse(self) -> None:
+        setattr(self.args, 'test_splits', self.args.test_splits.split('-'))
+
+        if self.args.weight_dir is None:
+            _weight_dir = self._get_latest_weight_dir()
+            setattr(self.args, 'weight_dir',  _weight_dir)
+
+        _weight_paths = self._collect_weight(self.args.weight_dir)
+        setattr(self.args, 'weight_paths', _weight_paths)
+
+        _train_save_datetime_dir = str(Path(self.args.weight_dir).parents[0])
+        setattr(self.args, 'train_save_datetime_dir', _train_save_datetime_dir)
+
+        _parameter_path = str(Path(self.args.train_save_datetime_dir, 'parameters.json'))
+        setattr(self.args, 'parameter_path', _parameter_path)
+
+        _save_datetime_dir = str(Path('results', self.args.project, 'trials', self.args.train_save_datetime_dir))
+        setattr(self.args, 'save_datetime_dir', _save_datetime_dir)
+
+        # load parameters
+        params = ParamMixin.load_parameter(self.args.parameter_path)
+
+        # _mlp, _net = self._parse_model(self.args.model)
+
+        #if self.args.mlp is not None:
+        #    setattr(self, 'scaler_path', str(Path(self.args.train_save_datetime_dir, 'scaler.pkl')))
+
+        # Read csv
+
+
+        # No need at test
+        self.augmentation = 'no'
+        self.sampler = 'no'
+        self.pretrained = False
+
+        # Prepare file name when saving in advance
+        # likelihood_dir name
+        # likelihood name
+
+        return self.args
+
+    def parse(self, args) -> None:
         """
         Parse options.
         """
-        _gpu_ids = self._parse_gpu_ids(self.args.gpu_ids)
-        setattr(self.args, 'gpu_ids', _gpu_ids)
+        _gpu_ids = self._parse_gpu_ids(args.gpu_ids)
+        setattr(args, 'gpu_ids', _gpu_ids)
 
-        _device = torch.device(f"cuda:{self.args.gpu_ids[0]}") if self.args.gpu_ids != [] else torch.device('cpu')
-        setattr(self.args, 'device', _device)
+        _device = torch.device(f"cuda:{args.gpu_ids[0]}") if args.gpu_ids != [] else torch.device('cpu')
+        setattr(args, 'device', _device)
 
-        _project = Path(self.args.csvpath).stem
-        setattr(self.args, 'project', _project)
+        _project = Path(args.csvpath).stem
+        setattr(args, 'project', _project)
 
-        if self.args.isTrain:
-            _mlp, _net = self._parse_model(self.args.model)
-            setattr(self.args, 'mlp', _mlp)
-            setattr(self.args, 'net', _net)
+        if args.isTrain:
+            args = self._train_parse(args)
+        else:
+            args = self._test_parse(args)
+        return args
 
-            _pretrained = bool(self.args.pretrained)   # strtobool('False') = 0 (== False)
-            setattr(self.args, 'pretrained', _pretrained)
 
-            _save_datetime_dir = str(Path('results', self.args.project, 'trials', self.args.datetime))
-            setattr(self.args, 'save_datetime_dir', _save_datetime_dir)
+# Option -> parse -> add param -> dispatch
+
+
+class CSVHandler:
+    """
+    Class to get information of csv and cast csv.
+    """
+    def __init__(self, csvpath: str, task:str) -> None:
+        """
+        Args:
+            csvpath (str): path to csv
+            task (str): task
+        """
+        self.task = task
+        _df_source = pd.read_csv(csvpath)
+        self._df_excluded = _df_source[_df_source['split'] != 'exclude']
+
+        self.input_list = list(self._df_excluded.columns[self._df_excluded.columns.str.startswith('input')])
+        self.label_list = list(self._df_excluded.columns[self._df_excluded.columns.str.startswith('label')])
+
+        if self.task == 'deepsurv':
+            self.period_name = list(self._df_excluded.columns[self._df_excluded.columns.str.startswith('period')])[0]
+
+        if not('group' in self._df_excluded.columns):
+            self._df_excluded = self._df_excluded.assign(group='all')
+
+    def _make_cast_dict(self) -> Dict[str, Union[int, float]]:
+        """
+        Make dictionary of cast depending on task.
+
+        Returns:
+            Dict[str, Union[int, float]]: dictionasy of cast
+        """
+        if self.task == 'classification':
+            _cast_input = {input_name: float for input_name in self.input_list}
+            _cast_label = {label_name: int for label_name in self.label_list}
+            _cast_dict = {**_cast_input, **_cast_label}
+            return _cast_dict
+
+        elif self.task == 'regression':
+            _cast_input = {input_name: float for input_name in self.input_list}
+            _cast_label = {label_name: float for label_name in self.label_list}
+            _cast_dict = {**_cast_input, **_cast_label}
+            return _cast_dict
+
+        elif self.task == 'deepsurve':
+            _cast_input = {input_name: float for input_name in self.input_list}
+            _cast_label = {label_name: int for label_name in self.label_list}
+            _cast_period = {self.period_name: int}
+            _cast_dict = {**_cast_input, **_cast_label, **_cast_period}
+            return _cast_dict
 
         else:
-            setattr(self.args, 'test_splits', self.args.test_splits.split('-'))
+            raise ValueError(f"Invalid task: {self.task}.")
 
-            if self.args.weight_dir is None:
-                _weight_dir = self._get_latest_weight_dir()
-                setattr(self.args, 'weight_dir',  _weight_dir)
+    def _cast(self):
+        _cast_dict = self._make_cast_dict()
+        _df_excluded_cast = self._df_excluded.astype(_cast_dict)
+        return _df_excluded_cast
 
-            _weight_paths = self._collect_weight(self.args.weight_dir)
-            setattr(self.args, 'weight_paths', _weight_paths)
 
-            _train_save_datetime_dir = Path(self.args.weight_dir).parents[0]
-            setattr(self.args, 'train_save_datetime_dir', _train_save_datetime_dir)
 
-            _parameter_path = Path(self.args.train_save_datetime_dir, 'parameters.json')
-            setattr(self.args, 'parameter_path', _parameter_path)
 
-            _save_datetime_dir = str(Path('results', self.args.project, 'trials', self.args.train_save_datetime_dir))
-            setattr(self.args, 'save_datetime_dir', _save_datetime_dir)
+class ParamMixin:
+    """
+    class for save and load parameters
+    """
+    @classmethod
+    def save_parameter(params: ParamStore, save_datetime_dir: str) -> None:
+        """
+        Save parameters.
 
-            #if self.args.mlp is not None:
-            #    setattr(self, 'scaler_path', str(Path(self.args.train_save_datetime_dir, 'scaler.pkl')))
+        Args:
+            params (ParamStore): Parameters
+
+            save_datetime_dir (str): save_datetime_dir
+        """
+        no_save = [
+                    'isTrain',
+                    'device',  # Need str(self.device) if save
+                    'df_source',
+                    'datetime',
+                    'save_datetime_dir',
+                    'dataloader_params',
+                    'model_params',
+                    'train_conf_params',
+                    'test_conf_params'
+                    ]
+
+        saved = dict()
+        for _param, _arg in vars(params).items():
+            if _param not in no_save:
+                saved[_param] = _arg
+
+        # Save parameters
+        save_dir = Path(save_datetime_dir)
+        save_dir.mkdir(parents=True, exist_ok=True)
+        save_path = str(Path(save_dir, 'parameters.json'))
+        with open(save_path, 'w') as f:
+            json.dump(saved, f, indent=4)
+
+    @classmethod
+    def load_parameter(parameter_path: Path) -> Dict:
+        """
+        Return dictionalry of parameters at training.
+
+        Args:
+            parameter_path (str): path to parameter_path
+
+        Returns:
+            Dict: parameters at training
+        """
+
+        with open(parameter_path) as f:
+            parameters = json.load(f)
+        return parameters
+
+
+class ParamGroup:
+    """
+    Class to register parameter for groups.
+    """
+    dataloader = [
+                'task',
+                'isTrain',
+                'df_source',
+                'label_list',
+                'input_list',
+                'period_name',
+                'batch_size',
+                'test_batch_size',
+                'mlp',
+                'net',
+                'scaler_path',
+                'in_channel',
+                'normalize_image',
+                'augmentation',
+                'sampler'
+                ]
+
+    net = [
+            'mlp',
+            'net',
+            'num_outputs_for_label',
+            'mlp_num_inputs',
+            'in_channel',
+            'vit_image_size',
+            'pretrained',
+            'gpu_ids'
+            ]
+
+    model = \
+            net + \
+            [
+            'task',
+            'isTrain',
+            'criterion',
+            'device',
+            'optimizer',
+            'lr',
+            'label_list',
+            ]
+
+    train_conf = [
+                'epochs',
+                'save_weight_policy',
+                'save_datetime_dir'
+                ]
+
+    test_conf = [
+                'task',
+                'weight_dir',
+                'weight_paths',
+                'num_outputs_for_label',
+                'test_splits',
+                'save_datetime_dir'
+                ]
+
+
+class ParamStore:
+    """
+    Class to store parameters for each group.
+    """
+    @classmethod
+    def dispatch_params_by_group(cls, args: argparse.Namespace, group_name: str) -> ParamStore:
+        """
+        Dispatch parameters depenidng on group.
+
+        Args:
+            args (argparse.Namespace): arguments
+            group_name (str): group
+
+        Returns:
+            ParamStore: class containing parameters for group
+        """
+        for param_name in getattr(ParamGroup, group_name):
+            if hasattr(args, param_name):
+                _arg = getattr(args, param_name)
+                setattr(cls, param_name, _arg)
+        return cls
+
+
+class ParamMixin:
+    """
+    class for save and load parameters
+    """
+    @classmethod
+    def save_parameter(params: ParamStore, save_datetime_dir: str) -> None:
+        """
+        Save parameters.
+
+        Args:
+            params (ParamStore): Parameters
+
+            save_datetime_dir (str): save_datetime_dir
+        """
+        no_save = [
+                    'isTrain',
+                    'device',  # Need str(self.device) if save
+                    'df_source',
+                    'datetime',
+                    'save_datetime_dir',
+                    'dataloader_params',
+                    'model_params',
+                    'train_conf_params',
+                    'test_conf_params'
+                    ]
+
+        saved = dict()
+        for _param, _arg in vars(params).items():
+            if _param not in no_save:
+                saved[_param] = _arg
+
+        # Save parameters
+        save_dir = Path(save_datetime_dir)
+        save_dir.mkdir(parents=True, exist_ok=True)
+        save_path = str(Path(save_dir, 'parameters.json'))
+        with open(save_path, 'w') as f:
+            json.dump(saved, f, indent=4)
+
+    @classmethod
+    def load_parameter(parameter_path: Path) -> Dict:
+        """
+        Return dictionalry of parameters at training.
+
+        Args:
+            parameter_path (str): path to parameter_path
+
+        Returns:
+            Dict: parameters at training
+        """
+
+        with open(parameter_path) as f:
+            parameters = json.load(f)
+        return parameters
+
 
 
 def check_train_options(datetime_name: str) -> Options:
