@@ -66,7 +66,7 @@ def main(opt):
     model.save_weight(save_datetime_dir, as_best=True)
     if params.model_params.mlp is not None:
         dataloaders['train'].dataset.save_scaler(save_datetime_dir + '/' + 'scaker.pkl')
-    params.save_parameter(save_datetime_dir)
+    params.save_parameter(save_datetime_dir + '/' + 'parameters.json')
 
 
 if __name__ == '__main__':
