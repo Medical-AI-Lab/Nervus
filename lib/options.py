@@ -288,47 +288,36 @@ def save_parameter(args: argparse.Namespace, save_path: str) -> None:
     save_params = [
                     'project',
                     'csvpath',
-
                     'task',
+
                     'model',
+                    'pretrained',
+
+                    'criterion',
+                    'optimizer',
+                    'lr',
+                    'epochs',
+                    'batch_size',
+
+                    'augmentation',
+                    'normalize_image',
+                    'sampler',
+                    'in_channel',
+                    'vit_image_size',
+
+                    'input_list',
+                    'label_list',
+                    'period_name'
+                    'mlp_num_inputs',
+                    'num_outputs_for_label',
+
+                    'save_weight_policy',
                     'gpu_ids',
-
-
-
-    'pretrained',
-    'criterion'
-    'optimizer,
-    'lr',
-    'epochs',
-    'batch_size'
-    "augmentation": "xrayaug",
-    "normalize_image": "yes",
-    "sampler": "no",
-    "in_channel": 1,
-    "vit_image_size": 0,
-    "save_weight_policy": "each",
-    "mlp": "MLP",
-    "net": "ResNet18",
-    "input_list":
-        "label_list": [
-        "label_last_status_1"
-    ],
-    "mlp_num_inputs": 24,
-    "num_outputs_for_label": {
-        "label_last_status_1": 1
-    },
-    "period_name": "periods_length_of_stay",
-    "scaler_path": "results/deepsurv_128_int/trials/2023-01-23-15-43-20/scaler.pkl"
-}
-
-
-                    # ............................
-                ]
-
+                    ]
 
     saved = dict()
-    for _param, _arg in vars(params).items():
-        if _param not in no_save:
+    for _param, _arg in vars(args).items():
+        if _param in save_params:
             saved[_param] = _arg
 
     save_dir = Path(save_path).parents[0]
@@ -365,6 +354,7 @@ def print_paramater(args: argparse.Namespace) -> None:
                     'csvpath',
                     'task',
 
+                    'gpu_ids',
                     'model',
                     'pretrained',
 
@@ -381,9 +371,7 @@ def print_paramater(args: argparse.Namespace) -> None:
                     'vit_image_size',
 
                     'save_weight_policy',
-                    'save_datetime_dir',
-
-                    'gpu_ids'
+                    'save_datetime_dir'
                     ]
 
     _test_params = [
@@ -391,6 +379,7 @@ def print_paramater(args: argparse.Namespace) -> None:
                     'csvpath',
                     'task',
 
+                    'gpu_ids',
                     'model',
                     'weight_dir',
 
@@ -402,9 +391,7 @@ def print_paramater(args: argparse.Namespace) -> None:
                     'vit_image_size',
 
                     'scaler_path',
-                    'save_datetime_dir',
-
-                    'gpu_ids'
+                    'save_datetime_dir'
                     ]
 
     if args.isTrain:
