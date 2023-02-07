@@ -3,7 +3,7 @@
 
 import torch
 from lib import (
-        check_test_options,
+        set_options,
         create_model,
         print_paramater,
         BaseLogger
@@ -18,7 +18,7 @@ from lib.component import (
 logger = BaseLogger.get_logger(__name__)
 
 
-def main(opt):
+def main(args):
     model = create_model(args.model_params)
     test_splits = args.conf_params.test_splits
     dataloaders = {split: create_dataloader(args.dataloader_params, split=split) for split in test_splits}
@@ -59,7 +59,8 @@ if __name__ == '__main__':
     try:
         logger.info('\nTest started.\n')
 
-        args = check_test_options()
+
+        args = set_options(phase='test')
         main(args)
 
     except Exception as e:

@@ -4,7 +4,7 @@
 import datetime
 import torch
 from lib import (
-        check_train_options,
+        set_options,
         create_model,
         print_paramater,
         save_parameter,
@@ -65,7 +65,7 @@ def main(args):
     model.save_weight(save_datetime_dir, as_best=True)
 
     if args.model_params.mlp is not None:
-        dataloaders['train'].dataset.save_scaler(save_datetime_dir + '/' + 'scaker.pkl')
+        dataloaders['train'].dataset.save_scaler(save_datetime_dir + '/' + 'scaler.pkl')
 
     save_parameter(args.save_params, save_datetime_dir + '/' + 'parameters.json')
 
@@ -75,7 +75,7 @@ if __name__ == '__main__':
         datetime_name = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
         logger.info(f"\nTraining started at {datetime_name}.\n")
 
-        args = check_train_options(datetime_name)
+        args = set_options(datetime_name=datetime_name, phase='train')
         main(args)
 
     except Exception as e:

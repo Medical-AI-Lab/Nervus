@@ -83,6 +83,12 @@ class Options:
         self.args.isTrain = isTrain
 
     def get_args(self) -> argparse.Namespace:
+        """
+        Return arguments.
+
+        Returns:
+            argparse.Namespace: arguments
+        """
         return self.args
 
 
@@ -121,12 +127,13 @@ class CSVParser:
             self.mlp_num_inputs = len(self.input_list)
             self.num_outputs_for_label = self._define_num_outputs_for_label(self.df_source, self.label_list, self.task)
 
-    def _cast(self, df_excluded, task) -> pd.DataFrame:
+    def _cast(self, df_excluded: pd.DataFrame, task: str) -> pd.DataFrame:
         """
         Make dictionary of cast depending on task.
 
         Args:
-            df_excluded (pd.DataFrame): Dataframe excluded
+            df_excluded (pd.DataFrame): excluded Dataframe
+            task: (str): task
 
         Returns:
             DataFrame: csv excluded and cast depending on task
@@ -288,12 +295,13 @@ def load_parameter(parameter_path: str) -> Dict[str, Union[str, int, float]]:
     return params
 
 
-def print_paramater(params: ParamSet, phase=None) -> None:
+def print_paramater(params: ParamSet, phase: str = None) -> None:
     """
     Print parameters.
 
     Args:
         params (ParamSet): parameters
+        phase (str): train or test
     """
 
     if phase == 'train':
@@ -344,7 +352,16 @@ def _arg2str(param: str, arg: Union[str, int, float]) -> str:
 
 
 class ParamTable:
-    # group
+    """
+    Class to make table to dispatch parameters by group.
+    """
+    # groups
+    # 'model', 'dataloader',
+    # 'train_conf', 'test_conf',
+    # 'save', 'load',
+    # 'train_print', 'test_print'
+
+    # abbreviation of groups
     mo = 'model'
     dl = 'dataloader'
     trac = 'train_conf'
@@ -354,16 +371,16 @@ class ParamTable:
     trap = 'train_print'
     tesp = 'test_print'
 
-    # The below shos that which group each parameter belongs to.
-    table = {
+    # The below shows that which group each parameter belongs to.
+    TABLE = {
         'project': [sa, trap, tesp],
         'csvpath': [sa, trap, tesp],
         'task': [mo, dl, tesc, sa, lo, trap, tesp],
         'isTrain': [mo, dl],
 
         'model': [sa, lo, trap, tesp],
-        'pretrained': [mo, sa, trap],
         'vit_image_size': [mo, sa, lo, trap, tesp],
+        'pretrained': [mo, sa, trap],
         'mlp': [mo, dl],
         'net': [mo, dl],
 
@@ -400,11 +417,17 @@ class ParamTable:
     }
 
     @classmethod
-    def make_table(cls):
-        index = cls.table.keys()
+    def make_table(cls) -> pd.DataFrame:
+        """
+        Make table to dispatch parameters by group.
+
+        Returns:
+            pd.DataFrame: table which shows that which group each parameter belongs to.
+        """
+        index = cls.TABLE.keys()
         columns = [cls.mo, cls.dl, cls.trac, cls.tesc, cls.sa, cls.lo, cls.trap, cls.tesp]
         df_table = pd.DataFrame([], index=index, columns=columns).fillna('no')
-        for param, grps in cls.table.items():
+        for param, grps in cls.TABLE.items():
             for grp in grps:
                 df_table.loc[param, grp] = 'yes'
 
@@ -418,7 +441,7 @@ PARAM_TABLE = ParamTable.make_table()
 
 class ParamSet:
     """
-    Class containing parameters for each group.
+    Class containing required parameters for each group.
     """
     pass
 
@@ -462,11 +485,7 @@ def _train_parse(args: argparse.Namespace) -> argparse.Namespace:
     args.project = Path(args.csvpath).stem
     args.gpu_ids = _parse_gpu_ids(args.gpu_ids)
     args.device = torch.device(f"cuda:{args.gpu_ids[0]}") if args.gpu_ids != [] else torch.device('cpu')
-
-    _mlp, _net = _parse_model(args.model)
-    args.mlp = _mlp
-    args.net = _net
-
+    args.mlp, args.net = _parse_model(args.model)
     args.pretrained = bool(args.pretrained)   # strtobool('False') = 0 (== False)
     args.save_datetime_dir = str(Path('results', args.project, 'trials', args.datetime))
 
@@ -524,9 +543,7 @@ def _test_parse(args: argparse.Namespace) -> argparse.Namespace:
     args.sampler = 'no'
     args.pretrained = False
 
-    _mlp, _net = _parse_model(args.model)
-    args.mlp = _mlp
-    args.net = _net
+    args.mlp, args.net = _parse_model(args.model)
 
     if args.mlp is not None:
         args.scaler_path = str(Path(_train_datetime_dir, 'scaler.pkl'))
@@ -547,30 +564,24 @@ def _test_parse(args: argparse.Namespace) -> argparse.Namespace:
     return args
 
 
-def check_train_options(datetime_name: str) -> Options:
+def set_options(datetime_name: str = None, phase: str = None) -> argparse.Namespace:
     """
-    Parse options for training.
+    Parse options for training or test.
 
     Args:
-        datetime_name (str): date time
+        datetime_name (str, optional): datetime name. Defaults to None.
+        phase (str, optional): train or test. Defaults to None.
 
     Returns:
-        Options: options
+        argparse.Namespace: arguments
     """
-    opt = Options(datetime=datetime_name, isTrain=True)
-    args = opt.get_args()
-    args = _train_parse(args)
-    return args
-
-
-def check_test_options() -> Options:
-    """
-    Parse options for test.
-
-    Returns:
-        Options: options
-    """
-    opt = Options(isTrain=False)
-    args = opt.get_args()
-    args = _test_parse(args)
-    return args
+    if phase == 'train':
+        opt = Options(datetime=datetime_name, isTrain=True)
+        args = opt.get_args()
+        args = _train_parse(args)
+        return args
+    else:
+        opt = Options(isTrain=False)
+        args = opt.get_args()
+        args = _test_parse(args)
+        return args
