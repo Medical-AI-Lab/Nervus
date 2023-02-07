@@ -86,7 +86,6 @@ class Options:
         return self.args
 
 
-
 class CSVParser:
     """
     Class to get information of csv and cast csv.
@@ -106,7 +105,7 @@ class CSVParser:
 
         self.input_list = list(_df_excluded.columns[_df_excluded.columns.str.startswith('input')])
         self.label_list = list(_df_excluded.columns[_df_excluded.columns.str.startswith('label')])
-        if task.task == 'deepsurv':
+        if self.task == 'deepsurv':
             _period_name_list = list(_df_excluded.columns[_df_excluded.columns.str.startswith('period')])
             assert (len(_period_name_list) == 1), f"Column of period should be one in {self.csvpath} when deepsurv."
             self.period_name = _period_name_list[0]
@@ -121,7 +120,6 @@ class CSVParser:
         if isTrain:
             self.mlp_num_inputs = len(self.input_list)
             self.num_outputs_for_label = self._define_num_outputs_for_label(self.df_source, self.label_list, self.task)
-
 
     def _cast(self, df_excluded, task) -> pd.DataFrame:
         """
@@ -259,71 +257,20 @@ def _collect_weight(weight_dir: str) -> List[str]:
     return __weight_paths
 
 
-def save_parameter(args: argparse.Namespace, save_path: str) -> None:
+def save_parameter(params: ParamSet, save_path: str) -> None:
     """
     Save parameters.
 
     Args:
-        args (argparse.Namespace): arguments
+        params (ParamSet): parameters
 
         save_path (str): save path for parameters
     """
-
-    """
-    no_save = [
-                'isTrain',
-                'device',  # Need str(self.device) if save
-                'df_source',
-                'datetime',
-                'save_datetime_dir',
-                'dataloader_params',
-                'model_params',
-                'train_conf_params',
-                'test_conf_params',
-                'mlp',
-                'net'
-                ]
-    """
-
-    save_params = [
-                    'project',
-                    'csvpath',
-                    'task',
-
-                    'model',
-                    'pretrained',
-
-                    'criterion',
-                    'optimizer',
-                    'lr',
-                    'epochs',
-                    'batch_size',
-
-                    'augmentation',
-                    'normalize_image',
-                    'sampler',
-                    'in_channel',
-                    'vit_image_size',
-
-                    'input_list',
-                    'label_list',
-                    'period_name'
-                    'mlp_num_inputs',
-                    'num_outputs_for_label',
-
-                    'save_weight_policy',
-                    'gpu_ids',
-                    ]
-
-    saved = dict()
-    for _param, _arg in vars(args).items():
-        if _param in save_params:
-            saved[_param] = _arg
-
+    _saved = {_param: _arg for _param, _arg in vars(params).items()}
     save_dir = Path(save_path).parents[0]
     save_dir.mkdir(parents=True, exist_ok=True)
     with open(save_path, 'w') as f:
-        json.dump(saved, f, indent=4)
+        json.dump(_saved, f, indent=4)
 
 
 def load_parameter(parameter_path: str) -> Dict[str, Union[str, int, float]]:
@@ -334,92 +281,44 @@ def load_parameter(parameter_path: str) -> Dict[str, Union[str, int, float]]:
         parameter_path (str): path to parameter_path
 
     Returns:
-        Dict: parameters at training
+        Dict[str, Union[str, int, float]]: parameters at training
     """
-
     with open(parameter_path) as f:
-        parameters = json.load(f)
-    return parameters
+        params = json.load(f)
+    return params
 
 
-def print_paramater(args: argparse.Namespace) -> None:
+def print_paramater(params: ParamSet, phase=None) -> None:
     """
     Print parameters.
 
     Args:
-        args (argparse.Namespace): arugments
+        params (ParamSet): parameters
     """
-    _train_params = [
-                    'project',
-                    'csvpath',
-                    'task',
 
-                    'gpu_ids',
-                    'model',
-                    'pretrained',
-
-                    'criterion',
-                    'optimizer',
-                    'lr',
-                    'epochs',
-                    'batch_size',
-
-                    'normalize_image',
-                    'augmentation',
-                    'sampler',
-                    'in_channel',
-                    'vit_image_size',
-
-                    'save_weight_policy',
-                    'save_datetime_dir'
-                    ]
-
-    _test_params = [
-                    'project',
-                    'csvpath',
-                    'task',
-
-                    'gpu_ids',
-                    'model',
-                    'weight_dir',
-
-                    'test_batch_size',
-                    'test_splits',
-
-                    'normalize_image',
-                    'in_channel',
-                    'vit_image_size',
-
-                    'scaler_path',
-                    'save_datetime_dir'
-                    ]
-
-    if args.isTrain:
-        phase = 'Training'
-        print_params = _train_params
+    if phase == 'train':
+        _phase = 'Training'
     else:
-        phase = 'Test'
-        print_params = _test_params
+        _phase = 'Test'
 
     message = ''
-    message += f"{'-'*25} Options for {phase} {'-'*33}\n"
+    message += f"{'-'*25} Options for {_phase} {'-'*33}\n"
 
-    for _param, _arg in vars(args).items():
-        if _param in print_params:
-            _str_arg = _arg2str(_param, _arg)
-            message += '{:>25}: {:<40}\n'.format(_param, _str_arg)
+    for _param, _arg in vars(params).items():
+        _str_arg = _arg2str(_param, _arg)
+        message += '{:>25}: {:<40}\n'.format(_param, _str_arg)
 
     message += f"{'-'*30} End {'-'*48}\n"
     logger.info(message)
 
 
-def _arg2str(param: str, arg: Union[str, int, float, None]) -> str:
+def _arg2str(param: str, arg: Union[str, int, float]) -> str:
         """
         Convert argument to string.
 
         Args:
             param (str): parameter
-            arg (Union[str, int, float, None): argument
+            arg (Union[str, int, float]): argument
 
         Returns:
             str: strings of argument
@@ -444,63 +343,167 @@ def _arg2str(param: str, arg: Union[str, int, float, None]) -> str:
         return str_arg
 
 
-#
-# Option -> parse -> add param -> dispatch
-#
-# args = Options(...).get_args()
-#
-# Prepare file name when saving in advance
-# weight_dir name , weight name
-# scaler name
-# parameters.json
-#if args.mlp is not None:
-#    setattr(args, 'scaler_path', str(Path(args.save_datetime_dir, 'scaler.pkl')))
-def _train_parse(args) -> None:
+class ParamTable:
+    # group
+    mo = 'model'
+    dl = 'dataloader'
+    trac = 'train_conf'
+    tesc = 'test_conf'
+    sa = 'save'
+    lo = 'load'
+    trap = 'train_print'
+    tesp = 'test_print'
+
+    # The below shos that which group each parameter belongs to.
+    table = {
+        'project': [sa, trap, tesp],
+        'csvpath': [sa, trap, tesp],
+        'task': [mo, dl, tesc, sa, lo, trap, tesp],
+        'isTrain': [mo, dl],
+
+        'model': [sa, lo, trap, tesp],
+        'pretrained': [mo, sa, trap],
+        'vit_image_size': [mo, sa, lo, trap, tesp],
+        'mlp': [mo, dl],
+        'net': [mo, dl],
+
+        'weight_dir': [tesc, tesp],
+        'weight_paths': [tesc],
+
+        'criterion': [mo, sa, trap],
+        'optimizer': [mo, sa, trap],
+        'lr': [mo, sa, trap],
+        'epochs': [sa, trac, trap],
+
+        'batch_size': [dl, sa, trap],
+        'test_batch_size': [dl, tesp],
+        'test_splits': [tesc, tesp],
+
+        'in_channel': [mo, dl, sa, lo, trap, tesp],
+        'normalize_image': [dl, sa, lo, trap, tesp],
+        'augmentation': [dl, sa, trap],
+        'sampler': [dl, sa, trap],
+
+        'df_source': [dl],
+        'input_list': [dl, sa, lo],
+        'label_list': [mo, dl, sa, lo],
+        'period_name': [dl, sa, lo],
+        'mlp_num_inputs': [mo, sa, lo],
+        'num_outputs_for_label': [mo, sa, lo, tesc],
+
+        'save_weight_policy': [sa, trap, trac],
+        'scaler_path': [dl, tesp],
+        'save_datetime_dir': [trac, tesc, trap, tesp],
+
+        'gpu_ids': [mo, sa, trap, tesp],
+        'device': [mo],
+    }
+
+    @classmethod
+    def make_table(cls):
+        index = cls.table.keys()
+        columns = [cls.mo, cls.dl, cls.trac, cls.tesc, cls.sa, cls.lo, cls.trap, cls.tesp]
+        df_table = pd.DataFrame([], index=index, columns=columns).fillna('no')
+        for param, grps in cls.table.items():
+            for grp in grps:
+                df_table.loc[param, grp] = 'yes'
+
+        df_table = df_table.reset_index()
+        df_table = df_table.rename(columns={'index': 'parameter'})
+        return df_table
+
+
+PARAM_TABLE = ParamTable.make_table()
+
+
+class ParamSet:
+    """
+    Class containing parameters for each group.
+    """
+    pass
+
+
+def _get_param_name_by_group(group_name: str) -> List[str]:
+    _df_table = PARAM_TABLE
+    _param_names = _df_table[_df_table[group_name] == 'yes']['parameter'].tolist()
+    return _param_names
+
+
+def _dispatch_by_group(args: argparse.Namespace, group_name: str) -> ParamSet:
+    """
+    Dispatch parameters depenidng on group.
+
+    Args:
+        args (argparse.Namespace): arguments
+        group_name (str): group
+
+    Returns:
+        ParamStore: class containing parameters for group
+    """
+    _param_names = _get_param_name_by_group(group_name)
+    param_set = ParamSet()
+    for param_name in _param_names:
+        if hasattr(args, param_name):
+            _arg = getattr(args, param_name)
+            setattr(param_set, param_name, _arg)
+    return param_set
+
+
+def _train_parse(args: argparse.Namespace) -> argparse.Namespace:
+    """
+    Add pamaters required at training.
+
+    Args:
+        args (argparse.Namespace): arguments
+
+    Returns:
+        argparse.Namespace: arguments
+    """
     args.project = Path(args.csvpath).stem
     args.gpu_ids = _parse_gpu_ids(args.gpu_ids)
-
-    _device = torch.device(f"cuda:{args.gpu_ids[0]}") if args.gpu_ids != [] else torch.device('cpu')
-    args.device = _device
+    args.device = torch.device(f"cuda:{args.gpu_ids[0]}") if args.gpu_ids != [] else torch.device('cpu')
 
     _mlp, _net = _parse_model(args.model)
     args.mlp = _mlp
     args.net = _net
 
     args.pretrained = bool(args.pretrained)   # strtobool('False') = 0 (== False)
-
     args.save_datetime_dir = str(Path('results', args.project, 'trials', args.datetime))
 
-    csvparser = CSVParser(args.csvpath, args.task, args.isTrain)
-    args.df_csv = csvparser.df_csv
-    args.input_list = csvparser.input_list
-    args.label_list = csvparser.label_list
-    args.mlp_num_inputs = csvparser.mlp_num_inputs
-    args.num_outputs_for_label = csvparser.num_outputs_for_label
+    _csvparser = CSVParser(args.csvpath, args.task, args.isTrain)
+    args.df_source = _csvparser.df_source
+    args.input_list = _csvparser.input_list
+    args.label_list = _csvparser.label_list
+    args.mlp_num_inputs = _csvparser.mlp_num_inputs
+    args.num_outputs_for_label = _csvparser.num_outputs_for_label
     if args.task == 'deepsurv':
-        args.pariod_name = csvparser.period_name
+        args.pariod_name = _csvparser.period_name
 
+    args.model_params = _dispatch_by_group(args, 'model')
+    args.dataloader_params = _dispatch_by_group(args, 'dataloader')
+    args.conf_params = _dispatch_by_group(args, 'train_conf')
+    args.print_params = _dispatch_by_group(args, 'train_print')
+    args.save_params = _dispatch_by_group(args, 'save')
     return args
 
 
-# Prepare file name when saving in advance
-# likelihood_dir name
-# likelihood name
-def _test_parse(args) -> None:
+def _test_parse(args: argparse.Namespace) -> argparse.Namespace:
+    """
+    Add pamaters required at test.
+
+    Args:
+        args (argparse.Namespace): arguments
+
+    Returns:
+        argparse.Namespace: arguments
+    """
     args.project = Path(args.csvpath).stem
     args.gpu_ids = _parse_gpu_ids(args.gpu_ids)
+    args.device = torch.device(f"cuda:{args.gpu_ids[0]}") if args.gpu_ids != [] else torch.device('cpu')
 
-    _device = torch.device(f"cuda:{args.gpu_ids[0]}") if args.gpu_ids != [] else torch.device('cpu')
-    args.device = _device
-
-    # eg. args.weight_dir = results/tutorial_src/trials/2023-02-02-14-27-15/weights
     if args.weight_dir is None:
         args.weight_dir = _get_latest_weight_dir()
     args.weight_paths = _collect_weight(args.weight_dir)
-
-    args.test_splits = args.test_splits.split('-')
-    #
-    # _align_test_splits
-    #
 
     _train_datetime_dir = Path(args.weight_dir).parents[0]
     _train_datetime = _train_datetime_dir.name
@@ -510,25 +513,11 @@ def _test_parse(args) -> None:
     _parameter_path = str(Path(_train_datetime_dir, 'parameters.json'))
     params = load_parameter(_parameter_path)
 
-    required_params = [
-                        'task',
-                        'model',
-                        #'normalize_image',
-                        'in_channel',
-                        'vit_image_size',
-                        # 'mlp',
-                        # 'net',
-                        'input_list',  # should be used one at trainig
-                        'label_list',  # shoudl be used one at trainig
-                        'mlp_num_inputs',
-                        'num_outputs_for_label',
-                        'period_name'
-                        # 'scaler_path'
-                        ]
-
-    for _param in required_params:
-        if _param in params:
-            setattr(args, _param, params[_param])
+    # Delete parameters which do not need to be passed on at test.
+    _required_params = _get_param_name_by_group('load')
+    for _param, _arg in params.items():
+        if _param in _required_params:
+            setattr(args, _param, _arg)
 
     # When test, always fix the following
     args.augmentation = 'no'
@@ -542,96 +531,20 @@ def _test_parse(args) -> None:
     if args.mlp is not None:
         args.scaler_path = str(Path(_train_datetime_dir, 'scaler.pkl'))
 
-    csvparser = CSVParser(args.csvpath, args.task)
-    args.df_csv = csvparser.df_csv
+    _csvparser = CSVParser(args.csvpath, args.task)
+    args.df_source = _csvparser.df_source
+
+    # Align test_splits
+    args.test_splits = args.test_splits.split('-')
+    _splits = args.df_source['split'].unique().tolist()
+    if set(_splits) < set(args.test_splits):
+        args.test_splits = _splits
+
+    args.model_params = _dispatch_by_group(args, 'model')
+    args.dataloader_params = _dispatch_by_group(args, 'dataloader')
+    args.conf_params = _dispatch_by_group(args, 'test_conf')
+    args.print_params = _dispatch_by_group(args, 'test_print')
     return args
-
-
-# Option -> parse -> add param -> dispatch
-
-
-class ParamGroup:
-    """
-    Class to register parameter for groups.
-    """
-    dataloader = [
-                'task',
-                'isTrain',
-                'df_source',
-                'label_list',
-                'input_list',
-                'period_name',
-                'batch_size',
-                'test_batch_size',
-                'mlp',
-                'net',
-                'scaler_path',
-                'in_channel',
-                'normalize_image',
-                'augmentation',
-                'sampler'
-                ]
-
-    net = [
-            'mlp',
-            'net',
-            'num_outputs_for_label',
-            'mlp_num_inputs',
-            'in_channel',
-            'vit_image_size',
-            'pretrained',
-            'gpu_ids'
-            ]
-
-    model = \
-            net + \
-            [
-            'task',
-            'isTrain',
-            'criterion',
-            'device',
-            'optimizer',
-            'lr',
-            'label_list',
-            ]
-
-    train_conf = [
-                'epochs',
-                'save_weight_policy',
-                'save_datetime_dir'
-                ]
-
-    test_conf = [
-                'task',
-                'weight_dir',
-                'weight_paths',
-                'num_outputs_for_label',
-                'test_splits',
-                'save_datetime_dir'
-                ]
-
-
-class ParamSet:
-    """
-    Class containing parameters for each group.
-    """
-    @classmethod
-    def dispatch_params_by_group(cls, args: argparse.Namespace, group_name: str) -> ParamSet:
-        """
-        Dispatch parameters depenidng on group.
-
-        Args:
-            args (argparse.Namespace): arguments
-            group_name (str): group
-
-        Returns:
-            ParamStore: class containing parameters for group
-        """
-        for param_name in getattr(ParamGroup, group_name):
-            if hasattr(args, param_name):
-                _arg = getattr(args, param_name)
-                setattr(cls, param_name, _arg)
-        return cls
 
 
 def check_train_options(datetime_name: str) -> Options:
@@ -645,8 +558,9 @@ def check_train_options(datetime_name: str) -> Options:
         Options: options
     """
     opt = Options(datetime=datetime_name, isTrain=True)
-    opt.parse()
-    return opt
+    args = opt.get_args()
+    args = _train_parse(args)
+    return args
 
 
 def check_test_options() -> Options:
@@ -657,5 +571,6 @@ def check_test_options() -> Options:
         Options: options
     """
     opt = Options(isTrain=False)
-    opt.parse()
-    return opt
+    args = opt.get_args()
+    args = _test_parse(args)
+    return args

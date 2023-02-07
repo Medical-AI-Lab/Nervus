@@ -10,7 +10,7 @@ import torch.nn as nn
 from .component import create_net
 from .logger import BaseLogger
 from typing import Dict, Tuple, Union
-from lib import ParamStore
+from lib import ParamSet
 
 
 logger = BaseLogger.get_logger(__name__)
@@ -20,12 +20,12 @@ class BaseModel(ABC):
     """
     Class to construct model. This class is the base class to construct model.
     """
-    def __init__(self, params: ParamStore) -> None:
+    def __init__(self, params: ParamSet) -> None:
         """
         Class to define Model
 
         Args:
-            param (ParamStore): parameters
+            param (ParamSet): parameters
         """
         self.params = params
         self.label_list = self.params.label_list
@@ -42,12 +42,12 @@ class BaseModel(ABC):
         else:
             pass
 
-    def init_network(self, params: ParamStore) -> None:
+    def init_network(self, params: ParamSet) -> None:
         """
         Creates network.
 
         Args:
-            params (ParamStore): parameters
+            params (ParamSet): parameters
         """
         _network = create_net(
                             params.mlp,
@@ -270,10 +270,10 @@ class MLPModel(ModelWidget):
     Class for MLP model
     """
 
-    def __init__(self, params: ParamStore) -> None:
+    def __init__(self, params: ParamSet) -> None:
         """
         Args:
-            params: (ParamStore): parameters
+            params: (ParamSet): parameters
         """
         super().__init__(params)
 
@@ -334,10 +334,10 @@ class CVModel(ModelWidget):
     """
     Class for CNN or ViT model
     """
-    def __init__(self, params: ParamStore) -> None:
+    def __init__(self, params: ParamSet) -> None:
         """
         Args:
-            params: (ParamStore): parameters
+            params: (ParamSet): parameters
         """
         super().__init__(params)
 
@@ -398,10 +398,10 @@ class FusionModel(ModelWidget):
     """
     Class for MLP+CNN or MLP+ViT model.
     """
-    def __init__(self, params: ParamStore) -> None:
+    def __init__(self, params: ParamSet) -> None:
         """
         Args:
-            params: (ParamStore): parameters
+            params: (ParamSet): parameters
         """
         super().__init__(params)
 
@@ -466,10 +466,10 @@ class MLPDeepSurv(ModelWidget):
     """
     Class for DeepSurv model with MLP
     """
-    def __init__(self, params: ParamStore) -> None:
+    def __init__(self, params: ParamSet) -> None:
         """
         Args:
-            params (ParamStore): parameters
+            params (ParamSet): parameters
         """
         super().__init__(params)
 
@@ -534,10 +534,10 @@ class CVDeepSurv(ModelWidget):
     """
     Class for DeepSurv model with CNN or ViT
     """
-    def __init__(self, params: ParamStore) -> None:
+    def __init__(self, params: ParamSet) -> None:
         """
         Args:
-            params: (ParamStore): parameters
+            params: (ParamSet): parameters
         """
         super().__init__(params)
 
@@ -602,10 +602,10 @@ class FusionDeepSurv(ModelWidget):
     """
     Class for DeepSurv model with MLP+CNN or MLP+ViT model.
     """
-    def __init__(self, params: ParamStore) -> None:
+    def __init__(self, params: ParamSet) -> None:
         """
         Args:
-            params: (ParamStore): parameters
+            params: (ParamSet): parameters
         """
         super().__init__(params)
 
@@ -664,12 +664,12 @@ class FusionDeepSurv(ModelWidget):
         self.loss_store.cal_batch_loss(output, _labels, _periods, self.network)
 
 
-def create_model(params: ParamStore) -> nn.Module:
+def create_model(params: ParamSet) -> nn.Module:
     """
     Construct model.
 
     Args:
-        params (ParamStore): parameters
+        params (ParamSet): parameters
 
     Returns:
         nn.Module: model

@@ -4,8 +4,8 @@
 import torch
 from lib import (
         check_test_options,
-        set_params,
         create_model,
+        print_paramater,
         BaseLogger
         )
 from lib.component import (
@@ -19,19 +19,17 @@ logger = BaseLogger.get_logger(__name__)
 
 
 def main(opt):
-    params = set_params(opt.args)
-    print_parameters(params)
+    model = create_model(args.model_params)
+    test_splits = args.conf_params.test_splits
+    dataloaders = {split: create_dataloader(args.dataloader_params, split=split) for split in test_splits}
 
-    task = params.test_conf_params.task
-    test_splits = params.test_conf_params.test_splits
-    num_outputs_for_label = params.test_conf_params.num_outputs_for_label
-    save_datetime_dir = params.test_conf_params.save_datetime_dir
-    weight_paths = params.test_conf_params.weight_paths
-
-    dataloaders = {split: create_dataloader(params.dataloader_params, split=split) for split in test_splits}
+    print_paramater(args.print_params, phase='test')
     print_dataset_info(dataloaders)
 
-    model = create_model(params.model_params)
+    task = args.conf_params.task
+    num_outputs_for_label = args.conf_params.num_outputs_for_label
+    save_datetime_dir = args.conf_params.save_datetime_dir
+    weight_paths = args.conf_params.weight_paths
     likelihood = set_likelihood(task, num_outputs_for_label, save_datetime_dir)
 
     for weight_path in weight_paths:
@@ -42,7 +40,7 @@ def main(opt):
         model.eval()
 
         likelihood.init_likelihood()
-        for split in params.test_splits:
+        for split in test_splits:
             split_dataloader = dataloaders[split]
             for i, data in enumerate(split_dataloader):
                 in_data, _ = model.set_data(data)
@@ -51,18 +49,18 @@ def main(opt):
                     output = model(in_data)
                     likelihood.make_likelihood(data, output)
 
-        likelihood.save_likelihood(save_datetime_dir, weight_path.stem)
+        likelihood.save_likelihood(save_datetime_dir, weight_path.split('/')[-1].replace('.pt', ''))
 
         if len(weight_paths) > 1:
-            model.init_network(params)
+            model.init_network(args.model_params)
 
 
 if __name__ == '__main__':
     try:
         logger.info('\nTest started.\n')
 
-        opt = check_test_options()
-        main(opt)
+        args = check_test_options()
+        main(args)
 
     except Exception as e:
         logger.error(e, exc_info=True)

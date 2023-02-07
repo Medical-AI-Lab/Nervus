@@ -6,6 +6,8 @@ import torch
 from lib import (
         check_train_options,
         create_model,
+        print_paramater,
+        save_parameter,
         BaseLogger
         )
 from lib.component import create_dataloader, print_dataset_info
@@ -14,19 +16,16 @@ from lib.component import create_dataloader, print_dataset_info
 logger = BaseLogger.get_logger(__name__)
 
 
-def main(opt):
-    breakpoint()
-    #params = set_params(opt.args)
-    #print_parameters(params)
+def main(args):
+    model = create_model(args.model_params)
+    dataloaders = {split: create_dataloader(args.dataloader_params, split=split) for split in ['train', 'val']}
 
-    epochs = params.train_conf_params.epochs
-    save_weight_policy = params.train_conf_params.save_weight_policy
-    save_datetime_dir = params.train_conf_params.save_datetime_dir
-
-    dataloaders = {split: create_dataloader(params.dataloader_params, split=split) for split in ['train', 'val']}
+    print_paramater(args.print_params, phase='train')
     print_dataset_info(dataloaders)
 
-    model = create_model(params.model_params)
+    epochs = args.conf_params.epochs
+    save_weight_policy = args.conf_params.save_weight_policy
+    save_datetime_dir = args.conf_params.save_datetime_dir
 
     for epoch in range(epochs):
         for phase in ['train', 'val']:
@@ -64,9 +63,11 @@ def main(opt):
 
     model.save_learning_curve(save_datetime_dir)
     model.save_weight(save_datetime_dir, as_best=True)
-    if params.model_params.mlp is not None:
+
+    if args.model_params.mlp is not None:
         dataloaders['train'].dataset.save_scaler(save_datetime_dir + '/' + 'scaker.pkl')
-    params.save_parameter(save_datetime_dir + '/' + 'parameters.json')
+
+    save_parameter(args.save_params, save_datetime_dir + '/' + 'parameters.json')
 
 
 if __name__ == '__main__':
@@ -74,10 +75,8 @@ if __name__ == '__main__':
         datetime_name = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
         logger.info(f"\nTraining started at {datetime_name}.\n")
 
-        opt = check_train_options(datetime_name)
-        breakpoint()
-
-        main(opt)
+        args = check_train_options(datetime_name)
+        main(args)
 
     except Exception as e:
         logger.error(e, exc_info=True)
