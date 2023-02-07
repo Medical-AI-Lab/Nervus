@@ -145,7 +145,7 @@ class CSVParser:
             _df_excluded_cast = df_excluded.astype(_cast_dict)
             return _df_excluded_cast
 
-        elif task == 'deepsurve':
+        elif task == 'deepsurv':
             _cast_input = {input_name: float for input_name in self.input_list}
             _cast_label = {label_name: int for label_name in self.label_list}
             _cast_period = {self.period_name: int}
@@ -477,7 +477,7 @@ def _train_parse(args: argparse.Namespace) -> argparse.Namespace:
     args.mlp_num_inputs = _csvparser.mlp_num_inputs
     args.num_outputs_for_label = _csvparser.num_outputs_for_label
     if args.task == 'deepsurv':
-        args.pariod_name = _csvparser.period_name
+        args.period_name = _csvparser.period_name
 
     args.model_params = _dispatch_by_group(args, 'model')
     args.dataloader_params = _dispatch_by_group(args, 'dataloader')
