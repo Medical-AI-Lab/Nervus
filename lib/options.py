@@ -544,11 +544,11 @@ def _test_parse(args: argparse.Namespace) -> argparse.Namespace:
 
     args.mlp, args.net = _parse_model(args.model)
 
-    if args.mlp is not None:
-        args.scaler_path = str(Path(_train_datetime_dir, 'scaler.pkl'))
-
     _csvparser = CSVParser(args.csvpath, args.task)
     args.df_source = _csvparser.df_source
+
+    if args.mlp is not None:
+        args.scaler_path = str(Path(_train_datetime_dir, 'scaler.pkl'))
 
     # Align test_splits
     args.test_splits = args.test_splits.split('-')

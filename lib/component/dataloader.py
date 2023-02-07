@@ -50,7 +50,7 @@ class InputDataMixin:
         _ = scaler.fit(_df_train[self.input_list])                      # fit only
         return scaler
 
-    def save_scaler(self, saver_path :str) -> None:
+    def save_scaler(self, save_path :str) -> None:
         """
         Save scaler
 
@@ -238,6 +238,7 @@ class LoadDataSet(Dataset, DataSetWidget):
 
         # For input data
         if self.params.mlp is not None:
+            assert (self.input_list != []), f"input list is empty."
             if params.isTrain:
                 self.scaler = self._make_scaler()
             else:
