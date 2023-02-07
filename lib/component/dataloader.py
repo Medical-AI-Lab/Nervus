@@ -50,15 +50,15 @@ class InputDataMixin:
         _ = scaler.fit(_df_train[self.input_list])                      # fit only
         return scaler
 
-    def save_scaler(self, scaler_path :str) -> None:
+    def save_scaler(self, saver_path :str) -> None:
         """
         Save scaler
 
         Args:
-            scaler_path (str): path for saving scaler.
+            save_path (str): path for saving scaler.
         """
         #save_scaler_path = Path(save_datetime_dir, 'scaler.pkl')
-        with open(scaler_path, 'wb') as f:
+        with open(save_path, 'wb') as f:
             pickle.dump(self.scaler, f)
 
     def load_scaler(self, scaler_path :str) -> None:

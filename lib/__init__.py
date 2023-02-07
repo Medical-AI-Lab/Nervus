@@ -5,7 +5,6 @@ from .options import (
     set_options,
     ParamSet,
     save_parameter,
-    load_parameter,
     print_paramater
     )
 from .framework import create_model
@@ -17,7 +16,6 @@ __all__ = [
             'ParamSet',
             'print_paramater',
             'save_parameter',
-            'load_parameter',
             'create_model',
             'set_eval',
             'BaseLogger'

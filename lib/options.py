@@ -122,7 +122,6 @@ class CSVParser:
         if not('group' in self.df_source.columns):
             self.df_source = self.df_source.assign(group='all')
 
-
         if isTrain:
             self.mlp_num_inputs = len(self.input_list)
             self.num_outputs_for_label = self._define_num_outputs_for_label(self.df_source, self.label_list, self.task)
@@ -280,7 +279,7 @@ def save_parameter(params: ParamSet, save_path: str) -> None:
         json.dump(_saved, f, indent=4)
 
 
-def load_parameter(parameter_path: str) -> Dict[str, Union[str, int, float]]:
+def _load_parameter(parameter_path: str) -> Dict[str, Union[str, int, float]]:
     """
     Return dictionalry of parameters at training.
 
@@ -530,7 +529,7 @@ def _test_parse(args: argparse.Namespace) -> argparse.Namespace:
 
     # load parameters
     _parameter_path = str(Path(_train_datetime_dir, 'parameters.json'))
-    params = load_parameter(_parameter_path)
+    params = _load_parameter(_parameter_path)
 
     # Delete parameters which do not need to be passed on at test.
     _required_params = _get_param_name_by_group('load')
