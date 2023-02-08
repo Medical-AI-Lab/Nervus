@@ -17,7 +17,7 @@ logger = BaseLogger.get_logger(__name__)
 
 
 def main(args):
-    print_paramater(args.print_params, title='Training')
+    print_paramater(args.print_params)
 
     model = create_model(args.model_params)
     dataloaders = {split: create_dataloader(args.dataloader_params, split=split) for split in ['train', 'val']}

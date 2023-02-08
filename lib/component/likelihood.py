@@ -58,7 +58,7 @@ class BaseLikelihood:
         """
         save_dir = Path(save_datetime_dir, 'likelihoods')
         save_dir.mkdir(parents=True, exist_ok=True)
-        save_path = Path(save_dir, 'likelihood_' + save_name).with_suffix('.csv')
+        save_path = Path(save_dir, 'likelihood_' + save_name)
         self.df_likelihood.to_csv(save_path, index=False)
 
 

@@ -245,7 +245,7 @@ class LoadDataSet(Dataset, DataSetWidget):
                 self.scaler = self.load_scaler(self.params.scaler_path)
 
         # For image
-        if (self.params.net is not None):
+        if self.params.net is not None:
             self.augmentation = self._make_augmentations()
             self.transform = self._make_transforms()
 

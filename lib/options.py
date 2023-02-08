@@ -113,7 +113,7 @@ class CSVParser:
         self.label_list = list(_df_excluded.columns[_df_excluded.columns.str.startswith('label')])
         if self.task == 'deepsurv':
             _period_name_list = list(_df_excluded.columns[_df_excluded.columns.str.startswith('period')])
-            assert (len(_period_name_list) == 1), f"Column of period should be one in {self.csvpath} when deepsurv."
+            assert (len(_period_name_list) == 1), f"One column of period should be contained in {self.csvpath} when deepsurv."
             self.period_name = _period_name_list[0]
 
         self.df_source = self._cast(_df_excluded, self.task)
@@ -294,29 +294,35 @@ def _load_parameter(parameter_path: str) -> Dict[str, Union[str, int, float]]:
     return params
 
 
-def print_paramater(params: ParamSet, title: str = None) -> None:
+def print_paramater(params: ParamSet) -> None:
     """
     Print parameters.
 
     Args:
         params (ParamSet): parameters
-        phase (str): train or test
     """
 
     LINE_LENGTH = 82
 
-    _header = f" Configuration of {title} "
-    _header_padding = (LINE_LENGTH - len(_header) + 1) // 2  # rounding up
-    header = f"{'-' * _header_padding}{_header}{'-' * _header_padding}\n"
+    if params.isTrain:
+        phase = 'Training'
+    else:
+        phase = 'Test'
+
+    _header = f" Configuration of {phase} "
+    _padding = (LINE_LENGTH - len(_header) + 1) // 2  # round up
+    header = f"{'-' * _padding}{_header}{'-' * _padding}\n"
 
     _footer = ' End '
-    _footer_padding = (LINE_LENGTH - len(_footer) + 1) // 2
-    footer = f"{'-' * _footer_padding}{_footer}{'-' * _footer_padding}"
+    _padding = (LINE_LENGTH - len(_footer) + 1) // 2
+    footer = f"{'-' * _padding}{_footer}{'-' * _padding}\n"
 
     message = ''
     message += header
 
-    for _param, _arg in vars(params).items():
+    params_dict = vars(params)
+    del params_dict['isTrain']
+    for _param, _arg in params_dict.items():
         _str_arg = _arg2str(_param, _arg)
         message += '{:>30}: {:<40}\n'.format(_param, _str_arg)
 
@@ -390,10 +396,11 @@ class ParamTable:
 
     # The below shows that which group each parameter belongs to.
     table = {
+            'datetime': [sa],
             'project': [sa, trap, tesp],
             'csvpath': [sa, trap, tesp],
             'task': [mo, dl, tesc, sa, lo, trap, tesp],
-            'isTrain': [mo, dl],
+            'isTrain': [mo, dl, trap, tesp],
 
             'model': [sa, lo, trap, tesp],
             'vit_image_size': [mo, sa, lo, trap, tesp],
@@ -431,7 +438,7 @@ class ParamTable:
 
             'gpu_ids': [mo, sa, trap, tesp],
             'device': [mo],
-            'dataset_info': [trap, tesp]
+            'dataset_info': [sa, trap, tesp]
             }
 
     @classmethod
@@ -453,6 +460,7 @@ class ParamTable:
 
 
 PARAM_TABLE = ParamTable.make_table()
+
 
 class ParamSet:
     """
@@ -489,7 +497,7 @@ def _dispatch_by_group(args: argparse.Namespace, group_name: str) -> ParamSet:
 
 def _train_parse(args: argparse.Namespace) -> argparse.Namespace:
     """
-    Add pamaters required at training.
+    Parse pamaters required at training.
 
     Args:
         args (argparse.Namespace): arguments
@@ -504,6 +512,7 @@ def _train_parse(args: argparse.Namespace) -> argparse.Namespace:
     args.pretrained = bool(args.pretrained)   # strtobool('False') = 0 (== False)
     args.save_datetime_dir = str(Path('results', args.project, 'trials', args.datetime))
 
+    # Parse csv
     _csvparser = CSVParser(args.csvpath, args.task, args.isTrain)
     args.df_source = _csvparser.df_source
     args.dataset_info = {split: len(args.df_source[args.df_source['split'] == split]) for split in ['train', 'val']}
@@ -514,6 +523,7 @@ def _train_parse(args: argparse.Namespace) -> argparse.Namespace:
     if args.task == 'deepsurv':
         args.period_name = _csvparser.period_name
 
+    # Dispatch paramaters
     args.model_params = _dispatch_by_group(args, 'model')
     args.dataloader_params = _dispatch_by_group(args, 'dataloader')
     args.conf_params = _dispatch_by_group(args, 'train_conf')
@@ -524,7 +534,7 @@ def _train_parse(args: argparse.Namespace) -> argparse.Namespace:
 
 def _test_parse(args: argparse.Namespace) -> argparse.Namespace:
     """
-    Add pamaters required at test.
+    Parse pamaters required at test.
 
     Args:
         args (argparse.Namespace): arguments
@@ -536,15 +546,17 @@ def _test_parse(args: argparse.Namespace) -> argparse.Namespace:
     args.gpu_ids = _parse_gpu_ids(args.gpu_ids)
     args.device = torch.device(f"cuda:{args.gpu_ids[0]}") if args.gpu_ids != [] else torch.device('cpu')
 
+    # Collect weight paths
     if args.weight_dir is None:
         args.weight_dir = _get_latest_weight_dir()
     args.weight_paths = _collect_weight(args.weight_dir)
 
+    # Get datetime at training
     _train_datetime_dir = Path(args.weight_dir).parents[0]
     _train_datetime = _train_datetime_dir.name
     args.save_datetime_dir = str(Path('results', args.project, 'trials', _train_datetime))
 
-    # load parameters
+    # Load parameters
     _parameter_path = str(Path(_train_datetime_dir, 'parameters.json'))
     params = _load_parameter(_parameter_path)
 
@@ -560,10 +572,10 @@ def _test_parse(args: argparse.Namespace) -> argparse.Namespace:
     args.pretrained = False
 
     args.mlp, args.net = _parse_model(args.model)
-
     if args.mlp is not None:
         args.scaler_path = str(Path(_train_datetime_dir, 'scaler.pkl'))
 
+    # Parse csv
     _csvparser = CSVParser(args.csvpath, args.task)
     args.df_source = _csvparser.df_source
 
@@ -575,6 +587,7 @@ def _test_parse(args: argparse.Namespace) -> argparse.Namespace:
 
     args.dataset_info = {split: len(args.df_source[args.df_source['split'] == split]) for split in args.test_splits}
 
+    # Dispatch paramaters
     args.model_params = _dispatch_by_group(args, 'model')
     args.dataloader_params = _dispatch_by_group(args, 'dataloader')
     args.conf_params = _dispatch_by_group(args, 'test_conf')

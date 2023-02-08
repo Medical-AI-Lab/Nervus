@@ -18,7 +18,7 @@ logger = BaseLogger.get_logger(__name__)
 
 
 def main(args):
-    print_paramater(args.print_params, title='Test')
+    print_paramater(args.print_params)
 
     model = create_model(args.model_params)
     test_splits = args.conf_params.test_splits
@@ -47,7 +47,7 @@ def main(args):
                     output = model(in_data)
                     likelihood.make_likelihood(data, output)
 
-        likelihood.save_likelihood(save_datetime_dir, weight_path.split('/')[-1].replace('.pt', ''))
+        likelihood.save_likelihood(save_datetime_dir, weight_path.split('/')[-1].replace('.pt', '.csv'))
 
         if len(weight_paths) > 1:
             model.init_network(args.model_params)
