@@ -294,7 +294,7 @@ def _load_parameter(parameter_path: str) -> Dict[str, Union[str, int, float]]:
     return params
 
 
-def print_paramater(params: ParamSet, phase: str = None) -> None:
+def print_paramater(params: ParamSet, title: str = None) -> None:
     """
     Print parameters.
 
@@ -303,19 +303,24 @@ def print_paramater(params: ParamSet, phase: str = None) -> None:
         phase (str): train or test
     """
 
-    if phase == 'train':
-        _phase = 'Training'
-    else:
-        _phase = 'Test'
+    LINE_LENGTH = 82
+
+    _header = f" Configuration of {title} "
+    _header_padding = (LINE_LENGTH - len(_header) + 1) // 2  # rounding up
+    header = f"{'-' * _header_padding}{_header}{'-' * _header_padding}\n"
+
+    _footer = ' End '
+    _footer_padding = (LINE_LENGTH - len(_footer) + 1) // 2
+    footer = f"{'-' * _footer_padding}{_footer}{'-' * _footer_padding}"
 
     message = ''
-    message += f"{'-'*25} Options for {_phase} {'-'*33}\n"
+    message += header
 
     for _param, _arg in vars(params).items():
         _str_arg = _arg2str(_param, _arg)
-        message += '{:>25}: {:<40}\n'.format(_param, _str_arg)
+        message += '{:>30}: {:<40}\n'.format(_param, _str_arg)
 
-    message += f"{'-'*30} End {'-'*48}\n"
+    message += footer
     logger.info(message)
 
 
@@ -342,6 +347,14 @@ def _arg2str(param: str, arg: Union[str, int, float]) -> str:
             else:
                 str_arg = f"{arg}  (Primary GPU:{arg[0]})"
             return str_arg
+        elif param == 'dataset_info':
+            str_arg = ''
+            for i, (split, total) in enumerate(arg.items()):
+                if i < len(arg) - 1:
+                    str_arg += (f"{split:>5}_data={total}, ")
+                else:
+                    str_arg += (f"{split:>5}_data={total}")
+            return str_arg
         else:
             if arg is None:
                 str_arg = 'No need'
@@ -355,65 +368,71 @@ class ParamTable:
     Class to make table to dispatch parameters by group.
     """
     # groups
-    # 'model', 'dataloader',
-    # 'train_conf', 'test_conf',
-    # 'save', 'load',
-    # 'train_print', 'test_print'
+    groups = {
+            'model': 'model',
+            'dataloader': 'dataloader',
+            'train_conf': 'train_conf',
+            'test_conf': 'test_conf',
+            'save': 'save',
+            'load': 'load',
+            'train_print': 'train_print',
+            'test_print': 'test_print'
+            }
 
-    # abbreviation of groups
-    mo = 'model'
-    dl = 'dataloader'
-    trac = 'train_conf'
-    tesc = 'test_conf'
-    sa = 'save'
-    lo = 'load'
-    trap = 'train_print'
-    tesp = 'test_print'
+    mo = groups['model']
+    dl = groups['dataloader']
+    trac = groups['train_conf']
+    tesc = groups['test_conf']
+    sa = groups['save']
+    lo = groups['load']
+    trap = groups['train_print']
+    tesp = groups['test_print']
 
     # The below shows that which group each parameter belongs to.
-    TABLE = {
-        'project': [sa, trap, tesp],
-        'csvpath': [sa, trap, tesp],
-        'task': [mo, dl, tesc, sa, lo, trap, tesp],
-        'isTrain': [mo, dl],
+    table = {
+            'project': [sa, trap, tesp],
+            'csvpath': [sa, trap, tesp],
+            'task': [mo, dl, tesc, sa, lo, trap, tesp],
+            'isTrain': [mo, dl],
 
-        'model': [sa, lo, trap, tesp],
-        'vit_image_size': [mo, sa, lo, trap, tesp],
-        'pretrained': [mo, sa, trap],
-        'mlp': [mo, dl],
-        'net': [mo, dl],
+            'model': [sa, lo, trap, tesp],
+            'vit_image_size': [mo, sa, lo, trap, tesp],
+            'pretrained': [mo, sa, trap],
+            'mlp': [mo, dl],
+            'net': [mo, dl],
 
-        'weight_dir': [tesc, tesp],
-        'weight_paths': [tesc],
+            'weight_dir': [tesc, tesp],
+            'weight_paths': [tesc],
 
-        'criterion': [mo, sa, trap],
-        'optimizer': [mo, sa, trap],
-        'lr': [mo, sa, trap],
-        'epochs': [sa, trac, trap],
+            'criterion': [mo, sa, trap],
+            'optimizer': [mo, sa, trap],
+            'lr': [mo, sa, trap],
+            'epochs': [sa, trac, trap],
 
-        'batch_size': [dl, sa, trap],
-        'test_batch_size': [dl, tesp],
-        'test_splits': [tesc, tesp],
+            'batch_size': [dl, sa, trap],
+            'test_batch_size': [dl, tesp],
+            'test_splits': [tesc, tesp],
 
-        'in_channel': [mo, dl, sa, lo, trap, tesp],
-        'normalize_image': [dl, sa, lo, trap, tesp],
-        'augmentation': [dl, sa, trap],
-        'sampler': [dl, sa, trap],
+            'in_channel': [mo, dl, sa, lo, trap, tesp],
+            'normalize_image': [dl, sa, lo, trap, tesp],
+            'augmentation': [dl, sa, trap],
+            'sampler': [dl, sa, trap],
 
-        'df_source': [dl],
-        'input_list': [dl, sa, lo],
-        'label_list': [mo, dl, sa, lo],
-        'period_name': [dl, sa, lo],
-        'mlp_num_inputs': [mo, sa, lo],
-        'num_outputs_for_label': [mo, sa, lo, tesc],
+            'df_source': [dl],
+            'label_list': [mo, dl, sa, lo],
+            'input_list': [dl, sa, lo],
+            'period_name': [dl, sa, lo],
+            'mlp_num_inputs': [mo, sa, lo],
+            'num_outputs_for_label': [mo, sa, lo, tesc],
 
-        'save_weight_policy': [sa, trap, trac],
-        'scaler_path': [dl, tesp],
-        'save_datetime_dir': [trac, tesc, trap, tesp],
+            'save_weight_policy': [sa, trap, trac],
+            'scaler_path': [dl, tesp],
+            'save_datetime_dir': [trac, tesc, trap, tesp],
 
-        'gpu_ids': [mo, sa, trap, tesp],
-        'device': [mo],
-    }
+            'gpu_ids': [mo, sa, trap, tesp],
+            'device': [mo],
+            'dataset_info': [trap, tesp]
+            }
 
     @classmethod
     def make_table(cls) -> pd.DataFrame:
@@ -423,10 +442,8 @@ class ParamTable:
         Returns:
             pd.DataFrame: table which shows that which group each parameter belongs to.
         """
-        index = cls.TABLE.keys()
-        columns = [cls.mo, cls.dl, cls.trac, cls.tesc, cls.sa, cls.lo, cls.trap, cls.tesp]
-        df_table = pd.DataFrame([], index=index, columns=columns).fillna('no')
-        for param, grps in cls.TABLE.items():
+        df_table = pd.DataFrame([], index=cls.table.keys(), columns=cls.groups.keys()).fillna('no')
+        for param, grps in cls.table.items():
             for grp in grps:
                 df_table.loc[param, grp] = 'yes'
 
@@ -436,7 +453,6 @@ class ParamTable:
 
 
 PARAM_TABLE = ParamTable.make_table()
-
 
 class ParamSet:
     """
@@ -490,6 +506,9 @@ def _train_parse(args: argparse.Namespace) -> argparse.Namespace:
 
     _csvparser = CSVParser(args.csvpath, args.task, args.isTrain)
     args.df_source = _csvparser.df_source
+
+    args.dataset_info = {split: len(args.df_source[args.df_source['split'] == split]) for split in ['train', 'val']}
+
     args.input_list = _csvparser.input_list
     args.label_list = _csvparser.label_list
     args.mlp_num_inputs = _csvparser.mlp_num_inputs

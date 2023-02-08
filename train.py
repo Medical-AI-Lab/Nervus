@@ -10,18 +10,17 @@ from lib import (
         save_parameter,
         BaseLogger
         )
-from lib.component import create_dataloader, print_dataset_info
+from lib.component import create_dataloader
 
 
 logger = BaseLogger.get_logger(__name__)
 
 
 def main(args):
+    print_paramater(args.print_params, title='Training')
+
     model = create_model(args.model_params)
     dataloaders = {split: create_dataloader(args.dataloader_params, split=split) for split in ['train', 'val']}
-
-    print_paramater(args.print_params, phase='train')
-    print_dataset_info(dataloaders)
 
     epochs = args.conf_params.epochs
     save_weight_policy = args.conf_params.save_weight_policy

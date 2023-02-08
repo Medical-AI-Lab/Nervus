@@ -10,7 +10,6 @@ from lib import (
         )
 from lib.component import (
         create_dataloader,
-        print_dataset_info,
         set_likelihood
         )
 
@@ -19,12 +18,11 @@ logger = BaseLogger.get_logger(__name__)
 
 
 def main(args):
+    print_paramater(args.print_params, title='Test')
+
     model = create_model(args.model_params)
     test_splits = args.conf_params.test_splits
     dataloaders = {split: create_dataloader(args.dataloader_params, split=split) for split in test_splits}
-
-    print_paramater(args.print_params, phase='test')
-    print_dataset_info(dataloaders)
 
     task = args.conf_params.task
     num_outputs_for_label = args.conf_params.num_outputs_for_label
@@ -58,7 +56,6 @@ def main(args):
 if __name__ == '__main__':
     try:
         logger.info('\nTest started.\n')
-
 
         args = set_options(phase='test')
         main(args)

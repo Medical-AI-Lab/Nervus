@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# import pandas as pd
 import numpy as np
 import torch
 import torchvision.transforms as transforms
@@ -375,16 +374,3 @@ def create_dataloader(
                             sampler=sampler
                             )
     return split_loader
-
-
-def print_dataset_info(dataloaders: Dict[str, DataLoader]) -> None:
-    """
-    Print dataset size for each split.
-
-    Args:
-        dataloaders (Dict[str, DataLoader]): dataloaders for each split
-    """
-    for split, dataloader in dataloaders.items():
-        total = len(dataloader.dataset)
-        logger.info(f"{split:>5}_data = {total}")
-    logger.info('')
