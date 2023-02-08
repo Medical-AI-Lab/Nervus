@@ -353,6 +353,9 @@ def _arg2str(param: str, arg: Union[str, int, float]) -> str:
             else:
                 str_arg = f"{arg}  (Primary GPU:{arg[0]})"
             return str_arg
+        elif param == 'test_splits':
+            str_arg = ', '.join(arg)
+            return str_arg
         elif param == 'dataset_info':
             str_arg = ''
             for i, (split, total) in enumerate(arg.items()):
