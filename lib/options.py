@@ -369,7 +369,7 @@ def _arg2str(param: str, arg: Union[str, int, float]) -> str:
                 str_arg = 'No need'
             else:
                 str_arg = str(arg)
-        return str_arg
+            return str_arg
 
 
 class ParamTable:
