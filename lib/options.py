@@ -351,9 +351,9 @@ def _arg2str(param: str, arg: Union[str, int, float]) -> str:
             str_arg = ''
             for i, (split, total) in enumerate(arg.items()):
                 if i < len(arg) - 1:
-                    str_arg += (f"{split:>5}_data={total}, ")
+                    str_arg += (f"{split}_data={total}, ")
                 else:
-                    str_arg += (f"{split:>5}_data={total}")
+                    str_arg += (f"{split}_data={total}")
             return str_arg
         else:
             if arg is None:
@@ -506,9 +506,7 @@ def _train_parse(args: argparse.Namespace) -> argparse.Namespace:
 
     _csvparser = CSVParser(args.csvpath, args.task, args.isTrain)
     args.df_source = _csvparser.df_source
-
     args.dataset_info = {split: len(args.df_source[args.df_source['split'] == split]) for split in ['train', 'val']}
-
     args.input_list = _csvparser.input_list
     args.label_list = _csvparser.label_list
     args.mlp_num_inputs = _csvparser.mlp_num_inputs
@@ -563,17 +561,19 @@ def _test_parse(args: argparse.Namespace) -> argparse.Namespace:
 
     args.mlp, args.net = _parse_model(args.model)
 
-    _csvparser = CSVParser(args.csvpath, args.task)
-    args.df_source = _csvparser.df_source
-
     if args.mlp is not None:
         args.scaler_path = str(Path(_train_datetime_dir, 'scaler.pkl'))
+
+    _csvparser = CSVParser(args.csvpath, args.task)
+    args.df_source = _csvparser.df_source
 
     # Align test_splits
     args.test_splits = args.test_splits.split('-')
     _splits = args.df_source['split'].unique().tolist()
     if set(_splits) < set(args.test_splits):
         args.test_splits = _splits
+
+    args.dataset_info = {split: len(args.df_source[args.df_source['split'] == split]) for split in args.test_splits}
 
     args.model_params = _dispatch_by_group(args, 'model')
     args.dataloader_params = _dispatch_by_group(args, 'dataloader')
