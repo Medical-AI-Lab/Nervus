@@ -1,9 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from pathlib import Path
-from abc import ABC, abstractmethod
-import pandas as pd
 import numpy as np
 import torch
 import torchvision.transforms as transforms
@@ -13,143 +10,11 @@ from torch.utils.data.sampler import WeightedRandomSampler
 from PIL import Image
 from sklearn.preprocessing import MinMaxScaler
 import pickle
+from ..logger import BaseLogger
 from typing import List, Dict, Union
 
 
-class BaseSplitProvider(ABC):
-    """
-    Class to cast label and tabular data.
-    """
-    def __init__(self, df_source: pd.DataFrame) -> None:
-        """
-        Args:
-            df_source (DataFrame): DataFrame of csv
-        """
-        self.input_list = list(df_source.columns[df_source.columns.str.startswith('input')])
-        self.label_list = list(df_source.columns[df_source.columns.str.startswith('label')])  #! externalの時、label_から始まらない時ある
-
-    @abstractmethod
-    def _cast_csv(self) -> pd.DataFrame:
-        raise NotImplementedError
-
-
-class ClsSplitProvider(BaseSplitProvider):
-    """
-    Class to cast label and tabular data for classification.
-    """
-    def __init__(self, df_source: pd.DataFrame) -> None:
-        """
-        Args:
-            df_source (DataFrame): DataFrame of csv
-        """
-        super().__init__(df_source)
-        self.df_source = self._cast_csv(df_source)
-
-    def _cast_csv(self, df_source: pd.DataFrame) -> pd.DataFrame:
-        """
-        Cast columns for classification.
-
-        Args:
-            df_source (DataFrame): DataFrame of csv
-
-        Returns:
-            pd.DataFrame: cast DataFrame of csv
-        """
-        _cast_input = {input_name: float for input_name in self.input_list}
-        _cast_label = {label_name: int for label_name in self.label_list}
-        _cast = {**_cast_input, **_cast_label}
-        _df_source = df_source.astype(_cast)
-        return _df_source
-
-
-class RegSplitProvider(BaseSplitProvider):
-    """
-    Class to cast label and tabular data for regression.
-    """
-    def __init__(self, df_source: pd.DataFrame) -> None:
-        """
-        Args:
-            df_source (DataFrame): DataFrame of csv
-        """
-        super().__init__(df_source)
-        self.df_source = self._cast_csv(df_source)
-
-    def _cast_csv(self, df_source: pd.DataFrame) -> pd.DataFrame:
-        """
-        Cast columns for regression.
-
-        Args:
-            df_source (DataFrame): DataFrame of csv
-
-        Returns:
-            pd.DataFrame: cast DataFrame of csv
-        """
-        _cast_input = {input_name: float for input_name in self.input_list}
-        _cast_label = {label_name: float for label_name in self.label_list}
-        _cast = {**_cast_input, **_cast_label}
-        _df_source = df_source.astype(_cast)
-        return _df_source
-
-
-class DeepSurvSplitProvider(BaseSplitProvider):
-    """
-    Class to cast label and tabular data for deepsurv.
-    """
-    def __init__(self, df_source: pd.DataFrame) -> None:
-        """
-        Args:
-            df_source (DataFrame): DataFrame of csv
-        """
-        super().__init__(df_source)
-        self.df_source = self._cast_csv(df_source)
-
-    def _cast_csv(self, df_source: pd.DataFrame) -> pd.DataFrame:
-        """
-        Cast columns for deepsurv.
-
-        Args:
-            df_source (DataFrame): DataFrame of csv
-
-        Returns:
-            pd.DataFrame: cast DataFrame of csv
-        """
-        self.period_name = list(df_source.columns[df_source.columns.str.startswith('period')])[0]
-
-        _cast_input = {input_name: float for input_name in self.input_list}
-        _cast_label = {label_name: int for label_name in self.label_list}
-        _cast_period = {self.period_name: int}
-        _cast = {**_cast_input, **_cast_label, **_cast_period}
-        _df_source = df_source.astype(_cast)
-        return _df_source
-
-
-def make_split_provider(csv_path: str, task: str) -> Union[ClsSplitProvider, RegSplitProvider, DeepSurvSplitProvider]:
-    """
-    Parse csv by depending on task.
-
-    Args:
-        csv_path (str): path to csv
-        task (str): task
-
-    Returns:
-        Union[ClsSplitProvider, RegSplitProvider, DeepSurvSplitProvider]: SplitProvide for task
-    """
-
-    _df_source = pd.read_csv(csv_path)
-    _df_excluded = _df_source[_df_source['split'] != 'exclude'].copy()
-
-    if not('group' in _df_excluded.columns):
-        _df_excluded['group'] = 'all'
-
-    if task == 'classification':
-        sp = ClsSplitProvider(_df_excluded)
-    elif task == 'regression':
-        sp = RegSplitProvider(_df_excluded)
-    elif task == 'deepsurv':
-        sp = DeepSurvSplitProvider(_df_excluded)
-    else:
-        raise ValueError(f"Invalid task: {task}.")
-    return sp
+logger = BaseLogger.get_logger(__name__)
 
 
 #
@@ -172,25 +37,38 @@ class InputDataMixin:
     """
     Class to normalizes input data.
     """
-    def _make_scaler(self, scaler_path: Path = None) -> MinMaxScaler:
+    def _make_scaler(self) -> MinMaxScaler:
         """
-        Normalizes inputa data by min-max normalization with train data.
-
-        Args:
-            scaler_path (Path, optional): path to dumpe slacer. Defaults to None.
+        Make scaler to mormalize inputa data by min-max normalization with train data.
 
         Returns:
             MinMaxScaler: scaler
         """
-        assert (self.input_list != []), 'No tabular data.'
-        if scaler_path is None:
-            scaler = MinMaxScaler()
-            _df_train = self.df_source[self.df_source['split'] == 'train']  # should be normalized with min and max of training data
-            _ = scaler.fit(_df_train[self.input_list])                      # fit only
-        else:
-            # load scalaer created at training.
-            with open(scaler_path, 'rb') as f:
-                scaler = pickle.load(f)
+        scaler = MinMaxScaler()
+        _df_train = self.df_source[self.df_source['split'] == 'train']  # should be normalized with min and max of training data
+        _ = scaler.fit(_df_train[self.input_list])                      # fit only
+        return scaler
+
+    def save_scaler(self, save_path :str) -> None:
+        """
+        Save scaler
+
+        Args:
+            save_path (str): path for saving scaler.
+        """
+        #save_scaler_path = Path(save_datetime_dir, 'scaler.pkl')
+        with open(save_path, 'wb') as f:
+            pickle.dump(self.scaler, f)
+
+    def load_scaler(self, scaler_path :str) -> None:
+        """
+        Load scaler.
+
+        Args:
+            scaler_path (str): path tp scaler
+        """
+        with open(scaler_path, 'rb') as f:
+            scaler = pickle.load(f)
         return scaler
 
     def _load_input_value_if_mlp(self, idx: int) -> Union[torch.Tensor, str]:
@@ -265,9 +143,6 @@ class ImageMixin:
             else:
                 # ie. self.params.in_channel == 3
                 _transforms.append(transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]))
-        else:
-            # ie. self.params.normalize_image == 'no'
-            pass
 
         _transforms = transforms.Compose(_transforms)
         return _transforms
@@ -340,17 +215,15 @@ class LoadDataSet(Dataset, DataSetWidget):
     def __init__(
                 self,
                 params,
-                df_source: pd.DataFrame,
                 split: str
                 ) -> None:
         """
         Args:
             params (ModelParam): paramater for model
-            df_source (DataFrame): DataFrame of csv
             split (str): split
         """
         self.params = params
-        self.df_source = df_source
+        self.df_source = self.params.df_source
         self.split = split
 
         self.input_list = self.params.input_list
@@ -362,14 +235,17 @@ class LoadDataSet(Dataset, DataSetWidget):
         self.df_split = self.df_source[self.df_source['split'] == self.split]
         self.col_index_dict = {col_name: self.df_split.columns.get_loc(col_name) for col_name in self.df_split.columns}
 
-        if (self.params.mlp is not None):
-            if hasattr(self.params, 'scaler_path') and (self.params.scaler_path is not None):
-                scaler_path = self.params.scaler_path
+        # For input data
+        if self.params.mlp is not None:
+            assert (self.input_list != []), f"input list is empty."
+            if params.isTrain:
+                self.scaler = self._make_scaler()
             else:
-                scaler_path = None
-            self.scaler = self._make_scaler(scaler_path)
+                # load scaler used when training.
+                self.scaler = self.load_scaler(self.params.scaler_path)
 
-        if (self.params.net is not None):
+        # For image
+        if self.params.net is not None:
             self.augmentation = self._make_augmentations()
             self.transform = self._make_transforms()
 
@@ -460,23 +336,20 @@ def _make_sampler(split_data: LoadDataSet) -> WeightedRandomSampler:
 
 def create_dataloader(
                     params,
-                    df_source: pd.DataFrame,
                     split: str = None
                     ) -> DataLoader:
     """
     Creeate data loader ofr split.
 
     Args:
-        params (ModelParam): paramater for model
-        df_source (DataFrame): DataFrame of csv
+        params (ModelParam): paramater for dataloader
         split (str): split. Defaults to None.
 
     Returns:
         DataLoader: data loader
     """
-    split_data = LoadDataSet(params, df_source, split)
+    split_data = LoadDataSet(params, split)
 
-    # args never has both 'batch_size' and 'test_batch_size'.
     if params.isTrain:
         batch_size = params.batch_size
         shuffle = True

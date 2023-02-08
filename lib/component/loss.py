@@ -123,7 +123,7 @@ class EpochLoss:
                 self.down_update_flag()
 
 
-class LossRegistory(ABC):
+class LossStore(ABC):
     """
     Class for calculating loss and store it.
     First, losses are calculated for each iteration and then are accumulated in EpochLoss class.
@@ -255,7 +255,7 @@ class LossMixin:
         logger.info(comment)
 
 
-class LossWidget(LossRegistory, LossMixin):
+class LossWidget(LossStore, LossMixin):
     """
     Class for a widget to inherit multiple classes simultaneously.
     """
@@ -391,14 +391,14 @@ class DeepSurvLoss(LossWidget):
         self.batch_loss['total'] = _total
 
 
-def create_loss_reg(
+def create_loss_store(
                     task: str,
                     criterion: torch.nn.Module,
                     label_list: List[str],
                     device: torch.device
-                    ) -> LossRegistory:
+                    ) -> LossStore:
     """
-    Set LossRegistory depending on task
+    Set LossStore depending on task
 
     Args:
         task (str): task
@@ -407,14 +407,14 @@ def create_loss_reg(
         device (torch.device): device
 
     Returns:
-        LossRegistory: LossRegistory
+        LossStore: class to store loss
     """
     if task == 'classification':
-        loss_reg = ClsLoss(criterion, label_list, device)
+        loss_store = ClsLoss(criterion, label_list, device)
     elif task == 'regression':
-        loss_reg = RegLoss(criterion, label_list, device)
+        loss_store = RegLoss(criterion, label_list, device)
     elif task == 'deepsurv':
-        loss_reg = DeepSurvLoss(criterion, label_list, device)
+        loss_store = DeepSurvLoss(criterion, label_list, device)
     else:
         raise ValueError(f"Invalid task: {task}.")
-    return loss_reg
+    return loss_store

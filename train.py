@@ -4,25 +4,29 @@
 import datetime
 import torch
 from lib import (
-        check_train_options,
-        set_params,
+        set_options,
         create_model,
+        print_paramater,
+        save_parameter,
         BaseLogger
         )
+from lib.component import create_dataloader
 
 
 logger = BaseLogger.get_logger(__name__)
 
 
-def main(opt):
-    params = set_params(opt.args)
-    params.print_parameter()
-    params.print_dataset_info()
+def main(args):
+    print_paramater(args.print_params)
 
-    dataloaders = params.dataloaders
-    model = create_model(params)
+    model = create_model(args.model_params)
+    dataloaders = {split: create_dataloader(args.dataloader_params, split=split) for split in ['train', 'val']}
 
-    for epoch in range(params.epochs):
+    epochs = args.conf_params.epochs
+    save_weight_policy = args.conf_params.save_weight_policy
+    save_datetime_dir = args.conf_params.save_datetime_dir
+
+    for epoch in range(epochs):
         for phase in ['train', 'val']:
             if phase == 'train':
                 model.train()
@@ -49,16 +53,20 @@ def main(opt):
             dataset_size = len(split_dataloader.dataset)
             model.cal_epoch_loss(epoch, phase, dataset_size=dataset_size)
 
-        model.print_epoch_loss(params.epochs, epoch)
+        model.print_epoch_loss(epochs, epoch)
 
         if model.is_total_val_loss_updated():
             model.store_weight()
-            if (epoch > 0) and (params.save_weight_policy == 'each'):
-                model.save_weight(params.save_datetime_dir, as_best=False)
+            if (epoch > 0) and (save_weight_policy == 'each'):
+                model.save_weight(save_datetime_dir, as_best=False)
 
-    model.save_learning_curve(params.save_datetime_dir)
-    model.save_weight(params.save_datetime_dir, as_best=True)
-    params.save_parameter()
+    model.save_learning_curve(save_datetime_dir)
+    model.save_weight(save_datetime_dir, as_best=True)
+
+    if args.model_params.mlp is not None:
+        dataloaders['train'].dataset.save_scaler(save_datetime_dir + '/' + 'scaler.pkl')
+
+    save_parameter(args.save_params, save_datetime_dir + '/' + 'parameters.json')
 
 
 if __name__ == '__main__':
@@ -66,8 +74,8 @@ if __name__ == '__main__':
         datetime_name = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
         logger.info(f"\nTraining started at {datetime_name}.\n")
 
-        opt = check_train_options(datetime_name)
-        main(opt)
+        args = set_options(datetime_name=datetime_name, phase='train')
+        main(args)
 
     except Exception as e:
         logger.error(e, exc_info=True)

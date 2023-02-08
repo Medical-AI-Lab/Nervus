@@ -1,15 +1,21 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from .options import check_train_options, check_test_options
-from .framework import create_model, set_params
+from .options import (
+    set_options,
+    ParamSet,
+    save_parameter,
+    print_paramater
+    )
+from .framework import create_model
 from .metrics import set_eval
 from .logger import BaseLogger
 
 __all__ = [
-            'check_train_options',
-            'check_test_options',
-            'set_params',
+            'set_options',
+            'ParamSet',
+            'print_paramater',
+            'save_parameter',
             'create_model',
             'set_eval',
             'BaseLogger'
