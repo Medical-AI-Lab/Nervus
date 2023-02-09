@@ -22,7 +22,6 @@ def main(args):
     conf_params = args['conf']
     print_params = args['print']
     save_params = args['save']
-
     print_paramater(print_params)
 
     model = create_model(model_params)

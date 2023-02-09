@@ -22,7 +22,6 @@ def main(args):
     datalaoder_params = args['dataloader']
     conf_params = args['conf']
     print_params = args['print']
-
     print_paramater(print_params)
 
     model = create_model(model_params)
