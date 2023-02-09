@@ -24,14 +24,14 @@ def main(args):
     print_params = args['print']
     print_paramater(print_params)
 
-    model = create_model(model_params)
-    test_splits = print_params.test_splits
-    dataloaders = {split: create_dataloader(datalaoder_params, split=split) for split in test_splits}
-
+    test_splits = conf_params.test_splits
     task = conf_params.task
     num_outputs_for_label = conf_params.num_outputs_for_label
     save_datetime_dir = conf_params.save_datetime_dir
     weight_paths = conf_params.weight_paths
+
+    model = create_model(model_params)
+    dataloaders = {split: create_dataloader(datalaoder_params, split=split) for split in test_splits}
     likelihood = set_likelihood(task, num_outputs_for_label, save_datetime_dir)
 
     for weight_path in weight_paths:

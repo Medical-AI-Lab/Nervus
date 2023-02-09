@@ -24,12 +24,12 @@ def main(args):
     save_params = args['save']
     print_paramater(print_params)
 
-    model = create_model(model_params)
-    dataloaders = {split: create_dataloader(datalaoder_params, split=split) for split in ['train', 'val']}
-
     epochs = conf_params.epochs
     save_weight_policy = conf_params.save_weight_policy
     save_datetime_dir = conf_params.save_datetime_dir
+
+    model = create_model(model_params)
+    dataloaders = {split: create_dataloader(datalaoder_params, split=split) for split in ['train', 'val']}
 
     for epoch in range(epochs):
         for phase in ['train', 'val']:
