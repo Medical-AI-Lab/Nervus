@@ -241,7 +241,7 @@ class LoadDataSet(Dataset, DataSetWidget):
             if params.isTrain:
                 self.scaler = self._make_scaler()
             else:
-                # load scaler used when training.
+                # load scaler used at training.
                 self.scaler = self.load_scaler(self.params.scaler_path)
 
         # For image

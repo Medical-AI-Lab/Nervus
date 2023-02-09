@@ -96,7 +96,7 @@ class CSVParser:
     """
     Class to get information of csv and cast csv.
     """
-    def __init__(self, csvpath: str, task:str, isTrain=None) -> None:
+    def __init__(self, csvpath: str, task:str, isTrain: bool = None) -> None:
         """
         Args:
             csvpath (str): path to csv
@@ -377,71 +377,72 @@ class ParamTable:
     Class to make table to dispatch parameters by group.
     """
     # groups
+    # key is abbreviation, value is group name
     groups = {
-            'model': 'model',
-            'dataloader': 'dataloader',
-            'train_conf': 'train_conf',
-            'test_conf': 'test_conf',
-            'save': 'save',
-            'load': 'load',
-            'train_print': 'train_print',
-            'test_print': 'test_print'
+            'mo': 'model',
+            'dl': 'dataloader',
+            'trc': 'train_conf',
+            'tsc': 'test_conf',
+            'sa': 'save',
+            'lo': 'load',
+            'trp': 'train_print',
+            'tsp': 'test_print'
             }
 
-    mo = groups['model']
-    dl = groups['dataloader']
-    trac = groups['train_conf']
-    tesc = groups['test_conf']
-    sa = groups['save']
-    lo = groups['load']
-    trap = groups['train_print']
-    tesp = groups['test_print']
+    mo = groups['mo']
+    dl = groups['dl']
+    trc = groups['trc']
+    tsc = groups['tsc']
+    sa = groups['sa']
+    lo = groups['lo']
+    trp = groups['trp']
+    tsp = groups['tsp']
 
     # The below shows that which group each parameter belongs to.
     table = {
             'datetime': [sa],
-            'project': [sa, trap, tesp],
-            'csvpath': [sa, trap, tesp],
-            'task': [mo, dl, tesc, sa, lo, trap, tesp],
-            'isTrain': [mo, dl, trap, tesp],
+            'project': [sa, trp, tsp],
+            'csvpath': [sa, trp, tsp],
+            'task': [mo, dl, tsc, sa, lo, trp, tsp],
+            'isTrain': [mo, dl, trp, tsp],
 
-            'model': [sa, lo, trap, tesp],
-            'vit_image_size': [mo, sa, lo, trap, tesp],
-            'pretrained': [mo, sa, trap],
+            'model': [sa, lo, trp, tsp],
+            'vit_image_size': [mo, sa, lo, trp, tsp],
+            'pretrained': [mo, sa, trp],
             'mlp': [mo, dl],
             'net': [mo, dl],
 
-            'weight_dir': [tesc, tesp],
-            'weight_paths': [tesc],
+            'weight_dir': [tsc, tsp],
+            'weight_paths': [tsc],
 
-            'criterion': [mo, sa, trap],
-            'optimizer': [mo, sa, trap],
-            'lr': [mo, sa, trap],
-            'epochs': [sa, trac, trap],
+            'criterion': [mo, sa, trp],
+            'optimizer': [mo, sa, trp],
+            'lr': [mo, sa, trp],
+            'epochs': [sa, trc, trp],
 
-            'batch_size': [dl, sa, trap],
-            'test_batch_size': [dl, tesp],
-            'test_splits': [tesc, tesp],
+            'batch_size': [dl, sa, trp],
+            'test_batch_size': [dl, tsp],
+            'test_splits': [tsc, tsp],
 
-            'in_channel': [mo, dl, sa, lo, trap, tesp],
-            'normalize_image': [dl, sa, lo, trap, tesp],
-            'augmentation': [dl, sa, trap],
-            'sampler': [dl, sa, trap],
+            'in_channel': [mo, dl, sa, lo, trp, tsp],
+            'normalize_image': [dl, sa, lo, trp, tsp],
+            'augmentation': [dl, sa, trp],
+            'sampler': [dl, sa, trp],
 
             'df_source': [dl],
             'label_list': [mo, dl, sa, lo],
             'input_list': [dl, sa, lo],
             'period_name': [dl, sa, lo],
             'mlp_num_inputs': [mo, sa, lo],
-            'num_outputs_for_label': [mo, sa, lo, tesc],
+            'num_outputs_for_label': [mo, sa, lo, tsc],
 
-            'save_weight_policy': [sa, trap, trac],
-            'scaler_path': [dl, tesp],
-            'save_datetime_dir': [trac, tesc, trap, tesp],
+            'save_weight_policy': [sa, trp, trc],
+            'scaler_path': [dl, tsp],
+            'save_datetime_dir': [trc, tsc, trp, tsp],
 
-            'gpu_ids': [mo, sa, trap, tesp],
+            'gpu_ids': [mo, sa, trp, tsp],
             'device': [mo],
-            'dataset_info': [sa, trap, tesp]
+            'dataset_info': [sa, trp, tsp]
             }
 
     @classmethod
@@ -452,7 +453,7 @@ class ParamTable:
         Returns:
             pd.DataFrame: table which shows that which group each parameter belongs to.
         """
-        df_table = pd.DataFrame([], index=cls.table.keys(), columns=cls.groups.keys()).fillna('no')
+        df_table = pd.DataFrame([], index=cls.table.keys(), columns=cls.groups.values()).fillna('no')
         for param, grps in cls.table.items():
             for grp in grps:
                 df_table.loc[param, grp] = 'yes'
@@ -464,10 +465,9 @@ class ParamTable:
 
 PARAM_TABLE = ParamTable.make_table()
 
-
 class ParamSet:
     """
-    Class containing required parameters for each group.
+    Class to store required parameters for each group.
     """
     pass
 
@@ -487,7 +487,7 @@ def _dispatch_by_group(args: argparse.Namespace, group_name: str) -> ParamSet:
         group_name (str): group
 
     Returns:
-        ParamStore: class containing parameters for group
+        ParamSet: class containing parameters for group
     """
     _param_names = _get_param_name_by_group(group_name)
     param_set = ParamSet()
@@ -498,7 +498,7 @@ def _dispatch_by_group(args: argparse.Namespace, group_name: str) -> ParamSet:
     return param_set
 
 
-def _train_parse(args: argparse.Namespace) -> argparse.Namespace:
+def _train_parse(args: argparse.Namespace) -> Dict[str, ParamSet]:
     """
     Parse pamaters required at training.
 
@@ -506,7 +506,7 @@ def _train_parse(args: argparse.Namespace) -> argparse.Namespace:
         args (argparse.Namespace): arguments
 
     Returns:
-        argparse.Namespace: arguments
+        Dict[str, ParamSet]: parameters dispatched by group
     """
     args.project = Path(args.csvpath).stem
     args.gpu_ids = _parse_gpu_ids(args.gpu_ids)
@@ -527,15 +527,16 @@ def _train_parse(args: argparse.Namespace) -> argparse.Namespace:
         args.period_name = _csvparser.period_name
 
     # Dispatch paramaters
-    args.model_params = _dispatch_by_group(args, 'model')
-    args.dataloader_params = _dispatch_by_group(args, 'dataloader')
-    args.conf_params = _dispatch_by_group(args, 'train_conf')
-    args.print_params = _dispatch_by_group(args, 'train_print')
-    args.save_params = _dispatch_by_group(args, 'save')
-    return args
+    return {
+            'model': _dispatch_by_group(args, 'model'),
+            'dataloader': _dispatch_by_group(args, 'dataloader'),
+            'conf': _dispatch_by_group(args, 'train_conf'),
+            'print': _dispatch_by_group(args, 'train_print'),
+            'save': _dispatch_by_group(args, 'save')
+            }
 
 
-def _test_parse(args: argparse.Namespace) -> argparse.Namespace:
+def _test_parse(args: argparse.Namespace) -> Dict[str, ParamSet]:
     """
     Parse pamaters required at test.
 
@@ -543,7 +544,7 @@ def _test_parse(args: argparse.Namespace) -> argparse.Namespace:
         args (argparse.Namespace): arguments
 
     Returns:
-        argparse.Namespace: arguments
+        Dict[str, ParamSet]: parameters dispatched by group
     """
     args.project = Path(args.csvpath).stem
     args.gpu_ids = _parse_gpu_ids(args.gpu_ids)
@@ -591,12 +592,12 @@ def _test_parse(args: argparse.Namespace) -> argparse.Namespace:
     args.dataset_info = {split: len(args.df_source[args.df_source['split'] == split]) for split in args.test_splits}
 
     # Dispatch paramaters
-    args.model_params = _dispatch_by_group(args, 'model')
-    args.dataloader_params = _dispatch_by_group(args, 'dataloader')
-    args.conf_params = _dispatch_by_group(args, 'test_conf')
-    args.print_params = _dispatch_by_group(args, 'test_print')
-    return args
-
+    return {
+            'model': _dispatch_by_group(args, 'model'),
+            'dataloader': _dispatch_by_group(args, 'dataloader'),
+            'conf': _dispatch_by_group(args, 'test_conf'),
+            'print': _dispatch_by_group(args, 'test_print')
+            }
 
 def set_options(datetime_name: str = None, phase: str = None) -> argparse.Namespace:
     """
@@ -611,11 +612,11 @@ def set_options(datetime_name: str = None, phase: str = None) -> argparse.Namesp
     """
     if phase == 'train':
         opt = Options(datetime=datetime_name, isTrain=True)
-        args = opt.get_args()
-        args = _train_parse(args)
+        _args = opt.get_args()
+        args = _train_parse(_args)
         return args
     else:
         opt = Options(isTrain=False)
-        args = opt.get_args()
-        args = _test_parse(args)
+        _args = opt.get_args()
+        args = _test_parse(_args)
         return args

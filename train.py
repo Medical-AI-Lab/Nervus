@@ -17,14 +17,20 @@ logger = BaseLogger.get_logger(__name__)
 
 
 def main(args):
-    print_paramater(args.print_params)
+    model_params = args['model']
+    datalaoder_params = args['dataloader']
+    conf_params = args['conf']
+    print_params = args['print']
+    save_params = args['save']
 
-    model = create_model(args.model_params)
-    dataloaders = {split: create_dataloader(args.dataloader_params, split=split) for split in ['train', 'val']}
+    print_paramater(print_params)
 
-    epochs = args.conf_params.epochs
-    save_weight_policy = args.conf_params.save_weight_policy
-    save_datetime_dir = args.conf_params.save_datetime_dir
+    model = create_model(model_params)
+    dataloaders = {split: create_dataloader(datalaoder_params, split=split) for split in ['train', 'val']}
+
+    epochs = conf_params.epochs
+    save_weight_policy = conf_params.save_weight_policy
+    save_datetime_dir = conf_params.save_datetime_dir
 
     for epoch in range(epochs):
         for phase in ['train', 'val']:
@@ -63,10 +69,10 @@ def main(args):
     model.save_learning_curve(save_datetime_dir)
     model.save_weight(save_datetime_dir, as_best=True)
 
-    if args.model_params.mlp is not None:
+    if model_params.mlp is not None:
         dataloaders['train'].dataset.save_scaler(save_datetime_dir + '/' + 'scaler.pkl')
 
-    save_parameter(args.save_params, save_datetime_dir + '/' + 'parameters.json')
+    save_parameter(save_params, save_datetime_dir + '/' + 'parameters.json')
 
 
 if __name__ == '__main__':
