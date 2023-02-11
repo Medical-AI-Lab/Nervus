@@ -20,7 +20,7 @@ class Likelihood:
         self.task = task
         self.num_outputs_for_label = num_outputs_for_label
         self.base_column_list = self._set_base_colums(self.task)
-        self.pred_column_list = self._make_pred_columns(self.num_outputs_for_label)
+        self.pred_column_list = self._make_pred_columns(self.task, self.num_outputs_for_label)
 
     def _set_base_colums(self, task: str) -> List[str]:
         """_summary_
@@ -31,10 +31,7 @@ class Likelihood:
         Returns:
             List[str]: columns except prediction
         """
-        if task == 'classification':
-            base_columns = ['uniqID', 'group', 'imgpath', 'split']
-            return base_columns
-        elif task == 'regression':
+        if (task == 'classification') or (task == 'regression'):
             base_columns = ['uniqID', 'group', 'imgpath', 'split']
             return base_columns
         elif task == 'deepsurv':
@@ -43,33 +40,33 @@ class Likelihood:
         else:
             raise ValueError(f"Invalid task: {task}.")
 
-    def _make_pred_columns(self, num_outputs_for_label: Dict[str, int]) -> Dict[str, List[str]]:
+    def _make_pred_columns(self, task: str, num_outputs_for_label: Dict[str, int]) -> Dict[str, List[str]]:
         """
         Make column names of predictions with label name and its number of classes.
 
         Args:
+            task (str):  task
             num_outputs_for_label (Dict[str, int]): number of classes for each label
 
         Returns:
             Dict[str, List[str]]: label and list of columns of predictions with its class number
 
         eg.
-        {label_A: 2, label_B: 3} -> {label_A: [pred_A_0, pred_A_1], label_B: [pred_B_0, pred_B_1]}
-        {label_A: 1, label_B: 1} -> {label_A: [pred_A], label_B: [pred_B]}
+        {label_A: 2, label_B: 3} -> {label_A: [pred_label_A_0, pred_label_A_1], label_B: [pred_label_B_0, pred_label_B_1]}
+        {label_A: 1, label_B: 1} -> {label_A: [pred_label_A], label_B: [pred_label_B]}
         """
         pred_columns = dict()
-        for label_name, num_classes in num_outputs_for_label.items():
-            _pred_list = []
-            if num_classes > 1:
-                for ith_class in range(num_classes):
-                    _pred = label_name.replace('label', 'pred') + '_' + str(ith_class)
-                    _pred_list.append(_pred)
-            else:
-                _pred = label_name.replace('label', 'pred')
-                _pred_list.append(_pred)
+        if task == 'classification':
+            for label_name, num_classes in num_outputs_for_label.items():
+                pred_columns[label_name] = ['pred_' + label_name + '_' + str(i) for i in range(num_classes)]
+            return pred_columns
+        elif (task == 'regression') or (task == 'deepsurv'):
+            for label_name, num_classes in num_outputs_for_label.items():
+                pred_columns[label_name] = ['pred_' + label_name]
+            return pred_columns
+        else:
+            raise ValueError(f"Invalid task: {task}.")
 
-            pred_columns[label_name] = _pred_list
-        return pred_columns
 
     def make_form(self, data: Dict, output: Dict[str, torch.Tensor]) -> pd.DataFrame:
             """
