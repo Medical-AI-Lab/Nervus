@@ -55,7 +55,7 @@ class Likelihood:
             pred_columns[label_name] = _pred_list
         return pred_columns
 
-    def make_likelihood(self, data: Dict, outputs: Dict[str, torch.Tensor]) -> pd.DataFrame:
+    def make_likelihood(self, data: Dict, output: Dict[str, torch.Tensor]) -> pd.DataFrame:
             """
             Make DataFrame of likelihood every batch
 
@@ -68,25 +68,35 @@ class Likelihood:
             _df_base = pd.DataFrame(_base)
 
             if any(data['labels']):
-                for label_name, output in outputs.items():
+                for label_name, pred in output.items():
                     _df_label = pd.DataFrame({ label_name: [data['labels'][label_name]] })  # Handle one label at a time
                     _pred_columns = self.pred_column_list[label_name]
-                    _output = output.to('cpu').detach().numpy().copy()
-                    _df_output = pd.DataFrame(_output, columns=_pred_columns)
-                    df_likelihood = pd.concat([_df_base, _df_label, _df_output], axis=1)
+                    _pred = pred.to('cpu').detach().numpy().copy()
+                    _df_pred = pd.DataFrame(_pred, columns=_pred_columns)
+                    df_likelihood = pd.concat([_df_base, _df_label, _df_pred], axis=1)
                 return df_likelihood
             else:
-                for label_name, output in outputs.items():
+                for label_name, pred in output.items():
                     _pred_columns = self.pred_column_list[label_name]
-                    _output = output.to('cpu').detach().numpy().copy()
-                    _df_output = pd.DataFrame(_output, columns=_pred_columns)
-                    df_likelihood = pd.concat([_df_base, _df_output], axis=1)
+                    _pred = pred.to('cpu').detach().numpy().copy()
+                    _df_pred = pd.DataFrame(_pred, columns=_pred_columns)
+                    df_likelihood = pd.concat([_df_base, _df_pred], axis=1)
                 return df_likelihood
 
 
 
-def set_likelihood(task: str, num_outputs_for_label):
-    pass
+def set_likelihood(task: str, num_outputs_for_label: Dict[str, int]) -> Likelihood:
+    """
+    Set Likelihood
+
+    Args:
+        task (str): task
+        num_outputs_for_label (Dict[str, int]): number of classes for each label
+
+    Returns:
+        Likelihood: Likelihood
+    """
+    return Likelihood(task, num_outputs_for_label)
 
 
 #def writeout_likelihood(df_likelihood: pd.DataFrame, save_path: str, times_written: int) -> None:
