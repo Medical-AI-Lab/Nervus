@@ -52,7 +52,7 @@ class Likelihood:
             Dict[str, List[str]]: label and list of columns of predictions with its class number
 
         eg.
-        {label_A: 2, label_B: 3} -> {label_A: [pred_label_A_0, pred_label_A_1], label_B: [pred_label_B_0, pred_label_B_1]}
+        {label_A: 2, label_B: 2} -> {label_A: [pred_label_A_0, pred_label_A_1], label_B: [pred_label_B_0, pred_label_B_1]}
         {label_A: 1, label_B: 1} -> {label_A: [pred_label_A], label_B: [pred_label_B]}
         """
         pred_columns = dict()
@@ -66,7 +66,6 @@ class Likelihood:
             return pred_columns
         else:
             raise ValueError(f"Invalid task: {task}.")
-
 
     def make_form(self, data: Dict, output: Dict[str, torch.Tensor]) -> pd.DataFrame:
             """
@@ -92,3 +91,17 @@ class Likelihood:
                     _df_pred = pd.DataFrame(pred, columns=self.pred_column_list[label_name])
                     df_likelihood = pd.concat([df_likelihood, _df_pred], axis=1)
                 return df_likelihood
+
+
+def set_likelihood(task: str, num_outputs_for_label: Dict[str, int]) -> Likelihood:
+    """
+    Set likelihood
+
+    Args:
+        task (str): task
+        num_outputs_for_label (Dict[str, int]): number of classes for each label
+
+    Returns:
+            Likelihood: instance of class Likelihood
+    """
+    return Likelihood(task , num_outputs_for_label)
