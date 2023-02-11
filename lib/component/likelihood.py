@@ -8,21 +8,37 @@ from typing import List, Dict
 
 
 class Likelihood:
+    """
+    class for making likeihood
+    """
     def __init__(self, task: str, num_outputs_for_label: Dict[str, int]) -> None:
+        """
+        Args:
+            task (str): task
+            num_outputs_for_label (Dict[str, int]): number of classes for each label
+        """
         self.task = task
         self.num_outputs_for_label = num_outputs_for_label
         self.base_column_list = self._set_base_colums(self.task)
         self.pred_column_list = self._make_pred_columns(self.num_outputs_for_label)
 
-    def _set_base_colums(self, task):
+    def _set_base_colums(self, task: str) -> List[str]:
+        """_summary_
+
+        Args:
+            task (str): task
+
+        Returns:
+            List[str]: columns except prediction
+        """
         if task == 'classification':
-            base_columns = ['uniqID','group', 'imgpath', 'split']
+            base_columns = ['uniqID', 'group', 'imgpath', 'split']
             return base_columns
         elif task == 'regression':
-            base_columns = ['uniqID','group', 'imgpath', 'split']
+            base_columns = ['uniqID', 'group', 'imgpath', 'split']
             return base_columns
         elif task == 'deepsurv':
-            base_columns = ['uniqID','group', 'imgpath', 'split', 'periods']
+            base_columns = ['uniqID', 'group', 'imgpath', 'split', 'periods']
             return base_columns
         else:
             raise ValueError(f"Invalid task: {task}.")
@@ -63,22 +79,19 @@ class Likelihood:
                 data (Dict): batch data from dataloader
                 output (Dict[str, torch.Tensor]): output of model
             """
-
-            _base = {column_name: data[column_name] for column_name in self.base_column_list}
-            _df_base = pd.DataFrame(_base)
+            _likelihood = {column_name: data[column_name] for column_name in self.base_column_list}
+            df_likelihood = pd.DataFrame(_likelihood)
 
             if any(data['labels']):
                 for label_name, pred in output.items():
-                    _df_label = pd.DataFrame({ label_name: [data['labels'][label_name]] })  # Handle one label at a time
+                    _df_label = pd.DataFrame({label_name: data['labels'][label_name].tolist()})
                     pred = pred.to('cpu').detach().numpy().copy()
-                    _pred_columns = self.pred_column_list[label_name]
-                    _df_pred = pd.DataFrame(pred, columns=_pred_columns)
-                    df_likelihood = pd.concat([_df_base, _df_label, _df_pred], axis=1)
+                    _df_pred = pd.DataFrame(pred, columns=self.pred_column_list[label_name])
+                    df_likelihood = pd.concat([df_likelihood, _df_label, _df_pred], axis=1)
                 return df_likelihood
             else:
                 for label_name, pred in output.items():
                     pred = pred.to('cpu').detach().numpy().copy()
-                    _pred_columns = self.pred_column_list[label_name]
-                    _df_pred = pd.DataFrame(pred, columns=_pred_columns)
-                    df_likelihood = pd.concat([_df_base, _df_pred], axis=1)
+                    _df_pred = pd.DataFrame(pred, columns=self.pred_column_list[label_name])
+                    df_likelihood = pd.concat([df_likelihood, _df_pred], axis=1)
                 return df_likelihood
