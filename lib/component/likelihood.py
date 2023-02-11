@@ -62,8 +62,8 @@ class Likelihood:
             _pred_list = []
             if num_classes > 1:
                 for ith_class in range(num_classes):
-                    _ith_pred = label_name.replace('label', 'pred') + '_' + str(ith_class)
-                    _pred_list.append(_ith_pred)
+                    _pred = label_name.replace('label', 'pred') + '_' + str(ith_class)
+                    _pred_list.append(_pred)
             else:
                 _pred = label_name.replace('label', 'pred')
                 _pred_list.append(_pred)
