@@ -106,18 +106,18 @@ class CSVParser:
         self.task = task
 
         _df_source = pd.read_csv(self.csvpath)
-        _df_excluded = _df_source[_df_source['split'] != 'exclude']
+        _df_source = _df_source[_df_source['split'] != 'exclude']
 
-        self.input_list = list(_df_excluded.columns[_df_excluded.columns.str.startswith('input')])
-        self.label_list = list(_df_excluded.columns[_df_excluded.columns.str.startswith('label')])
+        self.input_list = list(_df_source.columns[_df_source.columns.str.startswith('input')])
+        self.label_list = list(_df_source.columns[_df_source.columns.str.startswith('label')])
         if self.task == 'deepsurv':
-            _period_name_list = list(_df_excluded.columns[_df_excluded.columns.str.startswith('period')])
+            _period_name_list = list(_df_source.columns[_df_source.columns.str.startswith('period')])
             assert (len(_period_name_list) == 1), f"One column of period should be contained in {self.csvpath} when deepsurv."
             self.period_name = _period_name_list[0]
 
-        self.df_source = self._cast(_df_excluded, self.task)
+        self.df_source = self._cast(_df_source, self.task)
 
-        # If no columns of group, add it.
+        # If no column of group, add it.
         if not('group' in self.df_source.columns):
             self.df_source = self.df_source.assign(group='all')
 
@@ -125,38 +125,37 @@ class CSVParser:
             self.mlp_num_inputs = len(self.input_list)
             self.num_outputs_for_label = self._define_num_outputs_for_label(self.df_source, self.label_list, self.task)
 
-    def _cast(self, df_excluded: pd.DataFrame, task: str) -> pd.DataFrame:
+    def _cast(self, df_source: pd.DataFrame, task: str) -> pd.DataFrame:
         """
         Make dictionary of cast depending on task.
 
         Args:
-            df_excluded (pd.DataFrame): excluded Dataframe
+            df_source (pd.DataFrame): excluded Dataframe
             task: (str): task
 
         Returns:
             DataFrame: csv excluded and cast depending on task
         """
+        _cast_input = {input_name: float for input_name in self.input_list}
+
         if task == 'classification':
-            _cast_input = {input_name: float for input_name in self.input_list}
             _cast_label = {label_name: int for label_name in self.label_list}
-            _cast_dict = {**_cast_input, **_cast_label}
-            _df_excluded_cast = df_excluded.astype(_cast_dict)
-            return _df_excluded_cast
+            _casts = {**_cast_input, **_cast_label}
+            df_source = df_source.astype(_casts)
+            return df_source
 
         elif task == 'regression':
-            _cast_input = {input_name: float for input_name in self.input_list}
             _cast_label = {label_name: float for label_name in self.label_list}
-            _cast_dict = {**_cast_input, **_cast_label}
-            _df_excluded_cast = df_excluded.astype(_cast_dict)
-            return _df_excluded_cast
+            _casts = {**_cast_input, **_cast_label}
+            df_source = df_source.astype(_casts)
+            return df_source
 
         elif task == 'deepsurv':
-            _cast_input = {input_name: float for input_name in self.input_list}
             _cast_label = {label_name: int for label_name in self.label_list}
             _cast_period = {self.period_name: int}
-            _cast_dict = {**_cast_input, **_cast_label, **_cast_period}
-            _df_excluded_cast = df_excluded.astype(_cast_dict)
-            return _df_excluded_cast
+            _casts = {**_cast_input, **_cast_label, **_cast_period}
+            df_source = df_source.astype(_casts)
+            return df_source
 
         else:
             raise ValueError(f"Invalid task: {self.task}.")
@@ -245,7 +244,7 @@ def _get_latest_weight_dir() -> str:
     return str(weight_dir)
 
 
-def _collect_weight(weight_dir: str) -> List[str]:
+def _collect_weight_paths(weight_dir: str) -> List[str]:
     """
     Return list of weight paths.
 
@@ -561,7 +560,7 @@ def _test_parse(args: argparse.Namespace) -> Dict[str, ParamSet]:
     # Collect weight paths
     if args.weight_dir is None:
         args.weight_dir = _get_latest_weight_dir()
-    args.weight_paths = _collect_weight(args.weight_dir)
+    args.weight_paths = _collect_weight_paths(args.weight_dir)
 
     # Get datetime at training
     _train_datetime_dir = Path(args.weight_dir).parents[0]
