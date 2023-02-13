@@ -363,6 +363,15 @@ class ParamSet:
 
 
 def _get_param_name_by_group(group_name: str) -> List[str]:
+    """
+    Return list of parameters which belong to group
+
+    Args:
+        group_name (str): group name
+
+    Returns:
+        List[str]: list of parameters
+    """
     _df_table = PARAM_TABLE
     _param_names = _df_table[_df_table[group_name] == 'yes']['parameter'].tolist()
     return _param_names
@@ -436,14 +445,14 @@ def print_paramater(params: ParamSet) -> None:
 
     _header = f" Configuration of {phase} "
     _padding = (LINE_LENGTH - len(_header) + 1) // 2  # round up
-    header = f"{'-' * _padding}{_header}{'-' * _padding}\n"
+    _header = f"{'-' * _padding}{_header}{'-' * _padding}\n"
 
     _footer = ' End '
     _padding = (LINE_LENGTH - len(_footer) + 1) // 2
-    footer = f"{'-' * _padding}{_footer}{'-' * _padding}\n"
+    _footer = f"{'-' * _padding}{_footer}{'-' * _padding}\n"
 
     message = ''
-    message += header
+    message += _header
 
     params_dict = vars(params)
     del params_dict['isTrain']
@@ -451,7 +460,7 @@ def print_paramater(params: ParamSet) -> None:
         _str_arg = _arg2str(_param, _arg)
         message += '{:>30}: {:<40}\n'.format(_param, _str_arg)
 
-    message += footer
+    message += _footer
     logger.info(message)
 
 
