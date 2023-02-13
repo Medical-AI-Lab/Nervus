@@ -125,8 +125,7 @@ class CSVParser:
 
         if isTrain:
             self.mlp_num_inputs = len(self.input_list)
-            self.num_outputs_for_label = self._define_num_outputs_for_label(self.df_source, self.task)
-
+            self.num_outputs_for_label = self._define_num_outputs_for_label(self.df_source, self.label_list, self.task)
 
     def _cast(self, df_source: pd.DataFrame, task: str) -> pd.DataFrame:
         """
@@ -163,12 +162,13 @@ class CSVParser:
         else:
             raise ValueError(f"Invalid task: {self.task}.")
 
-    def _define_num_outputs_for_label(self, df_source: pd.DataFrame, task :str) -> Dict[str, int]:
+    def _define_num_outputs_for_label(self, df_source: pd.DataFrame, label_list: List[str], task :str) -> Dict[str, int]:
         """
         Define the number of outputs for each label.
 
         Args:
             df_source (pd.DataFrame): DataFrame of csv
+            label_list (List[str]): list of labels
                 task: str
 
         Returns:
@@ -179,11 +179,11 @@ class CSVParser:
                 deepsurv:             _num_outputs_for_label = {label_A: 1}
         """
         if task == 'classification':
-            _num_outputs_for_label = {label_name: df_source[label_name].nunique() for label_name in self.label_list}
+            _num_outputs_for_label = {label_name: df_source[label_name].nunique() for label_name in label_list}
             return _num_outputs_for_label
 
         elif (task == 'regression') or (task == 'deepsurv'):
-            _num_outputs_for_label = {label_name: 1 for label_name in self.label_list}
+            _num_outputs_for_label = {label_name: 1 for label_name in label_list}
             return _num_outputs_for_label
 
         else:
