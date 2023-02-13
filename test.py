@@ -31,32 +31,34 @@ def main(args):
     save_datetime_dir = conf_params.save_datetime_dir
     weight_paths = conf_params.weight_paths
 
-    model = create_model(model_params)
+    #model = create_model(model_params)
     dataloaders = {split: create_dataloader(datalaoder_params, split=split) for split in test_splits}
     likelihood = set_likelihood(task, num_outputs_for_label)
 
     for weight_path in weight_paths:
         logger.info(f"Inference ...")
 
-        model.load_weight(weight_path)  # weight is orverwritten every time weight is loaded.
-        model.eval()
+        with create_model(model_params) as model:
+            model.load_weight(weight_path)
+            model.eval()
 
-        for i, split in enumerate(test_splits):
-            for j, data in enumerate(dataloaders[split]):
-                in_data, _ = model.set_data(data)
+            for i, split in enumerate(test_splits):
+                for j, data in enumerate(dataloaders[split]):
+                    in_data, _ = model.set_data(data)
 
-                with torch.no_grad():
-                    output = model(in_data)
-                    df_likelihood = likelihood.make_format(data, output)
+                    with torch.no_grad():
+                        output = model(in_data)
+                        df_likelihood = likelihood.make_format(data, output)
 
-                if i + j == 0:
-                    save_dir = Path(save_datetime_dir, 'likelihoods')
-                    save_dir.mkdir(parents=True, exist_ok=True)
-                    save_name = 'likelihood_' + Path(weight_path).stem + '.csv'
-                    save_path = Path(save_dir, save_name)
-                    df_likelihood.to_csv(save_path, index=False)
-                else:
-                    df_likelihood.to_csv(save_path, mode='a', index=False, header=False)
+                    if i + j == 0:
+                        save_dir = Path(save_datetime_dir, 'likelihoods')
+                        save_dir.mkdir(parents=True, exist_ok=True)
+                        save_name = 'likelihood_' + Path(weight_path).stem + '.csv'
+                        save_path = Path(save_dir, save_name)
+                        df_likelihood.to_csv(save_path, index=False)
+                    else:
+                        df_likelihood.to_csv(save_path, mode='a', index=False, header=False)
+        #breakpoint()
 
 if __name__ == '__main__':
     try:

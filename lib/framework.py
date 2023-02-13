@@ -172,6 +172,20 @@ class BaseModel(ABC):
         """
         self.loss_store.print_epoch_loss(num_epochs, epoch)
 
+    def __enter__(self):
+        logger.info('Enter: Return model.')
+        return self
+
+    def __exit__(self, exc_type, exc_value, exc_tb):
+        print('network:', hasattr(self, 'network'))
+        del self.network
+        print('network:', hasattr(self, 'network'))
+        logger.info('Exit.')
+
+    def __del__(self):
+        logger.info('Called del.')
+        #del self.network
+
 
 class ModelMixin:
     """
