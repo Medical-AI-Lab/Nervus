@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from __future__ import annotations
 import argparse
 from distutils.util import strtobool
 from pathlib import Path
@@ -96,7 +95,7 @@ class CSVParser:
     """
     Class to get information of csv and cast csv.
     """
-    def __init__(self, csvpath: str, task:str, isTrain: bool = None) -> None:
+    def __init__(self, csvpath: str, task: str, isTrain: bool = None) -> None:
         """
         Args:
             csvpath (str): path to csv
@@ -259,117 +258,8 @@ def _collect_weight(weight_dir: str) -> List[str]:
     _weight_paths = list(Path(weight_dir).glob('*.pt'))
     assert _weight_paths != [], f"No weight in {weight_dir}."
     _weight_paths.sort(key=lambda path: path.stat().st_mtime)
-    __weight_paths = [str(weight_path) for weight_path in _weight_paths]
-    return __weight_paths
-
-
-def save_parameter(params: ParamSet, save_path: str) -> None:
-    """
-    Save parameters.
-
-    Args:
-        params (ParamSet): parameters
-
-        save_path (str): save path for parameters
-    """
-    _saved = {_param: _arg for _param, _arg in vars(params).items()}
-    save_dir = Path(save_path).parents[0]
-    save_dir.mkdir(parents=True, exist_ok=True)
-    with open(save_path, 'w') as f:
-        json.dump(_saved, f, indent=4)
-
-
-def _load_parameter(parameter_path: str) -> Dict[str, Union[str, int, float]]:
-    """
-    Return dictionalry of parameters at training.
-
-    Args:
-        parameter_path (str): path to parameter_path
-
-    Returns:
-        Dict[str, Union[str, int, float]]: parameters at training
-    """
-    with open(parameter_path) as f:
-        params = json.load(f)
-    return params
-
-
-def print_paramater(params: ParamSet) -> None:
-    """
-    Print parameters.
-
-    Args:
-        params (ParamSet): parameters
-    """
-
-    LINE_LENGTH = 82
-
-    if params.isTrain:
-        phase = 'Training'
-    else:
-        phase = 'Test'
-
-    _header = f" Configuration of {phase} "
-    _padding = (LINE_LENGTH - len(_header) + 1) // 2  # round up
-    header = f"{'-' * _padding}{_header}{'-' * _padding}\n"
-
-    _footer = ' End '
-    _padding = (LINE_LENGTH - len(_footer) + 1) // 2
-    footer = f"{'-' * _padding}{_footer}{'-' * _padding}\n"
-
-    message = ''
-    message += header
-
-    params_dict = vars(params)
-    del params_dict['isTrain']
-    for _param, _arg in params_dict.items():
-        _str_arg = _arg2str(_param, _arg)
-        message += '{:>30}: {:<40}\n'.format(_param, _str_arg)
-
-    message += footer
-    logger.info(message)
-
-
-def _arg2str(param: str, arg: Union[str, int, float]) -> str:
-        """
-        Convert argument to string.
-
-        Args:
-            param (str): parameter
-            arg (Union[str, int, float]): argument
-
-        Returns:
-            str: strings of argument
-        """
-        if param == 'lr':
-            if arg is None:
-                str_arg = 'Default'
-            else:
-                str_arg = str(param)
-            return str_arg
-        elif param == 'gpu_ids':
-            if arg == []:
-                str_arg = 'CPU selected'
-            else:
-                str_arg = f"{arg}  (Primary GPU:{arg[0]})"
-            return str_arg
-        elif param == 'test_splits':
-            str_arg = ', '.join(arg)
-            return str_arg
-        elif param == 'dataset_info':
-            str_arg = ''
-            for i, (split, total) in enumerate(arg.items()):
-                if i < len(arg) - 1:
-                    str_arg += (f"{split}_data={total}, ")
-                else:
-                    str_arg += (f"{split}_data={total}")
-            return str_arg
-        else:
-            if arg is None:
-                str_arg = 'No need'
-            else:
-                str_arg = str(arg)
-            return str_arg
+    _weight_paths = [str(weight_path) for weight_path in _weight_paths]
+    return _weight_paths
 
 
 class ParamTable:
@@ -496,6 +386,115 @@ def _dispatch_by_group(args: argparse.Namespace, group_name: str) -> ParamSet:
             _arg = getattr(args, param_name)
             setattr(param_set, param_name, _arg)
     return param_set
+
+
+def save_parameter(params: ParamSet, save_path: str) -> None:
+    """
+    Save parameters.
+
+    Args:
+        params (ParamSet): parameters
+
+        save_path (str): save path for parameters
+    """
+    _saved = {_param: _arg for _param, _arg in vars(params).items()}
+    save_dir = Path(save_path).parents[0]
+    save_dir.mkdir(parents=True, exist_ok=True)
+    with open(save_path, 'w') as f:
+        json.dump(_saved, f, indent=4)
+
+
+def _load_parameter(parameter_path: str) -> Dict[str, Union[str, int, float]]:
+    """
+    Return dictionalry of parameters at training.
+
+    Args:
+        parameter_path (str): path to parameter_path
+
+    Returns:
+        Dict[str, Union[str, int, float]]: parameters at training
+    """
+    with open(parameter_path) as f:
+        params = json.load(f)
+    return params
+
+
+def print_paramater(params: ParamSet) -> None:
+    """
+    Print parameters.
+
+    Args:
+        params (ParamSet): parameters
+    """
+
+    LINE_LENGTH = 82
+
+    if params.isTrain:
+        phase = 'Training'
+    else:
+        phase = 'Test'
+
+    _header = f" Configuration of {phase} "
+    _padding = (LINE_LENGTH - len(_header) + 1) // 2  # round up
+    header = f"{'-' * _padding}{_header}{'-' * _padding}\n"
+
+    _footer = ' End '
+    _padding = (LINE_LENGTH - len(_footer) + 1) // 2
+    footer = f"{'-' * _padding}{_footer}{'-' * _padding}\n"
+
+    message = ''
+    message += header
+
+    params_dict = vars(params)
+    del params_dict['isTrain']
+    for _param, _arg in params_dict.items():
+        _str_arg = _arg2str(_param, _arg)
+        message += '{:>30}: {:<40}\n'.format(_param, _str_arg)
+
+    message += footer
+    logger.info(message)
+
+
+def _arg2str(param: str, arg: Union[str, int, float]) -> str:
+        """
+        Convert argument to string.
+
+        Args:
+            param (str): parameter
+            arg (Union[str, int, float]): argument
+
+        Returns:
+            str: strings of argument
+        """
+        if param == 'lr':
+            if arg is None:
+                str_arg = 'Default'
+            else:
+                str_arg = str(param)
+            return str_arg
+        elif param == 'gpu_ids':
+            if arg == []:
+                str_arg = 'CPU selected'
+            else:
+                str_arg = f"{arg}  (Primary GPU:{arg[0]})"
+            return str_arg
+        elif param == 'test_splits':
+            str_arg = ', '.join(arg)
+            return str_arg
+        elif param == 'dataset_info':
+            str_arg = ''
+            for i, (split, total) in enumerate(arg.items()):
+                if i < len(arg) - 1:
+                    str_arg += (f"{split}_data={total}, ")
+                else:
+                    str_arg += (f"{split}_data={total}")
+            return str_arg
+        else:
+            if arg is None:
+                str_arg = 'No need'
+            else:
+                str_arg = str(arg)
+            return str_arg
 
 
 def _train_parse(args: argparse.Namespace) -> Dict[str, ParamSet]:
