@@ -67,7 +67,7 @@ class Likelihood:
         else:
             raise ValueError(f"Invalid task: {task}.")
 
-    def make_form(self, data: Dict, output: Dict[str, torch.Tensor]) -> pd.DataFrame:
+    def make_format(self, data: Dict, output: Dict[str, torch.Tensor]) -> pd.DataFrame:
             """
             Make DataFrame of likelihood every batch
 
