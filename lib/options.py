@@ -115,15 +115,18 @@ class CSVParser:
             assert (len(_period_name_list) == 1), f"One column of period should be contained in {self.csvpath} when deepsurv."
             self.period_name = _period_name_list[0]
 
-        self.df_source = self._cast(_df_source, self.task)
+        _df_source = self._cast(_df_source, self.task)
 
         # If no column of group, add it.
-        if not('group' in self.df_source.columns):
-            self.df_source = self.df_source.assign(group='all')
+        if 'group' not in _df_source.columns:
+            _df_source = _df_source.assign(group='all')
+
+        self.df_source = _df_source
 
         if isTrain:
             self.mlp_num_inputs = len(self.input_list)
-            self.num_outputs_for_label = self._define_num_outputs_for_label(self.df_source, self.label_list, self.task)
+            self.num_outputs_for_label = self._define_num_outputs_for_label(self.df_source, self.task)
+
 
     def _cast(self, df_source: pd.DataFrame, task: str) -> pd.DataFrame:
         """
@@ -160,14 +163,13 @@ class CSVParser:
         else:
             raise ValueError(f"Invalid task: {self.task}.")
 
-    def _define_num_outputs_for_label(self, df_source: pd.DataFrame, label_list: List[str], task :str) -> Dict[str, int]:
+    def _define_num_outputs_for_label(self, df_source: pd.DataFrame, task :str) -> Dict[str, int]:
         """
         Define the number of outputs for each label.
 
         Args:
             df_source (pd.DataFrame): DataFrame of csv
-            label_list (List[str]): label list
-            task: str
+                task: str
 
         Returns:
             Dict[str, int]: dictionary of the number of outputs for each label
@@ -177,11 +179,11 @@ class CSVParser:
                 deepsurv:             _num_outputs_for_label = {label_A: 1}
         """
         if task == 'classification':
-            _num_outputs_for_label = {label_name: df_source[label_name].nunique() for label_name in label_list}
+            _num_outputs_for_label = {label_name: df_source[label_name].nunique() for label_name in self.label_list}
             return _num_outputs_for_label
 
         elif (task == 'regression') or (task == 'deepsurv'):
-            _num_outputs_for_label = {label_name: 1 for label_name in label_list}
+            _num_outputs_for_label = {label_name: 1 for label_name in self.label_list}
             return _num_outputs_for_label
 
         else:
