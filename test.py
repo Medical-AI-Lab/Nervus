@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+from pathlib import Path
 import torch
 from lib import (
         set_options,
@@ -12,23 +13,26 @@ from lib.component import (
         create_dataloader,
         set_likelihood
         )
-from pathlib import Path
 
 
 logger = BaseLogger.get_logger(__name__)
 
 
 def main(args):
-    print_paramater(args.print_params)
+    model_params = args['model']
+    datalaoder_params = args['dataloader']
+    conf_params = args['conf']
+    print_params = args['print']
+    print_paramater(print_params)
 
-    model = create_model(args.model_params)
-    test_splits = args.conf_params.test_splits
-    dataloaders = {split: create_dataloader(args.dataloader_params, split=split) for split in test_splits}
+    test_splits = conf_params.test_splits
+    task = conf_params.task
+    num_outputs_for_label = conf_params.num_outputs_for_label
+    save_datetime_dir = conf_params.save_datetime_dir
+    weight_paths = conf_params.weight_paths
 
-    task = args.conf_params.task
-    num_outputs_for_label = args.conf_params.num_outputs_for_label
-    save_datetime_dir = args.conf_params.save_datetime_dir
-    weight_paths = args.conf_params.weight_paths
+    model = create_model(model_params)
+    dataloaders = {split: create_dataloader(datalaoder_params, split=split) for split in test_splits}
     likelihood = set_likelihood(task, num_outputs_for_label)
 
     for weight_path in weight_paths:
