@@ -53,12 +53,11 @@ def main(args):
                     if i + j == 0:
                         save_dir = Path(save_datetime_dir, 'likelihoods')
                         save_dir.mkdir(parents=True, exist_ok=True)
-                        save_name = 'likelihood_' + Path(weight_path).stem + '.csv'
-                        save_path = Path(save_dir, save_name)
+                        save_path = Path(save_dir, 'likelihood_' + Path(weight_path).stem + '.csv')
                         df_likelihood.to_csv(save_path, index=False)
                     else:
                         df_likelihood.to_csv(save_path, mode='a', index=False, header=False)
-        #breakpoint()
+
 
 if __name__ == '__main__':
     try:
