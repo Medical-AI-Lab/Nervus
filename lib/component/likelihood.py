@@ -23,13 +23,14 @@ class Likelihood:
         self.pred_column_list = self._make_pred_columns(self.task, self.num_outputs_for_label)
 
     def _set_base_colums(self, task: str) -> List[str]:
-        """_summary_
+        """
+        Return base columns.
 
         Args:
             task (str): task
 
         Returns:
-            List[str]: columns except prediction
+            List[str]: base columns except columns of label and prediction
         """
         if (task == 'classification') or (task == 'regression'):
             base_columns = ['uniqID', 'group', 'imgpath', 'split']
