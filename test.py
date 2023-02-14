@@ -34,30 +34,29 @@ def main(args):
     likelihood = set_likelihood(task, num_outputs_for_label)
 
     for weight_path in weight_paths:
-        with model.inference_context():
-            logger.info(f"Inference ...")
-            model.load_weight(weight_path)
-            model.eval()
+        logger.info(f"Inference ...")
+        model.load_weight(weight_path)
+        model.eval()
 
-            for i, split in enumerate(test_splits):
-                for j, data in enumerate(dataloaders[split]):
-                    in_data, _ = model.set_data(data)
+        for i, split in enumerate(test_splits):
+            for j, data in enumerate(dataloaders[split]):
+                in_data, _ = model.set_data(data)
 
-                    with torch.no_grad():
-                        output = model(in_data)
+                with torch.no_grad():
+                    output = model(in_data)
 
-                    # Make a new likelihood every batch
-                    df_likelihood = likelihood.make_format(data, output)
+                # Make a new likelihood every batch
+                df_likelihood = likelihood.make_format(data, output)
 
-                    if i + j == 0:
-                        save_dir = Path(save_datetime_dir, 'likelihoods')
-                        save_dir.mkdir(parents=True, exist_ok=True)
-                        save_path = Path(save_dir, 'likelihood_' + Path(weight_path).stem + '.csv')
-                        df_likelihood.to_csv(save_path, index=False)
-                    else:
-                        df_likelihood.to_csv(save_path, mode='a', index=False, header=False)
-                    print(len(df_likelihood))
-    breakpoint()
+                if i + j == 0:
+                    save_dir = Path(save_datetime_dir, 'likelihoods')
+                    save_dir.mkdir(parents=True, exist_ok=True)
+                    save_path = Path(save_dir, 'likelihood_' + Path(weight_path).stem + '.csv')
+                    df_likelihood.to_csv(save_path, index=False)
+                else:
+                    df_likelihood.to_csv(save_path, mode='a', index=False, header=False)
+        # Reset weight
+        model.init_network(model_params)
 
 
 if __name__ == '__main__':

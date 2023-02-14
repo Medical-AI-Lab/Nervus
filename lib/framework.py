@@ -7,11 +7,10 @@ from abc import ABC, abstractmethod
 import pandas as pd
 import torch
 import torch.nn as nn
-from contextlib import contextmanager
 from .component import create_net
 from .logger import BaseLogger
-from typing import Dict, Tuple, Union
 from lib import ParamSet
+from typing import Dict, Tuple, Union
 
 
 logger = BaseLogger.get_logger(__name__)
@@ -159,6 +158,24 @@ class BaseModel(ABC):
         """
         self.loss_store.print_epoch_loss(num_epochs, epoch)
 
+    def init_network(self, params: ParamSet) -> None:
+        """
+        Redefine network.
+        This method is used at test to reset the current weight before loading new weight.
+
+        Args:
+            params (ParamSet): parameters
+        """
+        self.network = create_net(
+                                params.mlp,
+                                params.net,
+                                params.num_outputs_for_label,
+                                params.mlp_num_inputs,
+                                params.in_channel,
+                                params.vit_image_size,
+                                params.pretrained
+                                )
+
 
 class ModelMixin:
     """
@@ -221,28 +238,6 @@ class ModelMixin:
 
         # Make model compute on GPU after loading weight.
         self._enable_on_gpu_if_available()
-
-
-    @contextmanager
-    def inference_context(self) -> None:
-        """
-        Context manager to initialize the network after inference with each weight.
-        """
-        try:
-            # Preprocess
-            yield
-        finally:
-            # Postprocess
-            # Initialize network by re-defininng it.
-            self.network = create_net(
-                                    self.params.mlp,
-                                    self.params.net,
-                                    self.params.num_outputs_for_label,
-                                    self.params.mlp_num_inputs,
-                                    self.params.in_channel,
-                                    self.params.vit_image_size,
-                                    self.params.pretrained
-                                    )
 
     # For learning curve
     def save_learning_curve(self, save_datetime_dir: str) -> None:
