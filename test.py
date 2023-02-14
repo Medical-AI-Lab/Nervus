@@ -7,12 +7,10 @@ from lib import (
         set_options,
         create_model,
         print_paramater,
+        create_dataloader,
         BaseLogger
         )
-from lib.component import (
-        create_dataloader,
-        set_likelihood
-        )
+from lib.component import set_likelihood
 
 
 logger = BaseLogger.get_logger(__name__)

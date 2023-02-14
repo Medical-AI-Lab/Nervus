@@ -8,9 +8,9 @@ from lib import (
         create_model,
         print_paramater,
         save_parameter,
+        create_dataloader,
         BaseLogger
         )
-from lib.component import create_dataloader
 
 
 logger = BaseLogger.get_logger(__name__)

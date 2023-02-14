@@ -10,7 +10,7 @@ from torch.utils.data.sampler import WeightedRandomSampler
 from PIL import Image
 from sklearn.preprocessing import MinMaxScaler
 import pickle
-from ..logger import BaseLogger
+from .logger import BaseLogger
 from typing import List, Dict, Union
 
 
