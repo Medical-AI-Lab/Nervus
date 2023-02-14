@@ -32,7 +32,17 @@ class BaseModel(ABC):
         self.device = self.params.device
         self.gpu_ids = self.params.gpu_ids
 
-        self.network = self.init_network(self.params)
+        #self.network = self.init_network(self.params)
+        self.network = create_net(
+                                params.mlp,
+                                params.net,
+                                params.num_outputs_for_label,
+                                params.mlp_num_inputs,
+                                params.in_channel,
+                                params.vit_image_size,
+                                params.pretrained
+                                )
+        print('Create model.')
 
         if self.params.isTrain:
             from .component import set_criterion, set_optimizer, create_loss_store
@@ -42,23 +52,23 @@ class BaseModel(ABC):
         else:
             pass
 
-    def init_network(self, params: ParamSet) -> None:
-        """
-        Creates network.
-
-        Args:
-            params (ParamSet): parameters
-        """
-        _network = create_net(
-                            params.mlp,
-                            params.net,
-                            params.num_outputs_for_label,
-                            params.mlp_num_inputs,
-                            params.in_channel,
-                            params.vit_image_size,
-                            params.pretrained
-                            )
-        return _network
+    #def init_network(self, params: ParamSet) -> None:
+    #    """
+    #    Creates network.
+    #
+    #    Args:
+    #        params (ParamSet): parameters
+    #    """
+    #    _network = create_net(
+    #                        params.mlp,
+    #                        params.net,
+    #                        params.num_outputs_for_label,
+    #                        params.mlp_num_inputs,
+    #                        params.in_channel,
+    #                        params.vit_image_size,
+    #                        params.pretrained
+    #                        )
+    #    return _network
 
     def train(self) -> None:
         """
@@ -185,7 +195,7 @@ class BaseModel(ABC):
     def __del__(self):
         logger.info('Called del.')
         #del self.network
-
+        #breakpoint()
 
 class ModelMixin:
     """
