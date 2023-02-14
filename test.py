@@ -34,9 +34,9 @@ def main(args):
     likelihood = set_likelihood(task, num_outputs_for_label)
 
     for weight_path in weight_paths:
-        logger.info(f"Inference ...")
-
-        with model.load_weight(weight_path):
+        with model.inference_context():
+            logger.info(f"Inference ...")
+            model.load_weight(weight_path)
             model.eval()
 
             for i, split in enumerate(test_splits):
@@ -45,7 +45,9 @@ def main(args):
 
                     with torch.no_grad():
                         output = model(in_data)
-                        df_likelihood = likelihood.make_format(data, output)
+
+                    # Make a new likelihood every batch
+                    df_likelihood = likelihood.make_format(data, output)
 
                     if i + j == 0:
                         save_dir = Path(save_datetime_dir, 'likelihoods')
@@ -54,6 +56,8 @@ def main(args):
                         df_likelihood.to_csv(save_path, index=False)
                     else:
                         df_likelihood.to_csv(save_path, mode='a', index=False, header=False)
+                    print(len(df_likelihood))
+    breakpoint()
 
 
 if __name__ == '__main__':
