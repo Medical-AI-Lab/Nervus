@@ -226,7 +226,7 @@ class ModelMixin:
     @contextmanager
     def inference_context(self) -> None:
         """
-        Context manager to initialize the network after inference.
+        Context manager to initialize the network after inference with each weight.
         """
         try:
             # Preprocess
