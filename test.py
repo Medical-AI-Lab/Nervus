@@ -29,15 +29,14 @@ def main(args):
     save_datetime_dir = conf_params.save_datetime_dir
     weight_paths = conf_params.weight_paths
 
-    #model = create_model(model_params)
+    model = create_model(model_params)
     dataloaders = {split: create_dataloader(datalaoder_params, split=split) for split in test_splits}
     likelihood = set_likelihood(task, num_outputs_for_label)
 
     for weight_path in weight_paths:
         logger.info(f"Inference ...")
 
-        with create_model(model_params) as model:
-            model.load_weight(weight_path)
+        with model.load_weight(weight_path):
             model.eval()
 
             for i, split in enumerate(test_splits):

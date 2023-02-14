@@ -7,6 +7,7 @@ from abc import ABC, abstractmethod
 import pandas as pd
 import torch
 import torch.nn as nn
+from contextlib import contextmanager
 from .component import create_net
 from .logger import BaseLogger
 from typing import Dict, Tuple, Union
@@ -32,17 +33,15 @@ class BaseModel(ABC):
         self.device = self.params.device
         self.gpu_ids = self.params.gpu_ids
 
-        #self.network = self.init_network(self.params)
         self.network = create_net(
-                                params.mlp,
-                                params.net,
-                                params.num_outputs_for_label,
-                                params.mlp_num_inputs,
-                                params.in_channel,
-                                params.vit_image_size,
-                                params.pretrained
+                                self.params.mlp,
+                                self.params.net,
+                                self.params.num_outputs_for_label,
+                                self.params.mlp_num_inputs,
+                                self.params.in_channel,
+                                self.params.vit_image_size,
+                                self.params.pretrained
                                 )
-        print('Create model.')
 
         if self.params.isTrain:
             from .component import set_criterion, set_optimizer, create_loss_store
@@ -52,22 +51,23 @@ class BaseModel(ABC):
         else:
             pass
 
-    #def init_network(self, params: ParamSet) -> None:
+    #def _init_network(self, *args) -> nn.Module:
     #    """
-    #    Creates network.
+    #    Initialize network
     #
     #    Args:
-    #        params (ParamSet): parameters
+    #        mlp (Optional[str]): 'MLP' or None
+    #        net (Optional[str]):  CNN, ViT name or None
+    #        num_outputs_for_label (Dict[str, int]): number of outputs for each label
+    #        mlp_num_inputs (int): number of input of MLP.
+    #        in_channel (int): number of image channel, ie gray scale(=1) or color image(=3).
+    #        vit_image_size (int): imaghe size to be input to ViT.
+    #        pretrained (bool): True when use pretrained CNN or ViT, otherwise False.
+    #
+    #    Returns:
+    #        nn.Module: network
     #    """
-    #    _network = create_net(
-    #                        params.mlp,
-    #                        params.net,
-    #                        params.num_outputs_for_label,
-    #                        params.mlp_num_inputs,
-    #                        params.in_channel,
-    #                        params.vit_image_size,
-    #                        params.pretrained
-    #                        )
+    #    _network = create_net(*args)
     #    return _network
 
     def train(self) -> None:
@@ -94,18 +94,14 @@ class BaseModel(ABC):
             pass
 
     @abstractmethod
-    def set_data(self, data: Dict) -> Dict:
+    def set_data(
+                self,
+                data: Dict
+                ) -> Tuple[
+                        Dict[str, torch.Tensor],
+                        Dict[str, Union[int, float]]
+                        ]:
         pass
-        # data = {
-        #        'uniqID': uniqID,
-        #        'group': group,
-        #        'imgpath': imgpath,
-        #        'split': split,
-        #        'inputs': inputs_value,
-        #        'image': image,
-        #        'labels': label_dict,
-        #        'periods': periods
-        #        }
 
     def multi_label_to_device(self, multi_label: Dict[str, Union[int, float]]) -> Dict[str, Union[int, float]]:
         """
@@ -182,20 +178,23 @@ class BaseModel(ABC):
         """
         self.loss_store.print_epoch_loss(num_epochs, epoch)
 
+    """
     def __enter__(self):
         logger.info('Enter: Return model.')
         return self
 
     def __exit__(self, exc_type, exc_value, exc_tb):
         print('network:', hasattr(self, 'network'))
-        del self.network
+        #del self.network
         print('network:', hasattr(self, 'network'))
         logger.info('Exit.')
+        breakpoint()
 
     def __del__(self):
-        logger.info('Called del.')
-        #del self.network
+        logger.info('Called del.')   # model自身が消える時に実行
         #breakpoint()
+    """
+
 
 class ModelMixin:
     """
@@ -244,6 +243,21 @@ class ModelMixin:
             save_name = 'weight_epoch-' + str(self.acting_best_epoch).zfill(3) + '.pt'
             torch.save(self.acting_best_weight, save_path)
 
+    #def load_weight(self, weight_path: Path) -> None:
+    #    """
+    #    Load wight from weight_path.
+    #
+    #    Args:
+    #        weight_path (Path): path to weight
+    #    """
+    #    weight = torch.load(weight_path)
+    #    self.network.load_state_dict(weight)
+    #    logger.info(f"Load weight: {weight_path}.\n")
+    #
+    #    # Make model compute on GPU after loading weight.
+    #    self._enable_on_gpu_if_available()
+
+    @contextmanager
     def load_weight(self, weight_path: Path) -> None:
         """
         Load wight from weight_path.
@@ -251,12 +265,33 @@ class ModelMixin:
         Args:
             weight_path (Path): path to weight
         """
-        weight = torch.load(weight_path)
-        self.network.load_state_dict(weight)
-        logger.info(f"Load weight: {weight_path}.\n")
+        try:
+            # Preprocess
+            print('Enter:')
 
-        # Make model compute on GPU after loading weight.
-        self._enable_on_gpu_if_available()
+            logger.info(f"Load weight: {weight_path}.\n")
+            weight = torch.load(weight_path)
+            self.network.load_state_dict(weight)
+
+            # Make model compute on GPU after loading weight.
+            self._enable_on_gpu_if_available()
+            yield
+
+        finally:
+            # Postprocess
+            print('Initialize:')
+
+            # Initialize network
+            self.network = create_net(
+                                    self.params.mlp,
+                                    self.params.net,
+                                    self.params.num_outputs_for_label,
+                                    self.params.mlp_num_inputs,
+                                    self.params.in_channel,
+                                    self.params.vit_image_size,
+                                    self.params.pretrained
+                                    )
+            print('Exit:')
 
     # For learning curve
     def save_learning_curve(self, save_datetime_dir: str) -> None:
