@@ -70,7 +70,7 @@ class Likelihood:
 
     def make_format(self, data: Dict, output: Dict[str, torch.Tensor]) -> pd.DataFrame:
             """
-            Make DataFrame of likelihood every batch
+            Make a new DataFrame of likelihood every batch
 
             Args:
                 data (Dict): batch data from dataloader
