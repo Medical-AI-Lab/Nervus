@@ -33,13 +33,13 @@ class BaseModel(ABC):
         self.gpu_ids = self.params.gpu_ids
 
         self.network = create_net(
-                                self.params.mlp,
-                                self.params.net,
-                                self.params.num_outputs_for_label,
-                                self.params.mlp_num_inputs,
-                                self.params.in_channel,
-                                self.params.vit_image_size,
-                                self.params.pretrained
+                                mlp=self.params.mlp,
+                                net=self.params.net,
+                                num_outputs_for_label=self.params.num_outputs_for_label,
+                                mlp_num_inputs=self.params.mlp_num_inputs,
+                                in_channel=self.params.in_channel,
+                                vit_image_size=self.params.vit_image_size,
+                                pretrained=self.params.pretrained
                                 )
 
         if self.params.isTrain:
@@ -167,13 +167,13 @@ class BaseModel(ABC):
             params (ParamSet): parameters
         """
         self.network = create_net(
-                                params.mlp,
-                                params.net,
-                                params.num_outputs_for_label,
-                                params.mlp_num_inputs,
-                                params.in_channel,
-                                params.vit_image_size,
-                                params.pretrained
+                                mlp=params.mlp,
+                                net=params.net,
+                                num_outputs_for_label=params.num_outputs_for_label,
+                                mlp_num_inputs=params.mlp_num_inputs,
+                                in_channel=params.in_channel,
+                                vit_image_size=params.vit_image_size,
+                                pretrained=params.pretrained
                                 )
 
 
