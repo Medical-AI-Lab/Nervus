@@ -18,14 +18,14 @@ logger = BaseLogger.get_logger(__name__)
 class MetricsData:
     """
     Class to store metrics as class variable.
-    Metrics are defined depenging on task.
+    Metrics are defined depending on task.
 
     For ROC
         self.fpr: np.ndarray
         self.tpr: np.ndarray
         self.auc: float
 
-    For Regresion
+    For Regression
         self.y_obs: np.ndarray
         self.y_pred: np.ndarray
         self.r2: float
@@ -54,7 +54,7 @@ class LabelMetrics:
 
         Args:
             split (str): split
-            attr (str): attirbute name as follows:
+            attr (str): attribute name as follows:
                         classification: 'fpr', 'tpr', or 'auc',
                         regression:     'y_obs'(ground truth), 'y_pred'(prediction) or 'r2', or
                         deepsurv:       'c_index'
@@ -588,12 +588,12 @@ class DeepSurvEval(MetricsMixin, C_IndexMixin):
 
     def make_metrics(self, likelihood_path: Path) -> None:
         """
-        Make metrics, substantially this method handles everthing all.
+        Make metrics, substantially this method handles everything all.
 
         Args:
             likelihood_path (Path): path to likelihood
 
-        Orverwrite def make_metrics() in class MetricsMixin by deleteing self.make_save_fig(),
+        Overwrite def make_metrics() in class MetricsMixin by deleting self.make_save_fig(),
         because of no need to plot and save figure.
         """
         df_likelihood = pd.read_csv(likelihood_path)

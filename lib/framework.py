@@ -67,7 +67,7 @@ class BaseModel(ABC):
         Make model compute on the GPU.
         """
         if self.gpu_ids != []:
-            assert torch.cuda.is_available(), 'No avalibale GPU on this machine.'
+            assert torch.cuda.is_available(), 'No available GPU on this machine.'
             self.network.to(self.device)
             self.network = nn.DataParallel(self.network, device_ids=self.gpu_ids)
         else:
@@ -91,7 +91,7 @@ class BaseModel(ABC):
             multi_label (Dict[str, Union[int, float]]): dictionary of each label and its value
 
         Returns:
-            Dict[str, Union[int, float]]: dictionary of each label and its value which is on devide
+            Dict[str, Union[int, float]]: dictionary of each label and its value which is on device
         """
         assert any(multi_label), 'multi-label is empty.'
         _multi_label = dict()
@@ -153,7 +153,7 @@ class BaseModel(ABC):
         Print loss for each epoch.
 
         Args:
-            num_epochs (int): total numger of epochs
+            num_epochs (int): total number of epochs
             epoch (int): current epoch number
         """
         self.loss_store.print_epoch_loss(num_epochs, epoch)
@@ -161,7 +161,7 @@ class BaseModel(ABC):
     def init_network(self) -> None:
         """
         Initialize network.
-        This method is used at test to reset the current weight by redefining netwrok.
+        This method is used at test to reset the current weight by redefining network.
         """
         self.network = create_net(
                                 mlp=self.params.mlp,
@@ -201,7 +201,7 @@ class ModelMixin:
 
         Args:
             save_datetime_dir (str): save_datetime_dir
-            as_best (bool): True if weight is saved as best, otherise False. Defaults to None.
+            as_best (bool): True if weight is saved as best, otherwise False. Defaults to None.
         """
         assert isinstance(as_best, bool), 'Argument as_best should be bool.'
         save_dir = Path(save_datetime_dir, 'weights')
@@ -239,7 +239,7 @@ class ModelMixin:
     # For learning curve
     def save_learning_curve(self, save_datetime_dir: str) -> None:
         """
-        Save leraning curve.
+        Save learning curve.
 
         Args:
             save_datetime_dir (str): save_datetime_dir
@@ -593,7 +593,7 @@ class CVDeepSurv(ModelWidget):
 
         Args:
             output (Dict[str, torch.Tensor]): output
-            lables and periods (Dict[str, Union[int, float]]): labels and periods
+            labels and periods (Dict[str, Union[int, float]]): labels and periods
         """
         _labels = self.multi_label_to_device(labels['labels'])
         _periods = labels['periods'].float().to(self.device)

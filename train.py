@@ -6,7 +6,7 @@ import torch
 from lib import (
         set_options,
         create_model,
-        print_paramater,
+        print_parameter,
         save_parameter,
         create_dataloader,
         BaseLogger
@@ -18,18 +18,18 @@ logger = BaseLogger.get_logger(__name__)
 
 def main(args):
     model_params = args['model']
-    datalaoder_params = args['dataloader']
+    dataloader_params = args['dataloader']
     conf_params = args['conf']
     print_params = args['print']
     save_params = args['save']
-    print_paramater(print_params)
+    print_parameter(print_params)
 
     epochs = conf_params.epochs
     save_weight_policy = conf_params.save_weight_policy
     save_datetime_dir = conf_params.save_datetime_dir
 
     model = create_model(model_params)
-    dataloaders = {split: create_dataloader(datalaoder_params, split=split) for split in ['train', 'val']}
+    dataloaders = {split: create_dataloader(dataloader_params, split=split) for split in ['train', 'val']}
 
     for epoch in range(epochs):
         for phase in ['train', 'val']:

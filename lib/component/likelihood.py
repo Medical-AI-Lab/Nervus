@@ -8,7 +8,7 @@ from typing import List, Dict
 
 class Likelihood:
     """
-    Class for making likeihood.
+    Class for making likelihood.
     """
     def __init__(self, task: str, num_outputs_for_label: Dict[str, int]) -> None:
         """
@@ -18,10 +18,10 @@ class Likelihood:
         """
         self.task = task
         self.num_outputs_for_label = num_outputs_for_label
-        self.base_column_list = self._set_base_colums(self.task)
+        self.base_column_list = self._set_base_columns(self.task)
         self.pred_column_list = self._make_pred_columns(self.task, self.num_outputs_for_label)
 
-    def _set_base_colums(self, task: str) -> List[str]:
+    def _set_base_columns(self, task: str) -> List[str]:
         """
         Return base columns.
 

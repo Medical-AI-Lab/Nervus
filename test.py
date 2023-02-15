@@ -6,7 +6,7 @@ import torch
 from lib import (
         set_options,
         create_model,
-        print_paramater,
+        print_parameter,
         create_dataloader,
         BaseLogger
         )
@@ -18,10 +18,10 @@ logger = BaseLogger.get_logger(__name__)
 
 def main(args):
     model_params = args['model']
-    datalaoder_params = args['dataloader']
+    dataloader_params = args['dataloader']
     conf_params = args['conf']
     print_params = args['print']
-    print_paramater(print_params)
+    print_parameter(print_params)
 
     test_splits = conf_params.test_splits
     task = conf_params.task
@@ -30,7 +30,7 @@ def main(args):
     weight_paths = conf_params.weight_paths
 
     model = create_model(model_params)
-    dataloaders = {split: create_dataloader(datalaoder_params, split=split) for split in test_splits}
+    dataloaders = {split: create_dataloader(dataloader_params, split=split) for split in test_splits}
     likelihood = set_likelihood(task, num_outputs_for_label)
 
     for weight_path in weight_paths:

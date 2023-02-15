@@ -20,7 +20,7 @@ class EvalOptions:
         Options for evaluation.
         """
         self.parser = argparse.ArgumentParser(description='Options for evaluation')
-        self.parser.add_argument('--likelihood_dir', type=str, default=None, help='Directory of likekihoods (Default: None)')
+        self.parser.add_argument('--likelihood_dir', type=str, default=None, help='Directory of likelihoods (Default: None)')
         self.args = self.parser.parse_args()
 
 
@@ -69,7 +69,7 @@ def check_task(datetime_name: str) -> str:
     Return task done on datetime_name
 
     Args:
-        datetime_dir (str): directory of datetime at traning
+        datetime_dir (str): directory of datetime at training
 
     Returns:
         str: task
@@ -77,7 +77,7 @@ def check_task(datetime_name: str) -> str:
     _parameter_path = list(Path('results').glob('*/trials/' + datetime_name + '/parameters.json'))[0]
     # If you specify the likelihood of an external dataset,
     # the project name is different from project name in training,
-    # but the datetime_name is the same as the datatime in training, which is always one.
+    # but the datetime_name is the same as the datetime in training, which is always one.
     with open(_parameter_path) as f:
         _parameters = json.load(f)
     task = _parameters['task']

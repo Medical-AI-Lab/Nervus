@@ -42,7 +42,7 @@ class Options:
 
             # Training and Internal validation
             self.parser.add_argument('--criterion', type=str,   required=True, choices=['CEL', 'MSE', 'RMSE', 'MAE', 'NLL'], help='criterion')
-            self.parser.add_argument('--optimizer', type=str,   default='Adam', choices=['SGD', 'Adadelta', 'RMSprop', 'Adam', 'RAdam'], help='optimzer')
+            self.parser.add_argument('--optimizer', type=str,   default='Adam', choices=['SGD', 'Adadelta', 'RMSprop', 'Adam', 'RAdam'], help='optimizer')
             self.parser.add_argument('--lr',        type=float,                metavar='N', help='learning rate')
             self.parser.add_argument('--epochs',    type=int,   default=10,    metavar='N', help='number of epochs (Default: 10)')
 
@@ -51,10 +51,10 @@ class Options:
 
             # Preprocess for image
             self.parser.add_argument('--augmentation',       type=str,  default='no', choices=['xrayaug', 'trivialaugwide', 'randaug', 'no'], help='kind of augmentation')
-            self.parser.add_argument('--normalize_image',    type=str,                choices=['yes', 'no'], default='yes', help='image nomalization: yes, no (Default: yes)')
+            self.parser.add_argument('--normalize_image',    type=str,                choices=['yes', 'no'], default='yes', help='image normalization: yes, no (Default: yes)')
 
             # Sampler
-            self.parser.add_argument('--sampler',            type=str,  default='no',  choices=['yes', 'no'], help='sample data in traning or not, yes or no')
+            self.parser.add_argument('--sampler',            type=str,  default='no',  choices=['yes', 'no'], help='sample data in training or not, yes or no')
 
             # Input channel
             self.parser.add_argument('--in_channel',         type=int,  required=True, choices=[1, 3], help='channel of input image')
@@ -64,7 +64,7 @@ class Options:
             self.parser.add_argument('--save_weight_policy', type=str,  choices=['best', 'each'], default='best', help='Save weight policy: best, or each(ie. save each time loss decreases when multi-label output) (Default: best)')
 
         else:
-            # Directry of weight at traning
+            # Directory of weight at training
             self.parser.add_argument('--weight_dir',         type=str,  default=None, help='directory of weight to be used when test. If None, the latest one is selected')
 
             # Test bash size
@@ -100,7 +100,7 @@ class CSVParser:
         Args:
             csvpath (str): path to csv
             task (str): task
-            isTrain (bool): if trainig or not
+            isTrain (bool): if training or not
         """
         self.csvpath = csvpath
         self.task = task
@@ -132,7 +132,7 @@ class CSVParser:
         Make dictionary of cast depending on task.
 
         Args:
-            df_source (pd.DataFrame): excluded Dataframe
+            df_source (pd.DataFrame): excluded DataFrame
             task: (str): task
 
         Returns:
@@ -380,7 +380,7 @@ def _get_param_name_by_group(group_name: str) -> List[str]:
 
 def _dispatch_by_group(args: argparse.Namespace, group_name: str) -> ParamSet:
     """
-    Dispatch parameters depenidng on group.
+    Dispatch parameters depending on group.
 
     Args:
         args (argparse.Namespace): arguments
@@ -416,7 +416,7 @@ def save_parameter(params: ParamSet, save_path: str) -> None:
 
 def _load_parameter(parameter_path: str) -> Dict[str, Union[str, int, float]]:
     """
-    Return dictionalry of parameters at training.
+    Return dictionary of parameters at training.
 
     Args:
         parameter_path (str): path to parameter_path
@@ -429,7 +429,7 @@ def _load_parameter(parameter_path: str) -> Dict[str, Union[str, int, float]]:
     return params
 
 
-def print_paramater(params: ParamSet) -> None:
+def print_parameter(params: ParamSet) -> None:
     """
     Print parameters.
 
@@ -509,7 +509,7 @@ def _arg2str(param: str, arg: Union[str, int, float]) -> str:
 
 def _train_parse(args: argparse.Namespace) -> Dict[str, ParamSet]:
     """
-    Parse pamaters required at training.
+    Parse parameters required at training.
 
     Args:
         args (argparse.Namespace): arguments
@@ -535,7 +535,7 @@ def _train_parse(args: argparse.Namespace) -> Dict[str, ParamSet]:
     if args.task == 'deepsurv':
         args.period_name = _csvparser.period_name
 
-    # Dispatch paramaters
+    # Dispatch parameters
     return {
             'model': _dispatch_by_group(args, 'model'),
             'dataloader': _dispatch_by_group(args, 'dataloader'),
@@ -547,7 +547,7 @@ def _train_parse(args: argparse.Namespace) -> Dict[str, ParamSet]:
 
 def _test_parse(args: argparse.Namespace) -> Dict[str, ParamSet]:
     """
-    Parse pamaters required at test.
+    Parse parameters required at test.
 
     Args:
         args (argparse.Namespace): arguments
@@ -600,7 +600,7 @@ def _test_parse(args: argparse.Namespace) -> Dict[str, ParamSet]:
 
     args.dataset_info = {split: len(args.df_source[args.df_source['split'] == split]) for split in args.test_splits}
 
-    # Dispatch paramaters
+    # Dispatch parameters
     return {
             'model': _dispatch_by_group(args, 'model'),
             'dataloader': _dispatch_by_group(args, 'dataloader'),
