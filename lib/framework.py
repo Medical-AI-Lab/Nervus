@@ -9,8 +9,8 @@ import torch
 import torch.nn as nn
 from .component import create_net
 from .logger import BaseLogger
-from typing import Dict, Tuple, Union
 from lib import ParamSet
+from typing import Dict, Tuple, Union
 
 
 logger = BaseLogger.get_logger(__name__)
@@ -32,7 +32,15 @@ class BaseModel(ABC):
         self.device = self.params.device
         self.gpu_ids = self.params.gpu_ids
 
-        self.network = self.init_network(self.params)
+        self.network = create_net(
+                                mlp=self.params.mlp,
+                                net=self.params.net,
+                                num_outputs_for_label=self.params.num_outputs_for_label,
+                                mlp_num_inputs=self.params.mlp_num_inputs,
+                                in_channel=self.params.in_channel,
+                                vit_image_size=self.params.vit_image_size,
+                                pretrained=self.params.pretrained
+                                )
 
         if self.params.isTrain:
             from .component import set_criterion, set_optimizer, create_loss_store
@@ -41,24 +49,6 @@ class BaseModel(ABC):
             self.loss_store = create_loss_store(self.params.task, self.criterion, self.params.label_list, self.params.device)
         else:
             pass
-
-    def init_network(self, params: ParamSet) -> None:
-        """
-        Creates network.
-
-        Args:
-            params (ParamSet): parameters
-        """
-        _network = create_net(
-                            params.mlp,
-                            params.net,
-                            params.num_outputs_for_label,
-                            params.mlp_num_inputs,
-                            params.in_channel,
-                            params.vit_image_size,
-                            params.pretrained
-                            )
-        return _network
 
     def train(self) -> None:
         """
@@ -84,18 +74,14 @@ class BaseModel(ABC):
             pass
 
     @abstractmethod
-    def set_data(self, data: Dict) -> Dict:
+    def set_data(
+                self,
+                data: Dict
+                ) -> Tuple[
+                        Dict[str, torch.Tensor],
+                        Dict[str, Union[int, float]]
+                        ]:
         pass
-        # data = {
-        #        'uniqID': uniqID,
-        #        'group': group,
-        #        'imgpath': imgpath,
-        #        'split': split,
-        #        'inputs': inputs_value,
-        #        'image': image,
-        #        'labels': label_dict,
-        #        'periods': periods
-        #        }
 
     def multi_label_to_device(self, multi_label: Dict[str, Union[int, float]]) -> Dict[str, Union[int, float]]:
         """
@@ -172,6 +158,21 @@ class BaseModel(ABC):
         """
         self.loss_store.print_epoch_loss(num_epochs, epoch)
 
+    def init_network(self) -> None:
+        """
+        Initialize network.
+        This method is used at test to reset the current weight by redefining netwrok.
+        """
+        self.network = create_net(
+                                mlp=self.params.mlp,
+                                net=self.params.net,
+                                num_outputs_for_label=self.params.num_outputs_for_label,
+                                mlp_num_inputs=self.params.mlp_num_inputs,
+                                in_channel=self.params.in_channel,
+                                vit_image_size=self.params.vit_image_size,
+                                pretrained=self.params.pretrained
+                                )
+
 
 class ModelMixin:
     """
@@ -220,6 +221,7 @@ class ModelMixin:
             save_name = 'weight_epoch-' + str(self.acting_best_epoch).zfill(3) + '.pt'
             torch.save(self.acting_best_weight, save_path)
 
+
     def load_weight(self, weight_path: Path) -> None:
         """
         Load wight from weight_path.
@@ -227,9 +229,9 @@ class ModelMixin:
         Args:
             weight_path (Path): path to weight
         """
+        logger.info(f"Load weight: {weight_path}.\n")
         weight = torch.load(weight_path)
         self.network.load_state_dict(weight)
-        logger.info(f"Load weight: {weight_path}.\n")
 
         # Make model compute on GPU after loading weight.
         self._enable_on_gpu_if_available()

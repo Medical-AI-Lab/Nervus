@@ -78,7 +78,7 @@ class BaseNet:
     DUMMY = nn.Identity()
 
     @classmethod
-    def MLPNet(cls, mlp_num_inputs: int, inplace: bool = None) -> MLP:
+    def MLPNet(cls, mlp_num_inputs: int = None, inplace: bool = None) -> MLP:
         """
         Construct MLP.
 
@@ -94,7 +94,7 @@ class BaseNet:
         return mlp
 
     @classmethod
-    def align_in_channels_1ch(cls, net_name: str, net: nn.Module) -> nn.Module:
+    def align_in_channels_1ch(cls, net_name: str = None, net: nn.Module = None) -> nn.Module:
         """
         Modify network to handle gray scale image.
 
@@ -132,7 +132,7 @@ class BaseNet:
     @classmethod
     def set_net(
                 cls,
-                net_name: str,
+                net_name: str = None,
                 in_channel: int = None,
                 vit_image_size: int = None,
                 pretrained: bool = None
@@ -159,14 +159,14 @@ class BaseNet:
         else:
             # When ViT
             # always use pretrained
-            net = cls.set_vit(net_name, vit_image_size)
+            net = cls.set_vit(net_name=net_name, vit_image_size=vit_image_size)
 
         if in_channel == 1:
-            net = cls.align_in_channels_1ch(net_name, net)
+            net = cls.align_in_channels_1ch(net_name=net_name, net=net)
         return net
 
     @classmethod
-    def set_vit(cls, net_name: str, vit_image_size: int = None) -> nn.Module:
+    def set_vit(cls, net_name: str = None, vit_image_size: int = None) -> nn.Module:
         """
         Modify ViT depending on vit_image_size.
 
@@ -197,7 +197,7 @@ class BaseNet:
     @classmethod
     def construct_extractor(
                             cls,
-                            net_name: str,
+                            net_name: str = None,
                             mlp_num_inputs: int = None,
                             in_channel: int = None,
                             vit_image_size: int = None,
@@ -217,9 +217,9 @@ class BaseNet:
             nn.Module: extractor of network
         """
         if net_name == 'MLP':
-            extractor = cls.MLPNet(mlp_num_inputs)
+            extractor = cls.MLPNet(mlp_num_inputs=mlp_num_inputs)
         else:
-            extractor = cls.set_net(net_name, in_channel, vit_image_size, pretrained)
+            extractor = cls.set_net(net_name=net_name, in_channel=in_channel, vit_image_size=vit_image_size, pretrained=pretrained)
             setattr(extractor, cls.classifier[net_name], cls.DUMMY)  # Replace classifier with DUMMY(=nn.Identity()).
         return extractor
 
@@ -239,7 +239,7 @@ class BaseNet:
         return classifier
 
     @classmethod
-    def construct_multi_classifier(cls, net_name: str, num_outputs_for_label: Dict[str, int]) -> nn.ModuleDict:
+    def construct_multi_classifier(cls, net_name: str = None, num_outputs_for_label: Dict[str, int] = None) -> nn.ModuleDict:
         """
         Construct classifier for multi-label.
 
@@ -375,7 +375,7 @@ class BaseNet:
         return aux_module
 
     @classmethod
-    def get_last_extractor(cls, net: nn.Module, mlp: str, net_name: str) -> nn.Module:
+    def get_last_extractor(cls, net: nn.Module = None, mlp: str = None, net_name: str = None) -> nn.Module:
         """
         Return the last extractor of network.
         This is for Grad-CAM.
@@ -441,12 +441,12 @@ class MultiNet(MultiWidget):
     """
     def __init__(
                 self,
-                net_name: str,
-                num_outputs_for_label: Dict[str, int],
-                mlp_num_inputs: int,
-                in_channel: int,
-                vit_image_size: int,
-                pretrained: bool
+                net_name: str = None,
+                num_outputs_for_label: Dict[str, int] = None,
+                mlp_num_inputs: int = None,
+                in_channel: int = None,
+                vit_image_size: int = None,
+                pretrained: bool = None
                 ) -> None:
         """
         Args:
@@ -468,13 +468,13 @@ class MultiNet(MultiWidget):
 
         # self.extractor_net = MLP or CVmodel
         self.extractor_net = self.construct_extractor(
-                                                    self.net_name,
+                                                    net_name=self.net_name,
                                                     mlp_num_inputs=self.mlp_num_inputs,
                                                     in_channel=self.in_channel,
                                                     vit_image_size=self.vit_image_size,
                                                     pretrained=self.pretrained
                                                     )
-        self.multi_classifier = self.construct_multi_classifier(self.net_name, self.num_outputs_for_label)
+        self.multi_classifier = self.construct_multi_classifier(net_name=self.net_name, num_outputs_for_label=self.num_outputs_for_label)
 
     def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
         """
@@ -497,12 +497,12 @@ class MultiNetFusion(MultiWidget):
     """
     def __init__(
                 self,
-                net_name: str,
-                num_outputs_for_label: Dict[str, int],
-                mlp_num_inputs: int,
-                in_channel: int,
-                vit_image_size: int,
-                pretrained: bool
+                net_name: str = None,
+                num_outputs_for_label: Dict[str, int] = None,
+                mlp_num_inputs: int = None,
+                in_channel: int = None,
+                vit_image_size: int = None,
+                pretrained: bool = None
                 ) -> None:
         """
         Args:
@@ -525,9 +525,9 @@ class MultiNetFusion(MultiWidget):
         self.pretrained = pretrained
 
         # Extractor of MLP and Net
-        self.extractor_mlp = self.construct_extractor('MLP', mlp_num_inputs=self.mlp_num_inputs)
+        self.extractor_mlp = self.construct_extractor(net_name='MLP', mlp_num_inputs=self.mlp_num_inputs)
         self.extractor_net = self.construct_extractor(
-                                                    self.net_name,
+                                                    net_name=self.net_name,
                                                     in_channel=self.in_channel,
                                                     vit_image_size=self.vit_image_size,
                                                     pretrained=self.pretrained
@@ -538,10 +538,10 @@ class MultiNetFusion(MultiWidget):
         self.in_featues_from_mlp = self.get_classifier_in_features('MLP')
         self.in_features_from_net = self.get_classifier_in_features(self.net_name)
         self.inter_mlp_in_feature = self.in_featues_from_mlp + self.in_features_from_net
-        self.inter_mlp = self.MLPNet(self.inter_mlp_in_feature, inplace=False)
+        self.inter_mlp = self.MLPNet(mlp_num_inputs=self.inter_mlp_in_feature, inplace=False)
 
         # Multi classifier
-        self.multi_classifier = self.construct_multi_classifier('MLP', num_outputs_for_label)
+        self.multi_classifier = self.construct_multi_classifier(net_name='MLP', num_outputs_for_label=num_outputs_for_label)
 
     def forward(self, x_mlp: torch.Tensor, x_net: torch.Tensor) -> Dict[str, torch.Tensor]:
         """
@@ -565,13 +565,13 @@ class MultiNetFusion(MultiWidget):
 
 
 def create_net(
-            mlp: Optional[str],
-            net: Optional[str],
-            num_outputs_for_label: Dict[str, int],
-            mlp_num_inputs: int,
-            in_channel: int,
-            vit_image_size: int,
-            pretrained: bool
+            mlp: Optional[str] = None,
+            net: Optional[str] = None,
+            num_outputs_for_label: Dict[str, int] = None,
+            mlp_num_inputs: int = None,
+            in_channel: int = None,
+            vit_image_size: int = None,
+            pretrained: bool = None
             ) -> nn.Module:
     """
     Create network.
@@ -594,8 +594,8 @@ def create_net(
 
     if _isMLPModel:
         multi_net = MultiNet(
-                            'MLP',
-                            num_outputs_for_label,
+                            net_name='MLP',
+                            num_outputs_for_label=num_outputs_for_label,
                             mlp_num_inputs=mlp_num_inputs,
                             in_channel=in_channel,
                             vit_image_size=vit_image_size,
@@ -603,8 +603,8 @@ def create_net(
                             )
     elif _isCVModel:
         multi_net = MultiNet(
-                            net,
-                            num_outputs_for_label,
+                            net_name=net,
+                            num_outputs_for_label=num_outputs_for_label,
                             mlp_num_inputs=mlp_num_inputs,
                             in_channel=in_channel,
                             vit_image_size=vit_image_size,
@@ -612,8 +612,8 @@ def create_net(
                             )
     elif _isFusion:
         multi_net = MultiNetFusion(
-                                net,
-                                num_outputs_for_label,
+                                net_name=net,
+                                num_outputs_for_label=num_outputs_for_label,
                                 mlp_num_inputs=mlp_num_inputs,
                                 in_channel=in_channel,
                                 vit_image_size=vit_image_size,

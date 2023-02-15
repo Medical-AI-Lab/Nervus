@@ -7,6 +7,7 @@ from .options import (
     save_parameter,
     print_paramater
     )
+from .dataloader import create_dataloader
 from .framework import create_model
 from .metrics import set_eval
 from .logger import BaseLogger
@@ -16,6 +17,7 @@ __all__ = [
             'ParamSet',
             'print_paramater',
             'save_parameter',
+            'create_dataloader',
             'create_model',
             'set_eval',
             'BaseLogger'
