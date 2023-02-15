@@ -158,22 +158,19 @@ class BaseModel(ABC):
         """
         self.loss_store.print_epoch_loss(num_epochs, epoch)
 
-    def init_network(self, params: ParamSet) -> None:
+    def init_network(self) -> None:
         """
         Initialize network.
         This method is used at test to reset the current weight by redefining netwrok.
-
-        Args:
-            params (ParamSet): parameters
         """
         self.network = create_net(
-                                mlp=params.mlp,
-                                net=params.net,
-                                num_outputs_for_label=params.num_outputs_for_label,
-                                mlp_num_inputs=params.mlp_num_inputs,
-                                in_channel=params.in_channel,
-                                vit_image_size=params.vit_image_size,
-                                pretrained=params.pretrained
+                                mlp=self.params.mlp,
+                                net=self.params.net,
+                                num_outputs_for_label=self.params.num_outputs_for_label,
+                                mlp_num_inputs=self.params.mlp_num_inputs,
+                                in_channel=self.params.in_channel,
+                                vit_image_size=self.params.vit_image_size,
+                                pretrained=self.params.pretrained
                                 )
 
 

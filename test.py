@@ -57,7 +57,7 @@ def main(args):
                     df_likelihood.to_csv(save_path, mode='a', index=False, header=False)
 
         # Reset the current weight by initializing network.
-        model.init_network(model_params)
+        model.init_network()
 
 
 if __name__ == '__main__':
