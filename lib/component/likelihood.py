@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-#from pathlib import Path
 import pandas as pd
 import torch
 from typing import List, Dict
@@ -9,7 +8,7 @@ from typing import List, Dict
 
 class Likelihood:
     """
-    class for making likeihood
+    Class for making likeihood.
     """
     def __init__(self, task: str, num_outputs_for_label: Dict[str, int]) -> None:
         """
@@ -70,7 +69,7 @@ class Likelihood:
 
     def make_format(self, data: Dict, output: Dict[str, torch.Tensor]) -> pd.DataFrame:
             """
-            Make a new DataFrame of likelihood every batch
+            Make a new DataFrame of likelihood every batch.
 
             Args:
                 data (Dict): batch data from dataloader
@@ -96,7 +95,7 @@ class Likelihood:
 
 def set_likelihood(task: str, num_outputs_for_label: Dict[str, int]) -> Likelihood:
     """
-    Set likelihood
+    Set likelihood.
 
     Args:
         task (str): task

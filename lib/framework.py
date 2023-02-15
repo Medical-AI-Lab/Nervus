@@ -160,7 +160,7 @@ class BaseModel(ABC):
 
     def init_network(self, params: ParamSet) -> None:
         """
-        Redefine network.
+        Initialize network.
         This method is used at test to reset the current weight by redefining netwrok.
 
         Args:
