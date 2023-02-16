@@ -78,26 +78,10 @@ class BaseModel(ABC):
                 self,
                 data: Dict
                 ) -> Tuple[
-                        Dict[str, torch.Tensor],
-                        Dict[str, Union[int, float]]
+                        Dict[str, torch.FloatTensor],
+                        Dict[str, Union[torch.IntTensor, torch.FloatTensor]]
                         ]:
         pass
-
-    def multi_label_to_device(self, multi_label: Dict[str, Union[int, float]]) -> Dict[str, Union[int, float]]:
-        """
-        Pass the value of each label to the device
-
-        Args:
-            multi_label (Dict[str, Union[int, float]]): dictionary of each label and its value
-
-        Returns:
-            Dict[str, Union[int, float]]: dictionary of each label and its value which is on device
-        """
-        assert any(multi_label), 'multi-label is empty.'
-        _multi_label = dict()
-        for label_name, each_data in multi_label.items():
-            _multi_label[label_name] = each_data.to(self.device)
-        return _multi_label
 
     def backward(self) -> None:
         """
@@ -283,23 +267,23 @@ class MLPModel(ModelWidget):
                 self,
                 data: Dict
                 ) -> Tuple[
-                        Dict[str, torch.Tensor],
-                        Dict[str, Union[int, float]]
+                        Dict[str, torch.FloatTensor],
+                        Dict[str, Union[torch.IntTensor, torch.FloatTensor]]
                         ]:
         """
-        Unpack data for forwarding of MLP.
+        Unpack data for forwarding of MLP and pass them to device.
 
         Args:
             data (Dict): dictionary of data
 
         Returns:
             Tuple[
-                Dict[str, torch.Tensor],
-                Dict[str, Union[int, float]
+                Dict[str, torch.FloatTensor],
+                Dict[str, Union[torch.IntTensor, torch.FloatTensor]]
                 ]: inputs and labels
         """
-        in_data = {'inputs': data['inputs']}
-        labels = {'labels': data['labels']}
+        in_data = {'inputs': data['inputs'].to(self.device)}
+        labels = {'labels': data['labels'].to(self.device)}
         return in_data, labels
 
     def __call__(self, in_data: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
@@ -312,7 +296,7 @@ class MLPModel(ModelWidget):
         Returns:
             Dict[str, torch.Tensor]: output
         """
-        inputs = in_data['inputs'].to(self.device)
+        inputs = in_data['inputs']
         output = self.network(inputs)
         return output
 
@@ -328,7 +312,7 @@ class MLPModel(ModelWidget):
             output (Dict[str, torch.Tensor]): output
             labels (Dict[str, Union[int, float]]): labels
         """
-        _labels = self.multi_label_to_device(labels['labels'])
+        _labels = labels['labels']
         self.loss_store.cal_batch_loss(output, _labels)
 
 
@@ -347,23 +331,23 @@ class CVModel(ModelWidget):
                 self,
                 data: Dict
                 ) -> Tuple[
-                        Dict[str, torch.Tensor],
-                        Dict[str, Union[int, float]]
-                        ]:
+                        Dict[str, torch.FloatTensor],
+                        Dict[str, Union[torch.IntTensor, torch.FloatTensor]]
+                    ]:
         """
-        Unpack data for forwarding of CNN or ViT Model.
+        Unpack data for forwarding of CNN or ViT Model and pass them to device..
 
         Args:
             data (Dict): dictionary of data
 
         Returns:
             Tuple[
-                Dict[str, torch.Tensor],
-                Dict[str, Union[int, float]
+                Dict[str, torch.FloatTensor],
+                Dict[str, Union[torch.IntTensor, torch.FloatTensor]]
                 ]: image and labels
         """
-        in_data = {'image': data['image']}
-        labels = {'labels': data['labels']}
+        in_data = {'image': data['image'].to(self.device)}
+        labels = {'labels': data['labels'].to(self.device)}
         return in_data, labels
 
     def __call__(self, in_data: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
@@ -376,7 +360,7 @@ class CVModel(ModelWidget):
         Returns:
             Dict[str, torch.Tensor]: output
         """
-        image = in_data['image'].to(self.device)
+        image = in_data['image']
         output = self.network(image)
         return output
 
@@ -392,7 +376,7 @@ class CVModel(ModelWidget):
             output (Dict[str, torch.Tensor]): output
             labels (Dict[str, Union[int, float]]): labels
         """
-        _labels = self.multi_label_to_device(labels['labels'])
+        _labels = labels['labels']
         self.loss_store.cal_batch_loss(output, _labels)
 
 
@@ -411,26 +395,26 @@ class FusionModel(ModelWidget):
                 self,
                 data: Dict
                 ) -> Tuple[
-                        Dict[str, torch.Tensor],
-                        Dict[str, Union[int, float]]
-                        ]:
+                        Dict[str, torch.FloatTensor],
+                        Dict[str, Union[torch.IntTensor, torch.FloatTensor]]
+                    ]:
         """
-        Unpack data for forwarding of MLP+CNN or MLP+ViT.
+        Unpack data for forwarding of MLP+CNN or MLP+ViT and pass them to device.
 
         Args:
             data (Dict): dictionary of data
 
         Returns:
             Tuple[
-                Dict[str, torch.Tensor],
-                Dict[str, Union[int, float]
+                Dict[str, torch.FloatTensor],
+                Dict[str, Union[torch.IntTensor, torch.FloatTensor]]
                 ]: inputs, image and labels
         """
         in_data = {
-                    'inputs': data['inputs'],
-                    'image': data['image']
+                'inputs': data['inputs'].to(self.device),
+                'image': data['image'].to(self.device)
                 }
-        labels = {'labels': data['labels']}
+        labels = {'labels': data['labels'].to(self.device)}
         return in_data, labels
 
     def __call__(self, in_data: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
@@ -443,8 +427,8 @@ class FusionModel(ModelWidget):
         Returns:
             Dict[str, torch.Tensor]: output
         """
-        inputs = in_data['inputs'].to(self.device)
-        image = in_data['image'].to(self.device)
+        inputs = in_data['inputs']
+        image = in_data['image']
         output = self.network(inputs, image)
         return output
 
@@ -460,7 +444,7 @@ class FusionModel(ModelWidget):
             output (Dict[str, torch.Tensor]): output
             labels (Dict): labels
         """
-        _labels = self.multi_label_to_device(labels['labels'])
+        _labels = labels['labels']
         self.loss_store.cal_batch_loss(output, _labels)
 
 
@@ -479,25 +463,25 @@ class MLPDeepSurv(ModelWidget):
                 self,
                 data: Dict
                 ) -> Tuple[
-                            Dict[str, torch.Tensor],
-                            Dict[str, Union[int, float]]
+                        Dict[str, torch.FloatTensor],
+                        Dict[str, torch.IntTensor]
                         ]:
         """
-        Unpack data for forwarding of DeepSurv model with MLP
+        Unpack data for forwarding of DeepSurv model with MLP and pass them to device.
 
         Args:
             data (Dict): dictionary of data
 
         Returns:
             Tuple[
-                Dict[str, torch.Tensor],
-                Dict[str, Union[int, float]]
+                Dict[str, torch.FloatTensor],
+                Dict[str, Union[torch.IntTensor]]
                 ]: inputs, and labels, periods
         """
-        in_data = {'inputs': data['inputs']}
+        in_data = {'inputs': data['inputs'].to(self.device)}
         labels = {
-                    'labels': data['labels'],
-                    'periods': data['periods']
+                'labels': data['labels'].to(self.device),
+                'periods': data['periods'].to(self.device)
                 }
         return in_data, labels
 
@@ -511,7 +495,7 @@ class MLPDeepSurv(ModelWidget):
         Returns:
             Dict[str, torch.Tensor]: output
         """
-        inputs = in_data['inputs'].to(self.device)
+        inputs = in_data['inputs']
         output = self.network(inputs)
         return output
 
@@ -527,8 +511,8 @@ class MLPDeepSurv(ModelWidget):
             outputs (Dict[str, torch.Tensor]): output
             labels (Dict[str, Union[int, float]]): labels and periods
         """
-        _labels = self.multi_label_to_device(labels['labels'])
-        _periods = labels['periods'].float().to(self.device)
+        _labels = labels['labels']
+        _periods = labels['periods']
         self.loss_store.cal_batch_loss(output, _labels, _periods, self.network)
 
 
@@ -547,25 +531,25 @@ class CVDeepSurv(ModelWidget):
                 self,
                 data: Dict
                 ) -> Tuple[
-                            Dict[str, torch.Tensor],
-                            Dict[str, Union[int, float]]
+                        Dict[str, torch.FloatTensor],
+                        Dict[str, torch.IntTensor]
                         ]:
         """
-        Unpack data for forwarding of DeepSurv model with with CNN or ViT
+        Unpack data for forwarding of DeepSurv model with with CNN or ViT pass them to device.
 
         Args:
             data (Dict): dictionary of data
 
         Returns:
             Tuple[
-                Dict[str, torch.Tensor],
-                Dict[str, Union[int, float]]
+                Dict[str, torch.FloatTensor],
+                Dict[str, torch.IntTensor]
                 ]: image, and labels, periods
         """
-        in_data = {'image': data['image']}
+        in_data = {'image': data['image'].to(self.device)}
         labels = {
-                'labels': data['labels'],
-                'periods': data['periods']
+                'labels': data['labels'].to(self.device),
+                'periods': data['periods'].to(self.device)
                 }
         return in_data, labels
 
@@ -579,7 +563,7 @@ class CVDeepSurv(ModelWidget):
         Returns:
             Dict[str, torch.Tensor]: output
         """
-        image = in_data['image'].to(self.device)
+        image = in_data['image']
         output = self.network(image)
         return output
 
@@ -595,8 +579,8 @@ class CVDeepSurv(ModelWidget):
             output (Dict[str, torch.Tensor]): output
             labels and periods (Dict[str, Union[int, float]]): labels and periods
         """
-        _labels = self.multi_label_to_device(labels['labels'])
-        _periods = labels['periods'].float().to(self.device)
+        _labels = labels['labels']
+        _periods = labels['periods']
         self.loss_store.cal_batch_loss(output, _labels, _periods, self.network)
 
 
@@ -611,26 +595,32 @@ class FusionDeepSurv(ModelWidget):
         """
         super().__init__(params)
 
-    def set_data(self, data: Dict) -> None:
+    def set_data(
+                self,
+                data: Dict
+                ) -> Tuple[
+                        Dict[str, torch.FloatTensor],
+                        Dict[str, torch.IntTensor]
+                        ]:
         """
-        Unpack data for forwarding of DeepSurv with MLP+CNN or MLP+ViT.
+        Unpack data for forwarding of DeepSurv with MLP+CNN or MLP+ViT and pass them to device.
 
         Args:
             data (Dict): dictionary of data
 
         Returns:
             Tuple[
-                Dict[str, torch.Tensor],
-                Dict[str, Union[int, float]]
+                Dict[str, torch.FloatTensor],
+                Dict[str, torch.IntTensor]
                 ]: inputs, image, and labels, periods
         """
         in_data = {
-                'inputs': data['inputs'],
-                'image': data['image']
+                'inputs': data['inputs'].to(self.device),
+                'image': data['image'].to(self.device)
                 }
         labels = {
-                'labels': data['labels'],
-                'periods': data['periods']
+                'labels': data['labels'].to(self.device),
+                'periods': data['periods'].to(self.device)
                 }
         return in_data, labels
 
@@ -644,8 +634,8 @@ class FusionDeepSurv(ModelWidget):
         Returns:
             Dict[str, torch.Tensor]: output
         """
-        inputs = in_data['inputs'].to(self.device)
-        image = in_data['image'].to(self.device)
+        inputs = in_data['inputs']
+        image = in_data['image']
         output = self.network(inputs, image)
         return output
 
@@ -661,8 +651,8 @@ class FusionDeepSurv(ModelWidget):
             output (Dict[str, torch.Tensor]): output
             labels (Dict[str, Union[int, float]]): labels and periods
         """
-        _labels = self.multi_label_to_device(labels['labels'])
-        _periods = labels['periods'].float().to(self.device)
+        _labels = labels['labels']
+        _periods = labels['periods']
         self.loss_store.cal_batch_loss(output, _labels, _periods, self.network)
 
 
@@ -714,6 +704,7 @@ def create_model(params: ParamSet) -> nn.Module:
 
 #! ----------------------------------------------------------------
 
+"""
 def cal_batch_loss(
                     self,
                     output: Dict[str, torch.Tensor],
@@ -740,14 +731,14 @@ def cal_batch_loss(
                 output: Dict[str, torch.Tensor],
                 labels: Dict[str, Union[int, float]]
                 ) -> None:
-        """
-        Calculate loss for each bach.
-
-        Args:
-            output (Dict[str, torch.Tensor]): output
-            labels (Dict[str, Union[int, float]]): labels
-        """
-        _labels = self.multi_label_to_device(labels['labels'])
+        #
+        #Calculate loss for each bach.
+        #
+        #Args:
+        #    output (Dict[str, torch.Tensor]): output
+        #    labels (Dict[str, Union[int, float]]): labels
+        #
+        _labels = labels['labels']
         self.loss_store.cal_batch_loss(output, _labels)
 
 
@@ -760,19 +751,20 @@ class CVDeepSurv(ModelWidget): pass
 class CVDeepSurv(ModelWidget): pass
 
 
-
+# 共通化
 def cal_batch_loss(
                 self,
                 output: Dict[str, torch.Tensor],
-                labels: Dict[str, Union[int, float]]
+                labels: Dict[str, Union[int, float]]  # may include period
                 ) -> None:
-        """
-        Calculate loss for each bach.
+    #
+    # Calculate loss for each bach.
+    #
+    #Args:
+    #    output (Dict[str, torch.Tensor]): output
+    #    labels (Dict[str, Union[int, float]]): labels and periods
 
-        Args:
-            output (Dict[str, torch.Tensor]): output
-            labels (Dict[str, Union[int, float]]): labels and periods
-        """
-        _labels = self.multi_label_to_device(labels['labels'])
-        _periods = labels['periods'].float().to(self.device)
-        self.loss_store.cal_batch_loss(output, _labels, _periods, self.network)
+    _labels = labels['labels']
+    _periods = labels['periods']
+    self.loss_store.cal_batch_loss(output, _labels, _periods, self.network)
+"""
