@@ -709,3 +709,70 @@ def create_model(params: ParamSet) -> nn.Module:
     # When test, execute model._enable_on_gpu_if_available() in load_weight(),
     # ie. after loading weight.
     return model
+
+
+
+#! ----------------------------------------------------------------
+
+def cal_batch_loss(
+                    self,
+                    output: Dict[str, torch.Tensor],
+                    labels: Dict[str, Union[int, float]]
+                    ) -> None:
+    pass
+
+def cal_batch_loss(
+                    self,
+                    output: Dict[str, torch.Tensor],
+                    labels: Dict[str, Union[int, float]]
+                    ) -> None:
+    pass
+
+
+#def cal_batch_loss() 同じ
+class MLPModel(ModelWidget): pass
+class CVModel(ModelWidget): pass
+class FusionModel(ModelWidget): pass
+
+
+def cal_batch_loss(
+                self,
+                output: Dict[str, torch.Tensor],
+                labels: Dict[str, Union[int, float]]
+                ) -> None:
+        """
+        Calculate loss for each bach.
+
+        Args:
+            output (Dict[str, torch.Tensor]): output
+            labels (Dict[str, Union[int, float]]): labels
+        """
+        _labels = self.multi_label_to_device(labels['labels'])
+        self.loss_store.cal_batch_loss(output, _labels)
+
+
+
+
+
+# def cal_batch_loss() 同じ
+class MLPDeepSurv(ModelWidget): pass
+class CVDeepSurv(ModelWidget): pass
+class CVDeepSurv(ModelWidget): pass
+
+
+
+def cal_batch_loss(
+                self,
+                output: Dict[str, torch.Tensor],
+                labels: Dict[str, Union[int, float]]
+                ) -> None:
+        """
+        Calculate loss for each bach.
+
+        Args:
+            output (Dict[str, torch.Tensor]): output
+            labels (Dict[str, Union[int, float]]): labels and periods
+        """
+        _labels = self.multi_label_to_device(labels['labels'])
+        _periods = labels['periods'].float().to(self.device)
+        self.loss_store.cal_batch_loss(output, _labels, _periods, self.network)

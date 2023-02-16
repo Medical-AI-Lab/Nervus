@@ -418,3 +418,156 @@ def create_loss_store(
     else:
         raise ValueError(f"Invalid task: {task}.")
     return loss_store
+
+
+
+#! --------------------------------------------------
+
+@abstractmethod
+def cal_batch_loss(
+                cls,
+                multi_output: Dict[str, float],
+                multi_label: Dict[str, int],
+                period: torch.Tensor = None,
+                network: torch.nn.Module = None
+                ) -> None:
+    pass
+
+
+
+#! classifcaition
+def cal_batch_loss(self, multi_output: Dict[str, torch.Tensor], multi_label: Dict[str, Union[int, float]]) -> None:
+    for label_name in multi_label.keys():
+        #!---
+        _output = multi_output[label_name]  # [64, 2]
+        _label = multi_label[label_name]    # [64]
+        #!---
+        self.batch_loss[label_name] = self.criterion(_output, _label)  #! ---
+
+    #! ---- Same ---
+    _total = torch.tensor([0.0]).to(self.device)
+    for label_name in multi_label.keys():
+        _total = torch.add(_total, self.batch_loss[label_name])
+    self.batch_loss['total'] = _total
+    #! ---- Same ---
+
+
+
+#! regression
+def cal_batch_loss(self, multi_output: Dict[str, torch.Tensor], multi_label: Dict[str, Union[int, float]]) -> None:
+    for label_name in multi_label.keys():
+        breakpoint()
+        #! -----
+        #_output = multi_output[label_name].squeeze()   # [64, 1] -> [64]
+        #_label = multi_label[label_name].float()       #            [64]   .float()しなくても、csvparserでfloatにcastされている
+        _output = multi_output[label_name].reshape(-1)  # [64, 1] -> [64]
+        _label = multi_label[label_name]                #            [64]
+        #! -----
+        self.batch_loss[label_name] = self.criterion(_output, _label)  #! ---
+
+    #! ---- Same ---
+    _total = torch.tensor([0.0]).to(self.device)
+    for label_name in multi_label.keys():
+        _total = torch.add(_total, self.batch_loss[label_name])
+    self.batch_loss['total'] = _total
+    #! ---- Same ---
+
+
+#! deepsurv
+def cal_batch_loss(
+                    self,
+                    multi_output: Dict[str, torch.Tensor],
+                    multi_label: Dict[str, Union[int, float]],
+                    period: torch.Tensor,
+                    network: torch.nn.Module
+                    ) -> None:
+    # Although label_name should be one,
+    # use for to match the case pf classification and regression
+    for label_name in multi_label.keys():
+        breakpoint()
+        #!---
+        _pred = multi_output[label_name]                 #         [64, 1]
+        _period = period.reshape(-1, 1)                  # [64] -> [64, 1]
+        _label = multi_label[label_name].reshape(-1, 1)  # [64] -> [64, 1]
+        self.batch_loss[label_name] = self.criterion(_pred, _period, _label, network)  #! ---
+        #!---
+
+    #! ---- Same ---
+    _total = torch.tensor([0.0]).to(self.device)
+    for label_name in multi_label.keys():
+        _total = torch.add(_total, self.batch_loss[label_name])
+    self.batch_loss['total'] = _total
+    #! ---- Same ---
+
+
+
+
+def cal_batch_loss(
+                self,
+                multi_output: Dict[str, float],
+                multi_label: Dict[str, int],
+                period: torch.Tensor = None,
+                network: torch.nn.Module = None
+                ) -> None:
+
+
+    for label_name in multi_label.keys():
+        #! classification
+        _output = multi_output[label_name]              #            [64, 2]
+        _label = multi_label[label_name]                #            [64]　　　should be shape [64]
+        self.batch_loss[label_name] = self.criterion(_output, _label)
+
+        #! regression
+        _output = multi_output[label_name].reshape(-1)  # [64, 1] -> [64]
+        _label = multi_label[label_name]                #            [64]
+        self.batch_loss[label_name] = self.criterion(_output, _label)
+
+        #! deepsurv
+        _output = multi_output[label_name]               #           [64, 1]
+        _period = period.reshape(-1, 1)                  # [64] ->   [64, 1]
+        _label = multi_label[label_name].reshape(-1, 1)  # [64] ->   [64, 1]
+        self.batch_loss[label_name] = self.criterion(_output, _label, _period, network) #! ---
+
+
+    _total = torch.tensor([0.0]).to(self.device)
+    for label_name in multi_label.keys():
+        _total = torch.add(_total, self.batch_loss[label_name])
+    self.batch_loss['total'] = _total
+
+
+
+
+
+class TaskLoss:
+    def __init__(self, task):
+        self.task = task
+
+        # Adjust shape
+        if self.task == 'classification':
+            self.shape_output = None
+            self.shape_label = None
+            self.shape_period = None
+
+        elif task == 'regression':
+            self.shape_output = (lambda x: x.squeeze())
+            self.shape_label = None
+            self.shape_period = None
+
+        elif task == 'deepsurv':
+            self.shape_output = None
+            self.shape_label = (lambda x: x.reshape(-1, 1))
+            self.shape_period = (lambda x: x.reshape(-1, 1))
+
+
+
+    def cal_batch_loss(self):
+        for label_name in multi_label.keys():
+            self.shape_output
+            self.shape_label
+            self.shape_period
+
+
+        _total = torch.tensor([0.0]).to(self.device)
+        for label_name in multi_label.keys():
+            _total = torch.add(_total, self.batch_loss[label_name])
+        self.batch_loss['total'] = _total

@@ -85,8 +85,6 @@ class NegativeLogLikelihood(nn.Module):
         self.reg = Regularization(order=2, weight_decay=self.L2_reg)
         self.device = device
 
-    # y -> period
-    # e -> label
     def forward(self, risk_pred: torch.FloatTensor, label: torch.IntTensor, period: torch.FloatTensor, network: nn.Module) -> float:
         """
         Calculates Negative Log Likelihood.
@@ -150,3 +148,31 @@ def set_criterion(criterion_name: str, device: torch.device) -> nn.Module:
     else:
         criterion = Criterion.criterions[criterion_name]()
     return criterion
+
+
+
+#! ----------------------------------------------------------------
+
+CRITERIONS = {
+        'CEL': nn.CrossEntropyLoss,
+        'MSE': nn.MSELoss,
+        'RMSE': RMSELoss,
+        'MAE': nn.L1Loss,
+        'NLL': NegativeLogLikelihood
+        }
+
+
+class Critetion:
+    def __init__(self, criterion_name: str, device: torch.device = None):
+        self.device = device
+        self.params = ['output', 'label']
+
+        if criterion_name == 'NLL':
+            self.params = self.params + ['period', 'network']
+            self.criteion = NegativeLogLikelihood(self.device).to(self.evice)
+        else:
+            self.criteion = CRITERIONS[criterion_name]
+
+
+    def __call__(self, output=None, label=None, period=None, network=None):
+        pass
