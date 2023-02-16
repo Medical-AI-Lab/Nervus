@@ -467,7 +467,7 @@ class MLPDeepSurv(ModelWidget):
                 data: Dict
                 ) -> Tuple[
                         Dict[str, torch.FloatTensor],
-                        Dict[str, LabelDict]
+                        Dict[str, Union[LabelDict, torch.IntTensor]]
                         ]:
         """
         Unpack data for forwarding of DeepSurv model with MLP and pass them to device.
@@ -478,7 +478,7 @@ class MLPDeepSurv(ModelWidget):
         Returns:
             Tuple[
                 Dict[str, torch.FloatTensor],
-                Dict[str, LabelDict]
+                Dict[str, Union[LabelDict, torch.IntTensor]]
                 ]: inputs, and labels, periods
         """
         in_data = {'inputs': data['inputs'].to(self.device)}
@@ -535,7 +535,7 @@ class CVDeepSurv(ModelWidget):
                 data: Dict
                 ) -> Tuple[
                         Dict[str, torch.FloatTensor],
-                        Dict[str, LabelDict]
+                        Dict[str, Union[LabelDict, torch.IntTensor]]
                         ]:
         """
         Unpack data for forwarding of DeepSurv model with with CNN or ViT pass them to device.
@@ -546,7 +546,7 @@ class CVDeepSurv(ModelWidget):
         Returns:
             Tuple[
                 Dict[str, torch.FloatTensor],
-                Dict[str, LabelDict]
+                Dict[str, Union[LabelDict, torch.IntTensor]]
                 ]: image, and labels, periods
         """
         in_data = {'image': data['image'].to(self.device)}
@@ -604,7 +604,7 @@ class FusionDeepSurv(ModelWidget):
                 data: Dict
                 ) -> Tuple[
                         Dict[str, torch.FloatTensor],
-                        Dict[str, LabelDict]
+                        Dict[str, Union[LabelDict, torch.IntTensor]]
                         ]:
         """
         Unpack data for forwarding of DeepSurv with MLP+CNN or MLP+ViT and pass them to device.
@@ -615,7 +615,7 @@ class FusionDeepSurv(ModelWidget):
         Returns:
             Tuple[
                 Dict[str, torch.FloatTensor],
-                Dict[str, LabelDict]
+                Dict[str, Union[LabelDict, torch.IntTensor]]
                 ]: inputs, image, and labels, periods,
         """
         in_data = {
