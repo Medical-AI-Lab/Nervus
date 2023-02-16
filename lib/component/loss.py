@@ -328,12 +328,8 @@ class RegLoss(LossWidget):
             multi_label (Dict[str, Union[int, float]]): dictionary of each label and its value
         """
         for label_name in multi_label.keys():
-
-            #! -----
             _output = multi_output[label_name].squeeze()
             _label = multi_label[label_name].float()
-            #! -----
-
             self.batch_loss[label_name] = self.criterion(_output, _label)
 
         _total = torch.tensor([0.0]).to(self.device)
@@ -393,11 +389,6 @@ class DeepSurvLoss(LossWidget):
             _total = torch.add(_total, self.batch_loss[label_name])
 
         self.batch_loss['total'] = _total
-
-
-
-
-
 
 
 def create_loss_store(

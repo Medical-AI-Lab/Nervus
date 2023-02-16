@@ -85,14 +85,14 @@ class NegativeLogLikelihood(nn.Module):
         self.reg = Regularization(order=2, weight_decay=self.L2_reg)
         self.device = device
 
-    def forward(self, risk_pred: List[float], y: List[int], e: List[int], network: nn.Module) -> float:
+    def forward(self, risk_pred: torch.FloatTensor , y: torch.FloatTensor, e: torch.IntTensor, network: nn.Module) -> float:
         """
         Calculates Negative Log Likelihood.
 
         Args:
-            risk_pred (List[float]): prediction value
-            y (List[int]): period
-            e (List[int]): ground truth label
+            risk_pred (torch.FloatTensor): prediction value
+            y (torch.FloatTensor): period
+            e (torch.IntTensor): ground truth label
             network (nn.Network): network
 
         Returns:
