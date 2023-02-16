@@ -43,10 +43,10 @@ def main(args):
                 in_data, _ = model.set_data(data)
 
                 with torch.no_grad():
-                    output = model(in_data)
+                    outputs = model(in_data)
 
                 # Make a new likelihood every batch
-                df_likelihood = likelihood.make_format(data, output)
+                df_likelihood = likelihood.make_format(data, outputs)
 
                 if i + j == 0:
                     save_dir = Path(save_datetime_dir, 'likelihoods')

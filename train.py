@@ -43,11 +43,11 @@ def main(args):
             split_dataloader = dataloaders[phase]
             for i, data in enumerate(split_dataloader):
                 model.optimizer.zero_grad()
-                in_data, labels = model.set_data(data)
+                in_data, labels = model.set_data(data)  # including to(self.)device
 
                 with torch.set_grad_enabled(phase == 'train'):
-                    output = model(in_data)
-                    model.cal_batch_loss(output, labels)
+                    outputs = model(in_data)
+                    model.cal_batch_loss(outputs, labels)
 
                     if phase == 'train':
                         model.backward()
