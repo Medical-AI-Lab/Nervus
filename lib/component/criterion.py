@@ -85,33 +85,35 @@ class NegativeLogLikelihood(nn.Module):
         self.reg = Regularization(order=2, weight_decay=self.L2_reg)
         self.device = device
 
-    def forward(self, risk_pred: torch.FloatTensor , y: torch.FloatTensor, e: torch.IntTensor, network: nn.Module) -> float:
+    # y -> period
+    # e -> label
+    def forward(self, risk_pred: torch.FloatTensor, label: torch.IntTensor, period: torch.FloatTensor, network: nn.Module) -> float:
         """
         Calculates Negative Log Likelihood.
 
         Args:
             risk_pred (torch.FloatTensor): prediction value
-            y (torch.FloatTensor): period
-            e (torch.IntTensor): ground truth label
+            label (torch.IntTensor): occurrence of event
+            period (torch.FloatTensor): period
             network (nn.Network): network
 
         Returns:
             float: Negative Log Likelihood
         """
-        mask = torch.ones(y.shape[0], y.shape[0]).to(self.device)  # risk_pred and mask should be on the same device.
-        mask[(y.T - y) > 0] = 0
+        mask = torch.ones(period.shape[0], period.shape[0]).to(self.device)  # risk_pred and mask should be on the same device.
+        mask[(period.T - period) > 0] = 0
 
         loss_1 = torch.exp(risk_pred) * mask
         # Note: torch.sum(loss_1, dim=0) possibly returns nan, in particular MLP.
         loss_1 = torch.sum(loss_1, dim=0) / torch.sum(mask, dim=0)
         loss_1 = torch.log(loss_1).reshape(-1, 1)
 
-        num_occurs = torch.sum(e)
+        num_occurs = torch.sum(label)
 
         if num_occurs.item() == 0.0:
             loss = torch.tensor([1e-7], requires_grad=True)  # To avoid zero division, set small value as loss
         else:
-            neg_log_loss = -torch.sum((risk_pred - loss_1) * e) / num_occurs
+            neg_log_loss = -torch.sum((risk_pred - loss_1) * label) / num_occurs
             l2_loss = self.reg(network)
             loss = neg_log_loss + l2_loss
         return loss
