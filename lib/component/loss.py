@@ -434,8 +434,7 @@ def cal_batch_loss(
     pass
 
 
-
-#! classifcaition
+#! classification
 def cal_batch_loss(self, multi_output: Dict[str, torch.Tensor], multi_label: Dict[str, Union[int, float]]) -> None:
     for label_name in multi_label.keys():
         #!---
@@ -504,17 +503,17 @@ def cal_batch_loss(
 
 def cal_batch_loss(
                 self,
-                multi_output: Dict[str, float],
-                multi_label: Dict[str, int],
-                period: torch.Tensor = None,
-                network: torch.nn.Module = None
+                output = None,
+                labels = None,
+                periods = None,
+                network = None
                 ) -> None:
 
 
-    for label_name in multi_label.keys():
+    for label_name in labels.keys():
         #! classification
-        _output = multi_output[label_name]              #            [64, 2]
-        _label = multi_label[label_name]                #            [64]　　　should be shape [64]
+        _output = output[label_name]                    #       [64, 2]
+        _label = multi_label[label_name]                #       [64]
         self.batch_loss[label_name] = self.criterion(_output, _label)
 
         #! regression
