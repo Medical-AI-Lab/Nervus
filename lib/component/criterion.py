@@ -3,7 +3,7 @@
 
 import torch
 import torch.nn as nn
-from typing import List
+from typing import Union
 
 
 class RMSELoss(nn.Module):
@@ -80,12 +80,18 @@ class NegativeLogLikelihood(nn.Module):
         Args:
             device (torch.device): device
         """
-        super(NegativeLogLikelihood, self).__init__()
+        super().__init__()
         self.L2_reg = 0.05
         self.reg = Regularization(order=2, weight_decay=self.L2_reg)
         self.device = device
 
-    def forward(self, risk_pred: torch.FloatTensor, label: torch.IntTensor, period: torch.IntTensor, network: nn.Module) -> float:
+    def forward(
+                self,
+                risk_pred: torch.FloatTensor,
+                label: torch.IntTensor,
+                period: torch.IntTensor,
+                network: nn.Module
+                ) -> torch.FloatTensor:
         """
         Calculates Negative Log Likelihood.
 
@@ -96,7 +102,7 @@ class NegativeLogLikelihood(nn.Module):
             network (nn.Network): network
 
         Returns:
-            float: Negative Log Likelihood
+            torch.FloatTensor: Negative Log Likelihood
         """
         mask = torch.ones(period.shape[0], period.shape[0]).to(self.device)  # risk_pred and mask should be on the same device.
         mask[(period.T - period) > 0] = 0
@@ -117,43 +123,6 @@ class NegativeLogLikelihood(nn.Module):
         return loss
 
 
-class Criterion:
-    """
-    Criterion.
-    """
-    criterions = {
-        'CEL': nn.CrossEntropyLoss,
-        'MSE': nn.MSELoss,
-        'RMSE': RMSELoss,
-        'MAE': nn.L1Loss,
-        'NLL': NegativeLogLikelihood
-        }
-
-
-def set_criterion(criterion_name: str, device: torch.device) -> nn.Module:
-    """
-    Set criterion.
-
-    Args:
-        criterion_name (str): criterion nama
-        device (torch.device): device
-
-    Returns:
-        nn: criterion
-    """
-    assert (criterion_name in Criterion.criterions), f"No specified criterion: {criterion_name}."
-
-    if criterion_name == 'NLL':
-        criterion = Criterion.criterions[criterion_name](device).to(device)
-    else:
-        criterion = Criterion.criterions[criterion_name]()
-    return criterion
-
-
-
-#! ----------------------------------------------------------------
-
-
 CRITERIONS = {
         'CEL': nn.CrossEntropyLoss,
         'MSE': nn.MSELoss,
@@ -163,28 +132,151 @@ CRITERIONS = {
         }
 
 
+class ClsCriterion:
+    """
+    Class of criterion for classification.
+    """
+    def __init__(self) -> None:
+        """
+        Set CrossEntropyLoss.
+        """
+        self.criterion = nn.CrossEntropyLoss()
 
-# 引数の数のを可変に
-# output, label の形状の調整
+    def __call__(
+                self,
+                output: torch.FloatTensor = None,
+                label: torch.IntTensor = None,
+                _period = None,
+                _network = None
+                ) -> torch.FloatTensor:
+        """
+        Calculate loss.
+
+        Args:
+            output (torch.FloatTensor): output
+            label (torch.IntTensor): label
+
+            The following two args to match NLL to the number of arguments.
+            _period: Always None.
+            _network: Always None.
+
+        Returns:
+            torch.FloatTensor: _description_
+        """
+        # output: [64, 2]
+        # label:  [64, 2]
+        loss = self.criterion(output, label)
+        return loss
 
 
-class Criterion:
-    def __init__(self, criterion_name: str, device: torch.device = None):
+class RegCriterion:
+    """
+    Class of criterion for regression.
+    """
+    def __init__(self, criterion_name: str = None) -> None:
+        """
+        Set MSE, RMSE or MAE.
+
+        Args:
+            criterion_name (str): MSE, RMSE or MAE.
+        """
+        self.criterion = CRITERIONS[criterion_name]()
+
+    def __call__(
+                self,
+                output: torch.FloatTensor = None,
+                label: torch.FloatTensor = None,
+                _period = None,
+                _network = None
+                ) -> torch.FloatTensor:
+        """
+        Calculate loss.
+
+        Args:
+            output (torch.FloatTensor): output
+            label (torch.FloatTensor): label
+
+            The following two args to match NLL to the number of arguments.
+            _period: Always None.
+            _network: Always None.
+
+        Returns:
+            torch.FloatTensor: loss
+
+        output: [64, 1] -> [64]
+        label:             [64]
+        """
+        output = output.squeeze()
+        loss = self.criterion(output, label)
+        return loss
+
+
+class DeepSurvCriterion:
+    """
+    Class of criterion for deepsurv.
+    """
+    def __init__(self, device: torch.device = None) -> None:
+        """
+        Set NegativeLogLikelihood.
+
+        Args:
+            device (torch.device, optional): device
+        """
         self.device = device
+        self.criterion = NegativeLogLikelihood(self.device).to(self.device)
 
-        if not (criterion_name == 'NLL'):
-            self.params = ['output', 'label']
-            self.criterion = CRITERIONS[criterion_name]
-        else:
-            self.params = ['output', 'label', 'period', 'network']
-            self.criterion = NegativeLogLikelihood(self.device).to(self.device)
+    def __call__(
+                self,
+                output: torch.FloatTensor = None,
+                label: torch.IntTensor = None,
+                period: torch.IntTensor = None,
+                network: nn.Module = None
+                ) -> torch.FloatTensor:
+        """
+        Calculate loss.
 
-    def __call__(self, output=None, label=None, period=None, network=None):
-        # 形状を調整して、apply
+        Args:
+            output (torch.FloatTensor): output, or risk prediction
+            label (torch.IntTensor): label
+            period (torch.IntTensor): period
+            network (nn.Module): network. Its weight is used when calculating loss.
 
-        _loss = self.criterion()
+        Returns:
+            torch.FloatTensor: loss
+
+        output:         [64, 1]
+        label:  [64] -> [64, 1]
+        period: [64] -> [64, 1]
+        """
+        label = label.reshape(-1, 1)
+        period = period.reshape(-1, 1)
+        loss = self.criterion(output, label, period, network)
+        return loss
 
 
-        return _loss
+def set_criterion(
+                criterion_name: str,
+                device: torch.device
+                ) -> Union[ClsCriterion, RegCriterion, DeepSurvCriterion]:
+    """
+    Set criterion for task.
 
+    Args:
+        criterion_name (str): criterion name
+        device (torch.device): device
 
+    Returns:
+        Union[ClsCriterion, RegCriterion, DeepSurvCriterion]: criterion
+    """
+
+    if criterion_name == 'CEL':
+        return ClsCriterion()
+
+    elif criterion_name in ['MSE', 'RMSE', 'MAE']:
+        return RegCriterion(criterion_name=criterion_name)
+
+    elif criterion_name == 'NLL':
+        return  DeepSurvCriterion(device=device)
+
+    else:
+        raise ValueError(f"Invalid criterion: {criterion_name}.")

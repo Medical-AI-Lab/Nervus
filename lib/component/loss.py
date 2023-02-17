@@ -189,15 +189,27 @@ class LossStore(ABC):
             self.running_loss[label_name] = _running_loss
             self.running_loss['total'] = self.running_loss['total'] + _running_loss
 
-    @abstractmethod
+
+    #! ------ docstring -----
     def cal_batch_loss(
-                        cls,
-                        multi_output: Dict[str, float],
-                        multi_label: Dict[str, int],
-                        period: torch.Tensor = None,
-                        network: torch.nn.Module = None
-                        ) -> None:
-        pass
+                self,
+                outputs = None,
+                labels = None,
+                period = None,
+                network = None
+                ) -> None:
+
+        for label_name in labels.keys():
+            _output = outputs[label_name]
+            _label = labels[label_name]
+            self.batch_loss[label_name] = self.criterion(_output, _label, period, network)
+
+        _total = torch.tensor([0.0]).to(self.device)
+        for label_name in labels.keys():
+            _total = torch.add(_total, self.batch_loss[label_name])
+        self.batch_loss['total'] = _total
+    #! ---------------------
+
 
     def cal_epoch_loss(self, epoch: int, phase: str, dataset_size: int = None) -> None:
         """
@@ -262,153 +274,14 @@ class LossWidget(LossStore, LossMixin):
     pass
 
 
-class ClsLoss(LossWidget):
-    """
-    Class to calculate loss for classification.
-    """
-    def __init__(
-                self,
-                criterion: torch.nn.Module,
-                label_list: List[str],
-                device: torch.device
-                ) -> None:
-        """
-        Args:
-            criterion (torch.nn.Module): criterion
-            label_list (List[str]): label list
-            device (torch.device): device
-        """
-        super().__init__(label_list)
-
-        self.criterion = criterion
-        self.device = device
-
-    def cal_batch_loss(self, multi_output: Dict[str, torch.Tensor], multi_label: Dict[str, Union[int, float]]) -> None:
-        """
-        Calculate loss for each batch.
-
-        Args:
-            multi_output (Dict[str, torch.Tensor]): output from model
-            multi_label (Dict[str, Union[int, float]]): dictionary of each label and its value
-        """
-        for label_name in multi_label.keys():
-            _output = multi_output[label_name]
-            _label = multi_label[label_name]
-            self.batch_loss[label_name] = self.criterion(_output, _label)
-
-        _total = torch.tensor([0.0]).to(self.device)
-        for label_name in multi_label.keys():
-            _total = torch.add(_total, self.batch_loss[label_name])
-
-        self.batch_loss['total'] = _total
-
-
-class RegLoss(LossWidget):
-    """
-    Class to calculate loss for regression.
-    """
-    def __init__(self, criterion: torch.nn.Module, label_list: List[str], device: torch.device) -> None:
-        """
-        Args:
-            criterion (torch.nn.Module): criterion
-            label_list (List[str]): label list
-            device (torch.device): device
-        """
-        super().__init__(label_list)
-
-        self.criterion = criterion
-        self.device = device
-
-    def cal_batch_loss(self, multi_output: Dict[str, torch.Tensor], multi_label: Dict[str, Union[int, float]]) -> None:
-        """
-        Calculate loss for each batch.
-
-        Args:
-            multi_output (Dict[str, torch.Tensor]): output from model
-            multi_label (Dict[str, Union[int, float]]): dictionary of each label and its value
-        """
-        for label_name in multi_label.keys():
-            _output = multi_output[label_name].squeeze()
-            _label = multi_label[label_name].float()
-            self.batch_loss[label_name] = self.criterion(_output, _label)
-
-        _total = torch.tensor([0.0]).to(self.device)
-        for label_name in multi_label.keys():
-            _total = torch.add(_total, self.batch_loss[label_name])
-
-        self.batch_loss['total'] = _total
-
-
-class DeepSurvLoss(LossWidget):
-    """
-    Class to calculate loss for deepsurv
-    """
-    def __init__(
-                self,
-                criterion: torch.nn.Module,
-                label_list: List[str],
-                device: torch.device
-                ) -> None:
-        """
-        Args:
-            criterion (torch.nn.Module): criterion
-            label_list (List[str]): label list
-            device (torch.device): device
-        """
-        super().__init__(label_list)
-
-        self.criterion = criterion
-        self.device = device
-
-    def cal_batch_loss(
-                        self,
-                        multi_output: Dict[str, torch.Tensor],
-                        multi_label: Dict[str, Union[int, float]],
-                        period: torch.Tensor,
-                        network: torch.nn.Module
-                        ) -> None:
-        """
-        Calculate loss for each batch.
-
-        Args:
-            multi_output (Dict[str, torch.Tensor]):  output from model
-            multi_label (Dict[str, Union[int, float]]): dictionary of each label and its value
-            period (torch.Tensor): periods
-            network (torch.nn.Module): network
-        """
-        # Although label_name should be one,
-        # use for to match the case pf classification and regression
-        for label_name in multi_label.keys():
-            _pred = multi_output[label_name]
-            _period = period.reshape(-1, 1)
-            _label = multi_label[label_name].reshape(-1, 1)
-            self.batch_loss[label_name] = self.criterion(_pred, _period, _label, network)
-
-        _total = torch.tensor([0.0]).to(self.device)
-        for label_name in multi_label.keys():
-            _total = torch.add(_total, self.batch_loss[label_name])
-
-        self.batch_loss['total'] = _total
-
-
+"""
 def create_loss_store(
                     task: str,
                     criterion: torch.nn.Module,
                     label_list: List[str],
                     device: torch.device
                     ) -> LossStore:
-    """
-    Set LossStore depending on task
 
-    Args:
-        task (str): task
-        criterion (torch.nn.Module): criterion
-        label_list (List[str]): label list
-        device (torch.device): device
-
-    Returns:
-        LossStore: class to store loss
-    """
     if task == 'classification':
         loss_store = ClsLoss(criterion, label_list, device)
     elif task == 'regression':
@@ -418,155 +291,4 @@ def create_loss_store(
     else:
         raise ValueError(f"Invalid task: {task}.")
     return loss_store
-
-
-
-#! --------------------------------------------------
-
-@abstractmethod
-def cal_batch_loss(
-                cls,
-                multi_output: Dict[str, float],
-                multi_label: Dict[str, int],
-                period: torch.Tensor = None,
-                network: torch.nn.Module = None
-                ) -> None:
-    pass
-
-
-#! classification
-def cal_batch_loss(self, multi_output: Dict[str, torch.Tensor], multi_label: Dict[str, Union[int, float]]) -> None:
-    for label_name in multi_label.keys():
-        #!---
-        _output = multi_output[label_name]  # [64, 2]
-        _label = multi_label[label_name]    # [64]
-        #!---
-        self.batch_loss[label_name] = self.criterion(_output, _label)  #! ---
-
-    #! ---- Same ---
-    _total = torch.tensor([0.0]).to(self.device)
-    for label_name in multi_label.keys():
-        _total = torch.add(_total, self.batch_loss[label_name])
-    self.batch_loss['total'] = _total
-    #! ---- Same ---
-
-
-
-#! regression
-def cal_batch_loss(self, multi_output: Dict[str, torch.Tensor], multi_label: Dict[str, Union[int, float]]) -> None:
-    for label_name in multi_label.keys():
-        breakpoint()
-        #! -----
-        #_output = multi_output[label_name].squeeze()   # [64, 1] -> [64]
-        #_label = multi_label[label_name].float()       #            [64]   .float()しなくても、csvparserでfloatにcastされている
-        _output = multi_output[label_name].reshape(-1)  # [64, 1] -> [64]
-        _label = multi_label[label_name]                #            [64]
-        #! -----
-        self.batch_loss[label_name] = self.criterion(_output, _label)  #! ---
-
-    #! ---- Same ---
-    _total = torch.tensor([0.0]).to(self.device)
-    for label_name in multi_label.keys():
-        _total = torch.add(_total, self.batch_loss[label_name])
-    self.batch_loss['total'] = _total
-    #! ---- Same ---
-
-
-#! deepsurv
-def cal_batch_loss(
-                    self,
-                    multi_output: Dict[str, torch.Tensor],
-                    multi_label: Dict[str, Union[int, float]],
-                    period: torch.Tensor,
-                    network: torch.nn.Module
-                    ) -> None:
-    # Although label_name should be one,
-    # use for to match the case pf classification and regression
-    for label_name in multi_label.keys():
-        breakpoint()
-        #!---
-        _pred = multi_output[label_name]                 #         [64, 1]
-        _period = period.reshape(-1, 1)                  # [64] -> [64, 1]
-        _label = multi_label[label_name].reshape(-1, 1)  # [64] -> [64, 1]
-        self.batch_loss[label_name] = self.criterion(_pred, _period, _label, network)  #! ---
-        #!---
-
-    #! ---- Same ---
-    _total = torch.tensor([0.0]).to(self.device)
-    for label_name in multi_label.keys():
-        _total = torch.add(_total, self.batch_loss[label_name])
-    self.batch_loss['total'] = _total
-    #! ---- Same ---
-
-
-
-
-def cal_batch_loss(
-                self,
-                output = None,
-                labels = None,
-                periods = None,
-                network = None
-                ) -> None:
-
-
-    for label_name in labels.keys():
-        #! classification
-        _output = output[label_name]                    #       [64, 2]
-        _label = multi_label[label_name]                #       [64]
-        self.batch_loss[label_name] = self.criterion(_output, _label)
-
-        #! regression
-        _output = multi_output[label_name].reshape(-1)  # [64, 1] -> [64]
-        _label = multi_label[label_name]                #            [64]
-        self.batch_loss[label_name] = self.criterion(_output, _label)
-
-        #! deepsurv
-        _output = multi_output[label_name]               #           [64, 1]
-        _period = period.reshape(-1, 1)                  # [64] ->   [64, 1]
-        _label = multi_label[label_name].reshape(-1, 1)  # [64] ->   [64, 1]
-        self.batch_loss[label_name] = self.criterion(_output, _label, _period, network) #! ---
-
-
-    _total = torch.tensor([0.0]).to(self.device)
-    for label_name in multi_label.keys():
-        _total = torch.add(_total, self.batch_loss[label_name])
-    self.batch_loss['total'] = _total
-
-
-
-
-
-class TaskLoss:
-    def __init__(self, task):
-        self.task = task
-
-        # Adjust shape
-        if self.task == 'classification':
-            self.shape_output = None
-            self.shape_label = None
-            self.shape_period = None
-
-        elif task == 'regression':
-            self.shape_output = (lambda x: x.squeeze())
-            self.shape_label = None
-            self.shape_period = None
-
-        elif task == 'deepsurv':
-            self.shape_output = None
-            self.shape_label = (lambda x: x.reshape(-1, 1))
-            self.shape_period = (lambda x: x.reshape(-1, 1))
-
-
-
-    def cal_batch_loss(self):
-        for label_name in multi_label.keys():
-            self.shape_output
-            self.shape_label
-            self.shape_period
-
-
-        _total = torch.tensor([0.0]).to(self.device)
-        for label_name in multi_label.keys():
-            _total = torch.add(_total, self.batch_loss[label_name])
-        self.batch_loss['total'] = _total
+"""
