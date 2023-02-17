@@ -104,4 +104,4 @@ def set_likelihood(task: str, num_outputs_for_label: Dict[str, int]) -> Likeliho
     Returns:
             Likelihood: instance of class Likelihood
     """
-    return Likelihood(task , num_outputs_for_label)
+    return Likelihood(task, num_outputs_for_label)
