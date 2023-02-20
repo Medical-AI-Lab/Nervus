@@ -4,7 +4,6 @@
 from pathlib import Path
 import copy
 from abc import ABC, abstractmethod
-import pandas as pd
 import torch
 import torch.nn as nn
 from .component import create_net
@@ -46,14 +45,6 @@ class BaseModel(ABC):
                                 pretrained=self.params.pretrained
                                 )
 
-        #if self.params.isTrain:
-        #    from .component import set_criterion, set_optimizer, create_loss_store
-        #    self.criterion = set_criterion(self.params.criterion, self.params.device)
-        #    self.optimizer = set_optimizer(self.params.optimizer, self.network, self.params.lr)
-        #    self.loss_store = create_loss_store(self.params.task, self.criterion, self.params.label_list, self.params.device)
-        #else:
-        #    pass
-
     def train(self) -> None:
         """
         Make self.network training mode.
@@ -86,19 +77,6 @@ class BaseModel(ABC):
                         Dict[str, Union[LabelDict, torch.IntTensor]]
                         ]:
         raise NotImplementedError
-
-    #def backward(self) -> None:
-    #    """
-    #    Backward
-    #    """
-    #    self.loss = self.loss_store.batch_loss['total']
-    #    self.loss.backward()
-
-    #def optimize_parameters(self) -> None:
-    #    """
-    #    Update parameters
-    #    """
-    #    self.optimizer.step()
 
     def init_network(self) -> None:
         """
@@ -175,30 +153,6 @@ class ModelMixin:
 
         # Make model compute on GPU after loading weight.
         self._enable_on_gpu_if_available()
-
-    # For learning curve
-    #def save_learning_curve(self, save_datetime_dir: str) -> None:
-    #    """
-    #    Save learning curve.
-    #
-    #    Args:
-    #        save_datetime_dir (str): save_datetime_dir
-    #    """
-    #    save_dir = Path(save_datetime_dir, 'learning_curve')
-    #    save_dir.mkdir(parents=True, exist_ok=True)
-    #    epoch_loss = self.loss_store.epoch_loss
-    #    for label_name in self.label_list + ['total']:
-    #        each_epoch_loss = epoch_loss[label_name]
-    #        df_each_epoch_loss = pd.DataFrame({
-    #                                            'train_loss': each_epoch_loss.train,
-    #                                            'val_loss': each_epoch_loss.val
-    #                                        })
-    #        best_epoch = str(each_epoch_loss.get_best_epoch()).zfill(3)
-    #        best_val_loss = f"{each_epoch_loss.get_best_val_loss():.4f}"
-    #        save_name = 'learning_curve_' + label_name + '_val-best-epoch-' + best_epoch + '_val-best-loss-' + best_val_loss + '.csv'
-    #        save_path = Path(save_dir, save_name)
-    #        df_each_epoch_loss.to_csv(save_path, index=False)
-
 
 
 class ModelWidget(BaseModel, ModelMixin):
