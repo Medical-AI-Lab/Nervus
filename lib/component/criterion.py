@@ -39,7 +39,7 @@ class Regularization(object):
     Class to calculate regularization loss.
 
     Args:
-        object (_type_): _description_
+        object (object): object
     """
     def __init__(self, order: int, weight_decay: float) -> None:
         """
@@ -136,18 +136,17 @@ class ClsCriterion:
     """
     Class of criterion for classification.
     """
-    def __init__(self) -> None:
+    def __init__(self, criterion_name: str = None) -> None:
         """
         Set CrossEntropyLoss.
         """
+        self.criterion_name = criterion_name
         self.criterion = nn.CrossEntropyLoss()
 
     def __call__(
                 self,
                 output: torch.FloatTensor = None,
-                label: torch.IntTensor = None,
-                _period = None,
-                _network = None
+                label: torch.IntTensor = None
                 ) -> torch.FloatTensor:
         """
         Calculate loss.
@@ -156,15 +155,14 @@ class ClsCriterion:
             output (torch.FloatTensor): output
             label (torch.IntTensor): label
 
-            The following two args to match NLL to the number of arguments.
-            _period: Always None.
-            _network: Always None.
-
         Returns:
-            torch.FloatTensor: _description_
-        """
+            torch.FloatTensor: loss
+
+        # No reshape:
+        # eg.
         # output: [64, 2]
         # label:  [64, 2]
+        """
         loss = self.criterion(output, label)
         return loss
 
@@ -176,18 +174,14 @@ class RegCriterion:
     def __init__(self, criterion_name: str = None) -> None:
         """
         Set MSE, RMSE or MAE.
-
-        Args:
-            criterion_name (str): MSE, RMSE or MAE.
         """
-        self.criterion = CRITERIONS[criterion_name]()
+        self.criterion_name = criterion_name
+        self.criterion = CRITERIONS[self.criterion_name]()
 
     def __call__(
                 self,
                 output: torch.FloatTensor = None,
-                label: torch.FloatTensor = None,
-                _period = None,
-                _network = None
+                label: torch.FloatTensor = None
                 ) -> torch.FloatTensor:
         """
         Calculate loss.
@@ -196,13 +190,11 @@ class RegCriterion:
             output (torch.FloatTensor): output
             label (torch.FloatTensor): label
 
-            The following two args to match NLL to the number of arguments.
-            _period: Always None.
-            _network: Always None.
-
         Returns:
             torch.FloatTensor: loss
 
+        Reshape
+        eg.
         output: [64, 1] -> [64]
         label:             [64]
         """
@@ -215,13 +207,14 @@ class DeepSurvCriterion:
     """
     Class of criterion for deepsurv.
     """
-    def __init__(self, device: torch.device = None) -> None:
+    def __init__(self, criterion_name: str = None, device: torch.device = None) -> None:
         """
         Set NegativeLogLikelihood.
 
         Args:
             device (torch.device, optional): device
         """
+        self.criterion_name = criterion_name
         self.device = device
         self.criterion = NegativeLogLikelihood(self.device).to(self.device)
 
@@ -244,6 +237,8 @@ class DeepSurvCriterion:
         Returns:
             torch.FloatTensor: loss
 
+        Reshape
+        eg.
         output:         [64, 1]
         label:  [64] -> [64, 1]
         period: [64] -> [64, 1]
@@ -255,8 +250,8 @@ class DeepSurvCriterion:
 
 
 def set_criterion(
-                criterion_name: str,
-                device: torch.device
+                criterion_name: str = None,
+                device: torch.device = None
                 ) -> Union[ClsCriterion, RegCriterion, DeepSurvCriterion]:
     """
     Set criterion for task.
@@ -270,13 +265,13 @@ def set_criterion(
     """
 
     if criterion_name == 'CEL':
-        return ClsCriterion()
+        return ClsCriterion(criterion_name=criterion_name)
 
     elif criterion_name in ['MSE', 'RMSE', 'MAE']:
         return RegCriterion(criterion_name=criterion_name)
 
     elif criterion_name == 'NLL':
-        return  DeepSurvCriterion(device=device)
+        return  DeepSurvCriterion(criterion_name=criterion_name, device=device)
 
     else:
         raise ValueError(f"Invalid criterion: {criterion_name}.")
