@@ -57,16 +57,25 @@ class BaseModel(ABC):
         """
         self.network.eval()
 
-    def _enable_on_gpu_if_available(self) -> None:
+    #def _enable_on_gpu_if_available(self) -> None:
+    #    """
+    #    Make model compute on the GPU.
+    #    """
+    #    if self.gpu_ids != []:
+    #       assert torch.cuda.is_available(), 'No available GPU on this machine.'
+    #        self.network.to(self.device)
+    #        self.network = nn.DataParallel(self.network, device_ids=self.gpu_ids)
+    #    else:
+    #        pass
+
+    def set_on_gpu(self, gpu_ids):
         """
         Make model compute on the GPU.
         """
-        if self.gpu_ids != []:
+        if gpu_ids != []:
             assert torch.cuda.is_available(), 'No available GPU on this machine.'
             self.network.to(self.device)
-            self.network = nn.DataParallel(self.network, device_ids=self.gpu_ids)
-        else:
-            pass
+            self.network = nn.DataParallel(self.network, device_ids=gpu_ids)
 
     @abstractmethod
     def set_data(
@@ -151,8 +160,8 @@ class ModelMixin:
         weight = torch.load(weight_path)
         self.network.load_state_dict(weight)
 
-        # Make model compute on GPU after loading weight.
-        self._enable_on_gpu_if_available()
+        ## Make model compute on GPU after loading weight.
+        #self._enable_on_gpu_if_available()
 
 
 class ModelWidget(BaseModel, ModelMixin):
@@ -353,8 +362,8 @@ def create_model(params: ParamSet) -> nn.Module:
     else:
         raise ValueError(f"Invalid model type: mlp={params.mlp}, net={params.net}.")
 
-    if params.isTrain:
-        model._enable_on_gpu_if_available()
-    # When test, execute model._enable_on_gpu_if_available() in load_weight(),
-    # ie. after loading weight.
+    #if params.isTrain:
+    #    model._enable_on_gpu_if_available()
+    ## When test, execute model._enable_on_gpu_if_available() in load_weight(),
+    ## ie. after loading weight.
     return model

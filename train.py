@@ -12,6 +12,11 @@ from lib import (
         BaseLogger
         )
 
+from lib.component import (
+            set_criterion,
+            set_optimizer,
+            create_loss_store
+        )
 
 logger = BaseLogger.get_logger(__name__)
 
@@ -29,7 +34,13 @@ def main(args):
     save_datetime_dir = conf_params.save_datetime_dir
 
     model = create_model(model_params)
+    model.set_on_gpu(model_params.gpu_ids)  # GPU
     dataloaders = {split: create_dataloader(dataloader_params, split=split) for split in ['train', 'val']}
+
+    # Separated from framework.py
+    criterion = set_criterion(model_params.criterion, model_params.device)
+    optimizer = set_optimizer(model_params.optimizer, model.network, model_params.lr)
+    loss_store = create_loss_store(model_params.label_list, model_params.device)
 
     for epoch in range(epochs):
         for phase in ['train', 'val']:
@@ -42,30 +53,32 @@ def main(args):
 
             split_dataloader = dataloaders[phase]
             for i, data in enumerate(split_dataloader):
-                model.optimizer.zero_grad()
-                in_data, labels = model.set_data(data)  # including to(self.)device
+                #model.optimizer.zero_grad()
+                optimizer.zero_grad()
+
+                in_data, labels = model.set_data(data)  # including to(self.device)
+                # in_data, labels = model.set_data(data, device)  ?
 
                 with torch.set_grad_enabled(phase == 'train'):
                     outputs = model(in_data)
-                    model.cal_batch_loss(outputs, labels)
+                    #! Accumulates running loss and returns total loss
+                    loss, losses = criterion(outputs, labels, model)  # Return total loss and losses for each label
+                    loss_store.batch_loss(losses, batch_size=len(data['imgpath']))
 
                     if phase == 'train':
-                        model.backward()
-                        model.optimize_parameters()
-
-                model.cal_running_loss(batch_size=len(data['imgpath']))
+                        loss.backward()
+                        optimizer.step
 
             dataset_size = len(split_dataloader.dataset)
-            model.cal_epoch_loss(epoch, phase, dataset_size=dataset_size)
+            loss_store.cal_epoch_loss(epoch, phase, dataset_size=dataset_size)  #! ---
+        loss_store.print_epoch_loss(epochs, epoch)
 
-        model.print_epoch_loss(epochs, epoch)
-
-        if model.is_total_val_loss_updated():
+        if loss_store.is_total_val_loss_updated():
             model.store_weight()
             if (epoch > 0) and (save_weight_policy == 'each'):
                 model.save_weight(save_datetime_dir, as_best=False)
 
-    model.save_learning_curve(save_datetime_dir)
+    loss_store.save_learning_curve(save_datetime_dir)
     model.save_weight(save_datetime_dir, as_best=True)
 
     if model_params.mlp is not None:
