@@ -107,17 +107,17 @@ class NegativeLogLikelihood(nn.Module):
         mask = torch.ones(period.shape[0], period.shape[0]).to(self.device)  # risk_pred and mask should be on the same device.
         mask[(period.T - period) > 0] = 0
 
-        loss_1 = torch.exp(risk_pred) * mask
-        # Note: torch.sum(loss_1, dim=0) possibly returns nan, in particular MLP.
-        loss_1 = torch.sum(loss_1, dim=0) / torch.sum(mask, dim=0)
-        loss_1 = torch.log(loss_1).reshape(-1, 1)
+        _loss = torch.exp(risk_pred) * mask
+        # Note: torch.sum(_loss, dim=0) possibly returns nan, in particular MLP.
+        _loss = torch.sum(_loss, dim=0) / torch.sum(mask, dim=0)
+        _loss = torch.log(_loss).reshape(-1, 1)
 
         num_occurs = torch.sum(label)
 
         if num_occurs.item() == 0.0:
             loss = torch.tensor([1e-7], requires_grad=True)  # To avoid zero division, set small value as loss
         else:
-            neg_log_loss = -torch.sum((risk_pred - loss_1) * label) / num_occurs
+            neg_log_loss = -torch.sum((risk_pred - _loss) * label) / num_occurs
             l2_loss = self.reg(network)
             loss = neg_log_loss + l2_loss
         return loss
