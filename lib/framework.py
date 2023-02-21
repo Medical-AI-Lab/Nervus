@@ -57,26 +57,6 @@ class BaseModel(ABC):
         """
         self.network.eval()
 
-    #def _enable_on_gpu_if_available(self) -> None:
-    #    """
-    #    Make model compute on the GPU.
-    #    """
-    #    if self.gpu_ids != []:
-    #       assert torch.cuda.is_available(), 'No available GPU on this machine.'
-    #        self.network.to(self.device)
-    #        self.network = nn.DataParallel(self.network, device_ids=self.gpu_ids)
-    #    else:
-    #        pass
-
-    def set_on_gpu(self, gpu_ids):
-        """
-        Make model compute on the GPU.
-        """
-        if gpu_ids != []:
-            assert torch.cuda.is_available(), 'No available GPU on this machine.'
-            self.network.to(self.device)
-            self.network = nn.DataParallel(self.network, device_ids=gpu_ids)
-
     @abstractmethod
     def set_data(
                 self,
@@ -86,6 +66,15 @@ class BaseModel(ABC):
                         Dict[str, Union[LabelDict, torch.IntTensor]]
                         ]:
         raise NotImplementedError
+
+    def to_gpu(self, gpu_ids):
+        """
+        Make model compute on the GPU.
+        """
+        if gpu_ids != []:
+            assert torch.cuda.is_available(), 'No available GPU on this machine.'
+            self.network.to(self.device)
+            self.network = nn.DataParallel(self.network, device_ids=gpu_ids)
 
     def init_network(self) -> None:
         """
@@ -101,6 +90,7 @@ class BaseModel(ABC):
                                 vit_image_size=self.params.vit_image_size,
                                 pretrained=self.params.pretrained
                                 )
+
 
 class ModelMixin:
     """
@@ -159,9 +149,6 @@ class ModelMixin:
         logger.info(f"Load weight: {weight_path}.\n")
         weight = torch.load(weight_path)
         self.network.load_state_dict(weight)
-
-        ## Make model compute on GPU after loading weight.
-        #self._enable_on_gpu_if_available()
 
 
 class ModelWidget(BaseModel, ModelMixin):
@@ -354,16 +341,10 @@ def create_model(params: ParamSet) -> nn.Module:
     _isFusion = (params.mlp is not None) and (params.net is not None)
 
     if _isMLPModel:
-        model = MLPModel(params)
+        return MLPModel(params)
     elif _isCVModel:
-        model = CVModel(params)
+        return CVModel(params)
     elif _isFusion:
-        model = FusionModel(params)
+        return FusionModel(params)
     else:
         raise ValueError(f"Invalid model type: mlp={params.mlp}, net={params.net}.")
-
-    #if params.isTrain:
-    #    model._enable_on_gpu_if_available()
-    ## When test, execute model._enable_on_gpu_if_available() in load_weight(),
-    ## ie. after loading weight.
-    return model
