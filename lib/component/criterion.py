@@ -326,3 +326,7 @@ class Criterion:
 
         losses['total'] = _total
         return losses
+
+
+def set_criterion(criterion_name: str, device: torch.device):
+    return Criterion(criterion_name, device)
