@@ -63,7 +63,7 @@ class BaseModel(ABC):
                 data: Dict
                 ) -> Tuple[
                         Dict[str, torch.FloatTensor],
-                        Dict[str, Union[LabelDict, torch.IntTensor]]
+                        Dict[str, Union[LabelDict, torch.IntTensor, nn.Module]]
                         ]:
         raise NotImplementedError
 
@@ -175,10 +175,12 @@ class MLPModel(ModelWidget):
                 data: Dict
                 ) -> Tuple[
                         Dict[str, torch.FloatTensor],
-                        Dict[str, Union[LabelDict, torch.IntTensor]]
+                        Dict[str, Union[LabelDict, torch.IntTensor, nn.Module]]
                         ]:
         """
-        Unpack data for forwarding of MLP and pass them to device.
+        Unpack data for forwarding of MLP and calculating loss
+        by passing them to device.
+        When deepsurv, period and network are also returned.
 
         Args:
             data (Dict): dictionary of data
@@ -186,8 +188,10 @@ class MLPModel(ModelWidget):
         Returns:
             Tuple[
                 Dict[str, torch.FloatTensor],
-                Dict[str, Union[LabelDict, torch.IntTensor]]
-                ]: inputs, labels, or inputs, labels, and periods
+                Dict[str, Union[LabelDict, torch.IntTensor, nn.Module]]
+                ]: input of model and data for calculating loss.
+        eg.
+        ([inputs], [labels]), or ([inputs], [labels, periods, network]) when deepsurv
         """
         in_data = {'inputs': data['inputs'].to(self.device)}
         labels = {'labels': {label_name: label.to(self.device) for label_name, label in data['labels'].items()}}
@@ -195,7 +199,11 @@ class MLPModel(ModelWidget):
         if not any(data['periods']):
             return in_data, labels
 
-        labels = {**labels, **{'periods': data['periods'].to(self.device)}}
+        # When deepsurv
+        labels = {
+                  **labels,
+                  **{'periods': data['periods'].to(self.device), 'network': self.network.to(self.device)}
+                }
         return in_data, labels
 
     def __call__(self, in_data: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
@@ -229,10 +237,11 @@ class CVModel(ModelWidget):
                 data: Dict
                 ) -> Tuple[
                         Dict[str, torch.FloatTensor],
-                        Dict[str, Union[LabelDict, torch.IntTensor]]
+                        Dict[str, Union[LabelDict, torch.IntTensor, nn.Module]]
                     ]:
         """
-        Unpack data for forwarding of CNN or ViT Model and pass them to device.
+        Unpack data for forwarding of CNN or ViT and calculating loss by passing them to device.
+        When deepsurv, period and network are also returned.
 
         Args:
             data (Dict): dictionary of data
@@ -240,8 +249,10 @@ class CVModel(ModelWidget):
         Returns:
             Tuple[
                 Dict[str, torch.FloatTensor],
-                Dict[str, Union[LabelDict, torch.IntTensor]]
-                ]: inputs, labels, or inputs, labels, and periods
+                Dict[str, Union[LabelDict, torch.IntTensor, nn.Module]]
+                ]: input of model and data for calculating loss.
+        eg.
+        ([image], [labels]), or ([image], [labels, periods, network]) when deepsurv
         """
         in_data = {'image': data['image'].to(self.device)}
         labels = {'labels': {label_name: label.to(self.device) for label_name, label in data['labels'].items()}}
@@ -249,9 +260,12 @@ class CVModel(ModelWidget):
         if not any(data['periods']):
             return in_data, labels
 
-        labels = {**labels, **{'periods': data['periods'].to(self.device)}}
+        # When deepsurv
+        labels = {
+                  **labels,
+                  **{'periods': data['periods'].to(self.device), 'network': self.network.to(self.device)}
+                }
         return in_data, labels
-
 
     def __call__(self, in_data: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
         """
@@ -284,10 +298,12 @@ class FusionModel(ModelWidget):
                 data: Dict
                 ) -> Tuple[
                         Dict[str, torch.FloatTensor],
-                        Dict[str, Union[LabelDict, torch.IntTensor]]
+                        Dict[str, Union[LabelDict, torch.IntTensor, nn.Module]]
                     ]:
         """
-        Unpack data for forwarding of MLP+CNN or MLP+ViT and pass them to device.
+        Unpack data for forwarding of MLP+CNN or MLP+ViT and calculating loss
+        by passing them to device.
+        When deepsurv, period and network are also returned.
 
         Args:
             data (Dict): dictionary of data
@@ -295,8 +311,10 @@ class FusionModel(ModelWidget):
         Returns:
             Tuple[
                 Dict[str, torch.FloatTensor],
-                Dict[str, LabelDict]
-                ]: inputs, labels, or inputs, labels, and periods
+                Dict[str, Union[LabelDict, torch.IntTensor, nn.Module]]
+                ]: input of model and data for calculating loss.
+        eg.
+        ([inputs, image], [labels]), or ([inputs, image], [labels, periods, network]) when deepsurv
         """
         in_data = {
                 'inputs': data['inputs'].to(self.device),
@@ -307,7 +325,11 @@ class FusionModel(ModelWidget):
         if not any(data['periods']):
             return in_data, labels
 
-        labels = {**labels, **{'periods': data['periods'].to(self.device)}}
+        # When deepsurv
+        labels = {
+                  **labels,
+                  **{'periods': data['periods'].to(self.device), 'network': self.network.to(self.device)}
+                }
         return in_data, labels
 
     def __call__(self, in_data: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
