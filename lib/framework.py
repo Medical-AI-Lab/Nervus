@@ -358,13 +358,13 @@ def create_model(params: ParamSet) -> nn.Module:
     Returns:
         nn.Module: model
     """
-    _isMLPModel = (params.mlp is not None) and (params.net is None)
-    _isCVModel = (params.mlp is None) and (params.net is not None)
+    _isMLP = (params.mlp is not None) and (params.net is None)
+    _isCV = (params.mlp is None) and (params.net is not None)
     _isFusion = (params.mlp is not None) and (params.net is not None)
 
-    if _isMLPModel:
+    if _isMLP:
         return MLPModel(params)
-    elif _isCVModel:
+    elif _isCV:
         return CVModel(params)
     elif _isFusion:
         return FusionModel(params)
