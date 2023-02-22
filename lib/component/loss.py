@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import torch
+import pandas as pd
 from ..logger import BaseLogger
 from typing import List, Dict
 
@@ -11,16 +12,46 @@ from pathlib import Path
 logger = BaseLogger.get_logger(__name__)
 
 
-class LabelEpochLoss:
+class LabelLoss:
     """
     Class to store epoch loss of each label.
     """
     def __init__(self) -> None:
-        self.train = []
-        self.val = []
-        self.best_val_loss = None
-        self.best_epoch = None
+        # running_loss = batch_loss + batch_loss + ...
+        self.train_running_loss = 0.0
+        self.val_running_loss = 0.0
+
+        self.train_epoch_loss = []
+        self.val_epoch_loss = []
+
+        self.best_val_loss = 0.0
+        self.best_epoch = 0
         self.is_val_loss_updated = False
+
+    def add_running_loss(self, phase: str, new_running_loss: float) -> None:
+        """
+        Added running_loss to previous one for each phase.
+
+        Args:
+            phase (str): 'train' or 'val'
+            new_running_loss (float): loss value
+        """
+        _target = phase + '_running_loss'
+        _added = getattr(self, _target) + new_running_loss
+        setattr(self, _target, _added)
+
+    def get_running_loss(self, phase: str) -> float:
+        """
+        Return running loss of phase
+
+        Args:
+            phase (str): 'train' or 'val'
+
+        Returns:
+            float: running loss
+        """
+        _target = phase + '_running_loss'
+        return getattr(self, _target)
 
     def append_epoch_loss(self, phase: str, new_epoch_loss: float) -> None:
         """
@@ -30,9 +61,23 @@ class LabelEpochLoss:
             phase (str): train or val
             new_epoch_loss (float): loss value
         """
-        getattr(self, phase).append(new_epoch_loss)
+        _target = phase + '_epoch_loss'
+        getattr(self, _target).append(new_epoch_loss)
 
-    def get_latest_loss(self, phase: str) -> float:
+    def get_epoch_loss(self, phase: str) -> float:
+        """
+        Return epoch loss of phase
+
+        Args:
+            phase (str): 'train' or 'val'
+
+        Returns:
+            float: epoch loss
+        """
+        _target = phase + '_epoch_loss'
+        return getattr(self, _target)
+
+    def get_latest_epoch_loss(self, phase: str) -> float:
         """
         Return the latest loss of phase.
         Args:
@@ -40,7 +85,8 @@ class LabelEpochLoss:
         Returns:
             float: the latest loss
         """
-        return getattr(self, phase)[-1]
+        _target = phase + '_epoch_loss'
+        return getattr(self, _target)[-1]
 
     def set_best_val_loss(self, best_val_loss: float) -> None:
         """
@@ -78,201 +124,140 @@ class LabelEpochLoss:
         """
         return self.best_epoch
 
-    def check_if_val_loss_updated(self) -> bool:
+    def update_best_val_loss(self, at_epoch: int = 0) -> None:
         """
-        Check if if val loss is updated.
-
-        Returns:
-            bool: True if val loss is updated.
-        """
-        return self.is_val_loss_updated
-
-    def check_best_val_loss_epoch(self, epoch: int) -> None:
-        """
-        Check if val loss is the best at epoch.
+        Update val_epoch_loss is the best.
 
         Args:
-            epoch (int): epoch at which loss is checked if it is the best.
+            at_epoch (int): epoch when checked
         """
-        if epoch == 0:
-            _best_val_loss = self.get_latest_loss('val')
+        if at_epoch == 0:
+            _best_val_loss = self.get_latest_epoch_loss('val')  # latest one should be the best.
             self.set_best_val_loss(_best_val_loss)
-            self.set_best_epoch(epoch + 1)
-            self.up_update_flag()
+            self.set_best_epoch(at_epoch + 1)
 
-        _latest_val_loss = self.get_latest_loss('val')
+        # When at_epoch > 0
+        _latest_val_loss = self.get_latest_epoch_loss('val')
         _best_val_loss = self.get_best_val_loss()
         if _latest_val_loss < _best_val_loss:
             self.set_best_val_loss(_latest_val_loss)
-            self.set_best_epoch(epoch + 1)
-            self.is_updated_total_val_loss = True
+            self.set_best_epoch(at_epoch + 1)
+            self.is_val_loss_updated = True
         else:
-            self.is_updated_total_val_loss = False
+            self.is_val_loss_updated = False
 
+    def check_if_val_loss_updated(self) -> bool:
+        """
+        Check if if val_epoch_loss is updated.
 
-
-
+        Returns:
+            bool: True if val_epoch_loss was updated.
+        """
+        return self.is_val_loss_updated
 
 
 class LossStore:
     """
     Class for calculating loss and store it.
-    First, losses are calculated for each iteration and then are accumulated in EpochLoss class.
     """
-    def __init__(self, criterion, label_list, device) -> None:
+    def __init__(self, label_list, device) -> None:
         """
         Args:
             label_list (List[str]): list of internal labels
         """
-        self.criterion = criterion
         self.label_list = label_list
         self.device = device
+        self.loss_stores = self._set_label_loss(self.label_list + ['total'])
+        # Added a special label 'total' to store total of losses of all labels.
 
-        self.batch_loss = self._init_batch_loss()      # For every batch
-        self.running_loss = self._init_running_loss()  # accumulates batch loss
-        self.epoch_loss = self._init_epoch_loss()      # For every epoch
-
-    def _init_batch_loss(self) -> Dict[str, None]:
+    def _set_label_loss(self, label_list: List[str]) -> Dict[str, LabelLoss]:
         """
-        Initialize dictionary to store loss of each internal label for each batch.
-
-        Returns:
-            Dict[str, None]: dictionary to store loss of each internal label for each batch
-        """
-        return {label_name: None for label_name in self.label_list + ['total']}
-
-    def _init_running_loss(self) -> Dict[str, float]:
-        """
-        Initialize dictionary to store loss of each label for each iteration.
-
-        Returns:
-            Dict[str, float]: dictionary to store loss of each label for each iteration
-        """
-        _running_loss = dict()
-        for label_name in self.label_list + ['total']:
-            _running_loss[label_name] = 0.0
-        return _running_loss
-
-    def _init_epoch_loss(self) -> None:
-        """
-        Initialize dictionary to store loss of each label for each epoch.
-
-        Returns:
-            Dict[str, float]: dictionary to store loss of each label for each epoch
-        """
-        _epoch_loss = dict()
-        for label_name in self.label_list + ['total']:
-            _epoch_loss[label_name] = EpochLoss()
-        return _epoch_loss
-
-
-
-    #! --------------------
-    def cal_running_loss(self, batch_size: int = None) -> None:
-        """
-        Calculate loss for each iteration.
-        batch_loss is accumulated in running_loss.
-        This is called in train.py
+        Set class to store loss of each label total loss.
 
         Args:
-            batch_size (int): batch size. Defaults to None.
-        """
-        assert (batch_size is not None), 'Invalid batch_size: batch_size=None.'
-        for label_name in self.label_list:
-            _running_loss = self.running_loss[label_name] + (self.batch_loss[label_name].item() * batch_size)
-            self.running_loss[label_name] = _running_loss
-            self.running_loss['total'] = self.running_loss['total'] + _running_loss
-    #! --------------------
+            label_list (List[str]): label list and total
 
-
-    #! ------ docstring -----
-    def cal_batch_loss(
-                self,
-                outputs = None,
-                labels = None,
-                period = None,
-                network = None
-                ) -> None:
-
-        for label_name in labels.keys():
-            _output = outputs[label_name]
-            _label = labels[label_name]
-            self.batch_loss[label_name] = self.criterion(_output, _label, period, network)
-
-        _total = torch.tensor([0.0]).to(self.device)
-        for label_name in labels.keys():
-            _total = torch.add(_total, self.batch_loss[label_name])
-        self.batch_loss['total'] = _total
-    #! ---------------------
-
-
-    # loss = loss_store.cal_batch_loss(outputs, labels, model, batch_size=len(data['imgpath']))
-    #! ---  from framework.py ---
-    def cal_batch_loss(
-                    self,
-                    output: Dict[str, torch.FloatTensor],
-                    label: Dict[str, Union[LabelDict, torch.IntTensor]]
-                    ) -> None:
-        """
-        Calculate loss for each bach.
-
-        Args:
-            output (Dict[str, torch.Tensor]): output
-            labels (Dict[str, LabelDict]): labels, and also period
+        Returns:
+            Dict[str, LabelLoss]: dictionary to store loss of each label for each epoch
 
         eg.
-        output = {'label_A': [0.8, 0.2], 'label_B': [0.7, 0.3], ...}
-        labels = {
-                'labels': {'label_A: 1: [1], 'label_B': [0], ...},
-                'periods': [0, 1, ...]
-                }
-        ->
-        {
-            'output': {'label_A': [0.8, 0.2], 'label_B': [0.7, 0.3], ...},
-            'label': {'label_A: 1: [1], 'label_B': [0], ...},
-            'period': [0, 1, ...],
-            'network': self.network
-        }
+        {label_A: LabelLoss(), label_B: LabelLoss(), ... , total: LabelLoss()}
         """
-        if self.criterion.criterion_name != 'NLL':
-            return self.cal_batch_loss(output=output, label=label)
+        _losses = {label_name: LabelLoss() for label_name in label_list}
+        return _losses
 
 
-        _args = {**{'output': output}, **label, **{'network': self.network}}
-        _loss = self.cal_batch_loss(**_args)
-        return _loss
-
-
-    def cal_epoch_loss(self, epoch: int, phase: str, dataset_size: int = None) -> None:
+    def store(self, losses: Dict[str, torch.FloatTensor], phase: str, batch_size: int) -> None:
         """
-        Calculate loss for each epoch.
+        Store label-wise losses of phase.
+
+        Args:
+            losses (Dict[str, torch.FloatTensor]): loss calculated by criterion for each label
+            epoch (int): epoch
+            phase (str): 'train' or 'val'
+            batch_size (int): batch size
+        """
+        for label_name in self.label_list:
+            # For each label
+            _new_running_loss = losses[label_name].item() * batch_size  # torch.FloatTensor -> float
+            self.loss_stores[label_name].add_running_loss(phase, _new_running_loss)
+            # For total
+            self.loss_stores['total'].add_running_loss(phase, _new_running_loss)
+
+
+    def cal_epoch_loss(self, at_epoch: int = 0, dataset_info: Dict[str, int] = None) -> None:
+        """
+        Calculate epoch loss for each phase all at once.
 
         Args:
             epoch (int): epoch number
-            phase (str): phase, ie. 'train' or 'val'
-            dataset_size (int): dataset size. Defaults to None.
+            dataset_info (Dict[str, int]): dataset sizes of 'train' and 'val'
         """
-        assert (dataset_size is not None), 'Invalid dataset_size: dataset_size=None.'
-        # Update loss list label-wise
-        _total = 0.0
+        # For each label
         for label_name in self.label_list:
-            _new_epoch_loss = self.running_loss[label_name] / dataset_size
-            self.epoch_loss[label_name].append_epoch_loss(phase, _new_epoch_loss)
-            _total = _total + _new_epoch_loss
+            for phase in ['train', 'val']:
+                _running_loss = self.loss_stores[label_name].get_running_loss(phase)
+                _new_epoch_loss = _running_loss / dataset_info[phase + '_data']
+                self.loss_stores[label_name].append_epoch_loss(phase, _new_epoch_loss)
 
-        _total = _total / len(self.label_list)
-        self.epoch_loss['total'].append_epoch_loss(phase, _total)
+        # For total
+        _total = 0.0
+        for phase in ['train', 'val']:
+            for label_name in self.label_list:
+                _total = _total + self.loss_stores[label_name].get_epoch_loss(phase)
+            _total = _total / len(self.label_list)
+            self.loss_stores['total'].append_epoch_loss(phase, _total)
 
-        # Updated val_best_loss and best_epoch label-wise when val
-        if phase == 'val':
-            for label_name in self.label_list + ['total']:
-                self.epoch_loss[label_name].check_best_val_loss_epoch(epoch)
 
-        # Initialize
-        self.batch_loss = self._init_batch_loss()
-        self.running_loss = self._init_running_loss()
+        # Updated val_best_loss and best_epoch label-wise
+        for label_name in self.label_list + ['total']:
 
-    def is_total_val_loss_updated(self) -> bool:
+            self.epoch_loss[label_name].check_best_val_loss_epoch(epoch)
+
+
+        # Check if updated.
+        for label_name in self.label_list:
+            self.loss_stores[label_name].update_best_val_loss(at_epoch=at_epoch)
+
+
+
+
+        # Initialize running_loss after calculating epoch loss
+        self._init_running_losses(self)
+
+
+    def _init_running_losses(self) -> None:
+        """
+        Initialize running_loss for each phase of LabelLoss() of each label.
+        """
+        for label_name in self.loss_stores.keys():  # including 'total'
+            setattr(self.loss_stores[label_name], 'train_running_loss', 0.0)
+            setattr(self.loss_stores[label_name], 'val_running_loss', 0.0)
+
+
+
+
+    def is_val_loss_updated(self) -> bool:
         """
         Check if val loss updated or not.
 
@@ -292,9 +277,14 @@ class LossStore:
             num_epochs (int): ith epoch
             epoch (int): epoch number
         """
+
         _total_epoch_loss = self.epoch_loss['total']
         train_loss = _total_epoch_loss.get_latest_loss('train')
+
         val_loss = _total_epoch_loss.get_latest_loss('val')
+
+
+
         epoch_comm = f"epoch [{epoch+1:>3}/{num_epochs:<3}]"
         train_comm = f"train_loss: {train_loss:>8.4f}"
         val_comm = f"val_loss: {val_loss:>8.4f}"
@@ -304,6 +294,8 @@ class LossStore:
             updated_comment = '   Updated best val_loss!'
         comment = epoch_comm + ', ' + train_comm + ', ' + val_comm + updated_comment
         logger.info(comment)
+
+
 
     # For learning curve
     def save_learning_curve(self, save_datetime_dir: str) -> None:
@@ -331,5 +323,16 @@ class LossStore:
 
 
 
-def create_loss_store(criterion, label_list, device):
-    pass
+
+def set_loss_store(label_list: List[str], device: torch.device) -> LossStore:
+    """
+    Return class LossStore.
+
+    Args:
+        label_list (List[str]): label list
+        device (torch.device): device
+
+    Returns:
+        LossStore: LossStore
+    """
+    return LossStore(label_list, device)

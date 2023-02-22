@@ -23,9 +23,9 @@ logger = BaseLogger.get_logger(__name__)
 
 
 def main(args):
-    model_params = args['model']
+    model_params = args['model']   # Delete criterion, optimizer, gpu_ids
     dataloader_params = args['dataloader']
-    conf_params = args['conf']
+    conf_params = args['conf']     # <- dataset_info, gpu_ids
     print_params = args['print']
     save_params = args['save']
     print_parameter(print_params)
@@ -55,38 +55,33 @@ def main(args):
             for i, data in enumerate(split_dataloader):
                 optimizer.zero_grad()
 
-                in_data, labels = model.set_data(data)  # including to(self.device)
+                in_data, labels = model.set_data(data)
                 with torch.set_grad_enabled(phase == 'train'):
                     outputs = model(in_data)
-
-                    # loss for each label and total of losses for all labels, ie. batch_loss label-wise
-                    losses = criterion(outputs, labels)
-                    loss = losses['total'] # Loss of back propagation
+                    losses = criterion(outputs, labels)  # loss for each label and total of losses for all labels, ie. batch_loss label-wise
 
                     if phase == 'train':
+                        loss = losses['total']
                         loss.backward()
                         optimizer.step()
 
-                loss_store.store(losses, batch_size=len(data['imgpath']))
-
-            dataset_size = len(split_dataloader.dataset)
-            loss_store.cal_epoch_loss(epoch, phase, dataset_size=dataset_size)
-        #! ---- End of phase ---
+                loss_store.store(losses, epoch, phase, batch_size=len(data['imgpath']))  # Store running loss every phase.
+            #! ---------- End iteration ----------
+        #! ---------- End phase -------
+        loss_store.cal_epoch_loss(epoch, dataset_info=print_params.dataset_info)  # Calculate epoch loss for all phases all at once.
         loss_store.print_epoch_loss(epochs, epoch)
 
-        if loss_store.is_total_val_loss_updated():
-            model.store_weight()
+        if loss_store.is_val_loss_updated():
+            model.store_weight(at_epoch=epoch)
             if (epoch > 0) and (save_weight_policy == 'each'):
                 model.save_weight(save_datetime_dir, as_best=False)
-    #! ----- End of epoch -----
-
-    loss_store.save_learning_curve(save_datetime_dir)
-    model.save_weight(save_datetime_dir, as_best=True)
-
-    if model_params.mlp is not None:
-        dataloaders['train'].dataset.save_scaler(save_datetime_dir + '/' + 'scaler.pkl')
+    #! ---------- End of epoch ----------
 
     save_parameter(save_params, save_datetime_dir + '/' + 'parameters.json')
+    loss_store.save_learning_curve(save_datetime_dir)
+    model.save_weight(save_datetime_dir, as_best=True)
+    if model_params.mlp is not None:
+        dataloaders['train'].dataset.save_scaler(save_datetime_dir + '/' + 'scaler.pkl')
 
 
 if __name__ == '__main__':

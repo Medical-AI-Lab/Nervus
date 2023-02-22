@@ -341,7 +341,7 @@ class Criterion:
 
 def set_criterion(criterion_name: str, device: torch.device) -> Criterion:
     """
-    Set class Criterion.
+    Return class Criterion.
 
     Args:
         criterion_name (str): criterion name

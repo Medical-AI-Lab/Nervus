@@ -100,12 +100,17 @@ class ModelMixin:
     acting_best_weight = None
     acting_best_epoch = None
 
+    # self.acting_best_weight = None  -> BaseModel ?
+    # self.acting_best_epoch = None
+
+
     # For weight
-    def store_weight(self) -> None:
+    def store_weight(self, at_epoch: int = 0) -> None:
         """
         Store weight.
         """
-        self.acting_best_epoch = self.loss_store.epoch_loss['total'].get_best_epoch()
+        self.acting_best_epoch = at_epoch
+
         _network = copy.deepcopy(self.network)
         if hasattr(_network, 'module'):
             # When DataParallel used, move weight to CPU.
@@ -121,7 +126,6 @@ class ModelMixin:
             save_datetime_dir (str): save_datetime_dir
             as_best (bool): True if weight is saved as best, otherwise False. Defaults to None.
         """
-        assert isinstance(as_best, bool), 'Argument as_best should be bool.'
         save_dir = Path(save_datetime_dir, 'weights')
         save_dir.mkdir(parents=True, exist_ok=True)
         save_name = 'weight_epoch-' + str(self.acting_best_epoch).zfill(3) + '.pt'
