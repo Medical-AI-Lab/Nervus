@@ -3,7 +3,11 @@
 
 import torch
 import torch.nn as nn
-from typing import Union
+from typing import Dict, Union
+
+# Alias of typing
+# eg. {'labels': {'label_A: torch.Tensor([0, 1, ...]), ...}}
+LabelDict = Dict[str, Dict[str, Union[torch.IntTensor, torch.FloatTensor]]]
 
 
 class RMSELoss(nn.Module):
@@ -34,7 +38,7 @@ class RMSELoss(nn.Module):
         return torch.sqrt(_loss)
 
 
-class Regularization(object):
+class Regularization:
     """
     Class to calculate regularization loss.
 
@@ -49,7 +53,7 @@ class Regularization(object):
             order: (int) norm order number
             weight_decay: (float) weight decay rate
         """
-        super(Regularization, self).__init__()
+        super().__init__()
         self.order = order
         self.weight_decay = weight_decay
 
@@ -87,27 +91,27 @@ class NegativeLogLikelihood(nn.Module):
 
     def forward(
                 self,
-                risk_pred: torch.FloatTensor,
+                output: torch.FloatTensor,
                 label: torch.IntTensor,
-                period: torch.IntTensor,
+                periods: torch.IntTensor,
                 network: nn.Module
                 ) -> torch.FloatTensor:
         """
         Calculates Negative Log Likelihood.
 
         Args:
-            risk_pred (torch.FloatTensor): prediction value
+            output (torch.FloatTensor): prediction value, ie risk prediction
             label (torch.IntTensor): occurrence of event
-            period (torch.FloatTensor): period
+            periods (torch.FloatTensor): period
             network (nn.Network): network
 
         Returns:
             torch.FloatTensor: Negative Log Likelihood
         """
-        mask = torch.ones(period.shape[0], period.shape[0]).to(self.device)  # risk_pred and mask should be on the same device.
-        mask[(period.T - period) > 0] = 0
+        mask = torch.ones(periods.shape[0], periods.shape[0]).to(self.device)  # output and mask should be on the same device.
+        mask[(periods.T - periods) > 0] = 0
 
-        _loss = torch.exp(risk_pred) * mask
+        _loss = torch.exp(output) * mask
         # Note: torch.sum(_loss, dim=0) possibly returns nan, in particular MLP.
         _loss = torch.sum(_loss, dim=0) / torch.sum(mask, dim=0)
         _loss = torch.log(_loss).reshape(-1, 1)
@@ -117,7 +121,7 @@ class NegativeLogLikelihood(nn.Module):
         if num_occurs.item() == 0.0:
             loss = torch.tensor([1e-7], requires_grad=True)  # To avoid zero division, set small value as loss
         else:
-            neg_log_loss = -torch.sum((risk_pred - _loss) * label) / num_occurs
+            neg_log_loss = -torch.sum((output - _loss) * label) / num_occurs
             l2_loss = self.reg(network)
             loss = neg_log_loss + l2_loss
         return loss
@@ -222,7 +226,7 @@ class DeepSurvCriterion:
                 self,
                 output: torch.FloatTensor = None,
                 label: torch.IntTensor = None,
-                period: torch.IntTensor = None,
+                periods: torch.IntTensor = None,
                 network: nn.Module = None
                 ) -> torch.FloatTensor:
         """
@@ -231,7 +235,7 @@ class DeepSurvCriterion:
         Args:
             output (torch.FloatTensor): output, or risk prediction
             label (torch.IntTensor): label
-            period (torch.IntTensor): period
+            periods (torch.IntTensor): period
             network (nn.Module): network. Its weight is used when calculating loss.
 
         Returns:
@@ -239,19 +243,19 @@ class DeepSurvCriterion:
 
         Reshape
         eg.
-        output:         [64, 1]
-        label:  [64] -> [64, 1]
-        period: [64] -> [64, 1]
+        output:          [64, 1]
+        label:   [64] -> [64, 1]
+        periods: [64] -> [64, 1]
         """
         label = label.reshape(-1, 1)
-        period = period.reshape(-1, 1)
-        loss = self.criterion(output, label, period, network)
+        periods = periods.reshape(-1, 1)
+        loss = self.criterion(output, label, periods, network)
         return loss
 
 
-def set_criterion(
-                criterion_name: str = None,
-                device: torch.device = None
+def select_criterion(
+                criterion_name: str,
+                device: torch.device
                 ) -> Union[ClsCriterion, RegCriterion, DeepSurvCriterion]:
     """
     Set criterion for task.
@@ -275,3 +279,50 @@ def set_criterion(
 
     else:
         raise ValueError(f"Invalid criterion: {criterion_name}.")
+
+
+class Criterion:
+    def __init__(self, criterion_name: str, device: torch.device) -> None:
+        self.criterion_name = criterion_name
+        self.device = device
+        self.criterion = select_criterion(self.criterion_name, self.device)
+
+    def __call__(
+                self,
+                outputs: Dict[str, torch.FloatTensor],
+                labels: Dict[str, Union[LabelDict, torch.IntTensor, nn.Module]],
+                ) -> Dict[str, torch.FloatTensor]:
+        """
+        Calculate loss for each label
+
+        Args:
+            outputs (Dict[str, torch.FloatTensor], optional): output
+            labels (Dict[str, Union[LabelDict, torch.IntTensor, nn.Module]]): input of model and data for calculating loss.
+
+        eg.
+        outputs = {'label_A': [0.8, 0.2], 'label_B': [0.7, 0.3], ...}
+        labels = {
+                    'labels': {'label_A: 1: [1, 0, 1, ..], 'label_B': [0, 0, 1, ...], ...},
+                    'periods': [5, 10, 7, ...],
+                    'network': network
+                }
+        """
+        _labels = labels['labels']
+        _label_list = labels['labels'].keys()
+
+        if 'periods' not in labels:
+            _args_nll = {}
+        else:
+            _args_nll = {'periods': labels['periods'], 'network': labels['networks']}
+
+        losses = dict()
+        _total = torch.tensor([0.0]).to(self.device)
+        for label_name in _label_list:
+            _args = {**{'output': outputs[label_name], 'label': _labels[label_name]}, **_args_nll}
+            # For each label
+            losses[label_name] = self.criterion(**_args)
+            # For total
+            _total = torch.add(_total, losses[label_name])
+
+        losses['total'] = _total
+        return losses

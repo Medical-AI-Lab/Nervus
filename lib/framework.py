@@ -358,15 +358,15 @@ def create_model(params: ParamSet) -> nn.Module:
     Returns:
         nn.Module: model
     """
-    _isMLP = (params.mlp is not None) and (params.net is None)
-    _isCV = (params.mlp is None) and (params.net is not None)
-    _isFusion = (params.mlp is not None) and (params.net is not None)
+    _isMLPModel = (params.mlp is not None) and (params.net is None)
+    _isCVModel = (params.mlp is None) and (params.net is not None)
+    _isFusionModel = (params.mlp is not None) and (params.net is not None)
 
-    if _isMLP:
+    if _isMLPModel:
         return MLPModel(params)
-    elif _isCV:
+    elif _isCVModel:
         return CVModel(params)
-    elif _isFusion:
+    elif _isFusionModel:
         return FusionModel(params)
     else:
         raise ValueError(f"Invalid model type: mlp={params.mlp}, net={params.net}.")
