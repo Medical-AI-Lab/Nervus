@@ -282,7 +282,15 @@ def select_criterion(
 
 
 class Criterion:
+    """
+    criterion class.
+    """
     def __init__(self, criterion_name: str, device: torch.device) -> None:
+        """
+        Args:
+            criterion_name (str): criterion name
+            device (torch.device): device
+        """
         self.criterion_name = criterion_name
         self.device = device
         self.criterion = select_criterion(self.criterion_name, self.device)
@@ -293,11 +301,14 @@ class Criterion:
                 labels: Dict[str, Union[LabelDict, torch.IntTensor, nn.Module]],
                 ) -> Dict[str, torch.FloatTensor]:
         """
-        Calculate loss for each label
+        Calculate loss for each label.
 
         Args:
             outputs (Dict[str, torch.FloatTensor], optional): output
             labels (Dict[str, Union[LabelDict, torch.IntTensor, nn.Module]]): input of model and data for calculating loss.
+
+        Return:
+            Dict[str, torch.FloatTensor]: loss for each label and their total loss
 
         eg.
         outputs = {'label_A': [0.8, 0.2], 'label_B': [0.7, 0.3], ...}
@@ -328,5 +339,15 @@ class Criterion:
         return losses
 
 
-def set_criterion(criterion_name: str, device: torch.device):
+def set_criterion(criterion_name: str, device: torch.device) -> Criterion:
+    """
+    Set class Criterion.
+
+    Args:
+        criterion_name (str): criterion name
+        device (torch.device): device
+
+    Returns:
+        Criterion: Criterion
+    """
     return Criterion(criterion_name, device)
