@@ -272,6 +272,9 @@ class ParamTable:
     groups = {
             'mo': 'model',
             'dl': 'dataloader',
+            #'cr': 'criterion',
+            #'opt': 'optimizer',
+            #'los': 'loss',
             'trc': 'train_conf',
             'tsc': 'test_conf',
             'sa': 'save',
@@ -282,6 +285,9 @@ class ParamTable:
 
     mo = groups['mo']
     dl = groups['dl']
+    #cr = groups['cr']
+    #opt = groups['opt']
+    #los = groups['los']
     trc = groups['trc']
     tsc = groups['tsc']
     sa = groups['sa']
@@ -294,8 +300,8 @@ class ParamTable:
             'datetime': [sa],
             'project': [sa, trp, tsp],
             'csvpath': [sa, trp, tsp],
-            'task': [mo, dl, tsc, sa, lo, trp, tsp],
-            'isTrain': [mo, dl, trp, tsp],
+            'task': [dl, tsc, sa, lo, trp, tsp],
+            'isTrain': [dl, trp, tsp],
 
             'model': [sa, lo, trp, tsp],
             'vit_image_size': [mo, sa, lo, trp, tsp],
@@ -306,10 +312,10 @@ class ParamTable:
             'weight_dir': [tsc, tsp],
             'weight_paths': [tsc],
 
-            'criterion': [mo, sa, trp],
-            'optimizer': [mo, sa, trp],
-            'lr': [mo, sa, trp],
-            'epochs': [sa, trc, trp],
+            'criterion': [trc, sa, trp],
+            'optimizer': [trc, sa, trp],
+            'lr': [trc, sa, trp],
+            'epochs': [trc, sa, trp],
 
             'batch_size': [dl, sa, trp],
             'test_batch_size': [dl, tsp],
@@ -321,7 +327,7 @@ class ParamTable:
             'sampler': [dl, sa, trp],
 
             'df_source': [dl],
-            'label_list': [mo, dl, sa, lo],
+            'label_list': [mo, dl, trc, sa, lo],
             'input_list': [dl, sa, lo],
             'period_name': [dl, sa, lo],
             'mlp_num_inputs': [mo, sa, lo],
@@ -331,9 +337,9 @@ class ParamTable:
             'scaler_path': [dl, tsp],
             'save_datetime_dir': [trc, tsc, trp, tsp],
 
-            'gpu_ids': [mo, sa, trp, tsp],
-            'device': [mo],
-            'dataset_info': [sa, trp, tsp]
+            'gpu_ids': [trc, tsc, sa, trp, tsp],
+            'device': [mo, trc, tsc],
+            'dataset_info': [trc, sa, trp, tsp]
             }
 
     @classmethod
@@ -355,6 +361,7 @@ class ParamTable:
 
 
 PARAM_TABLE = ParamTable.make_table()
+
 
 class ParamSet:
     """

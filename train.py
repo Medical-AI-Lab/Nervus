@@ -30,19 +30,19 @@ def main(args):
     save_params = args['save']
     print_parameter(print_params)
 
-    epochs = conf_params.epochs
+    # Unpack params?
     save_weight_policy = conf_params.save_weight_policy
     save_datetime_dir = conf_params.save_datetime_dir
 
     model = create_model(model_params)
-    model.to_gpu(model_params.gpu_ids)  #! GPU
+    model.to_gpu(conf_params.gpu_ids)
     dataloaders = {split: create_dataloader(dataloader_params, split=split) for split in ['train', 'val']}
 
-    criterion = set_criterion(model_params.criterion, model_params.device)
-    loss_store = set_loss_store(model_params.label_list, epochs)
-    optimizer = set_optimizer(model_params.optimizer, model.network, model_params.lr)
+    criterion = set_criterion(conf_params.criterion, conf_params.device)
+    loss_store = set_loss_store(conf_params.label_list, conf_params.epochs, conf_params.dataset_info)
+    optimizer = set_optimizer(conf_params.optimizer, model.network, conf_params.lr)
 
-    for epoch in range(epochs):
+    for epoch in range(conf_params.epochs):
         for phase in ['train', 'val']:
             if phase == 'train':
                 model.train()
@@ -67,20 +67,17 @@ def main(args):
 
                 loss_store.store(losses, phase, batch_size=len(data['imgpath']))
             #! ---------- End iteration ----------
+                print(epoch, phase, i)
         #! ---------- End phase -------
-        loss_store.cal_epoch_loss(at_epoch=epoch, dataset_info=print_params.dataset_info)  # Calculate epoch loss for all phases all at once.
+        loss_store.cal_epoch_loss(at_epoch=epoch)  # Calculate epoch loss for all phases all at once.
         loss_store.print_epoch_loss(at_epoch=epoch)
-
         if loss_store.is_val_loss_updated():
-            model.store_weight(at_epoch=epoch)
+            model.store_weight(at_epoch=loss_store.get_best_epoch())
             if (epoch > 0) and (save_weight_policy == 'each'):
                 model.save_weight(save_datetime_dir, as_best=False)
     #! ---------- End of epoch ----------
-
     save_parameter(save_params, save_datetime_dir + '/' + 'parameters.json')
-
     loss_store.save_learning_curve(save_datetime_dir)
-
     model.save_weight(save_datetime_dir, as_best=True)
     if model_params.mlp is not None:
         dataloaders['train'].dataset.save_scaler(save_datetime_dir + '/' + 'scaler.pkl')

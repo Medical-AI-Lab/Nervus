@@ -36,7 +36,7 @@ def main(args):
     for weight_path in weight_paths:
         logger.info(f"Inference ...")
         model.load_weight(weight_path)
-        model.to_gpu(model_params.gpu_ids)   #! GPU
+        model.to_gpu(conf_params.gpu_ids)
         model.eval()
 
         for i, split in enumerate(test_splits):
