@@ -16,8 +16,7 @@ class LabelLoss:
     Class to store loss for every bash and epoch loss of each label.
     """
     def __init__(self) -> None:
-        # Accumulate batch_loss
-        # batch_loss = loss * batch_size
+        # Accumulate batch_loss(=loss * batch_size)
         self.train_batch_loss = []  # List[float]
         self.val_batch_loss = []
 
@@ -77,6 +76,7 @@ class LabelLoss:
             _best_val_loss = self.get_latest_epoch_loss('val')
             self.best_val_loss = _best_val_loss
             self.best_epoch = at_epoch + 1
+            self.is_val_loss_updated = True
         else:
             # When at_epoch > 0
             _latest_val_loss = self.get_latest_epoch_loss('val')
@@ -92,14 +92,17 @@ class LossStore:
     """
     Class for calculating loss and store it.
     """
-    def __init__(self, label_list: List[str], num_epochs: int) -> None:
+    def __init__(self, label_list: List[str], num_epochs: int, dataset_info: Dict[str, int]) -> None:
         """
         Args:
             label_list (List[str]): list of internal labels
             num_epochs (int) : number of epochs
+            dataset_info (Dict[str, int]):  dataset sizes of 'train' and 'val'
         """
         self.label_list = label_list
         self.num_epochs = num_epochs
+        self.dataset_info = dataset_info
+
         # Added a special label 'total' to store total of losses of all labels.
         self.label_losses = {label_name: LabelLoss() for label_name in self.label_list + ['total']}
 
@@ -117,27 +120,26 @@ class LossStore:
             _label_batch_loss = losses[label_name].item() * batch_size  # torch.FloatTensor -> float
             self.label_losses[label_name].append_loss(_label_batch_loss, phase, 'batch')
 
-    def cal_epoch_loss(self, at_epoch: int = 0, dataset_info: Dict[str, int] = None) -> None:
+    def cal_epoch_loss(self, at_epoch: int = 0) -> None:
         """
         Calculate epoch loss for each phase all at once.
 
         Args:
             at_epoch (int): epoch number
-            dataset_info (Dict[str, int]): dataset sizes of 'train' and 'val'
         """
         # For each label
         for label_name in self.label_list:
             for phase in ['train', 'val']:
                 _batch_loss = self.label_losses[label_name].get_loss(phase, 'batch')
-                _dataset_size = dataset_info[phase + '_data']
+                _dataset_size = self.dataset_info[phase]
                 _new_epoch_loss = sum(_batch_loss) / _dataset_size
                 self.label_losses[label_name].append_loss(_new_epoch_loss, phase, 'epoch')
 
-        # For total, average by the number of labels.
+        # For total, average by dataset_size and the number of labels.
         for phase in ['train', 'val']:
             _batch_loss = self.label_losses['total'].get_loss(phase, 'batch')
-            _dataset_size = dataset_info[phase + '_data']
-            _new_epoch_loss = (sum(_batch_loss) / _dataset_size) / len(self.label_list)
+            _dataset_size = self.dataset_info[phase]
+            _new_epoch_loss = sum(_batch_loss) / (_dataset_size * len(self.label_list))
             self.label_losses['total'].append_loss(_new_epoch_loss, phase, 'epoch')
 
         # Update val_best_loss and best_epoch.
@@ -148,6 +150,24 @@ class LossStore:
         for label_name in self.label_list + ['total']:
             self.label_losses[label_name].train_batch_loss = []
             self.label_losses[label_name].val_batch_loss = []
+
+    def is_val_loss_updated(self) -> bool:
+        """
+        Check if val_loss of 'total' updated.
+
+        Returns:
+            bool: Updated or not
+        """
+        return self.label_losses['total'].is_val_loss_updated
+
+    def get_best_epoch(self) -> int:
+        """
+        Returns best epoch.
+
+        Returns:
+            int: best epoch
+        """
+        return self.label_losses['total'].best_epoch
 
     def print_epoch_loss(self, at_epoch: int = 0) -> None:
         """
@@ -165,7 +185,7 @@ class LossStore:
         val_comm = f"val_loss: {val_epoch_loss:>8.4f}"
 
         updated_comment = ''
-        if (at_epoch > 0) and (self.label_losses['total'].is_val_loss_updated()):
+        if (at_epoch > 0) and (self.is_val_loss_updated()):
             updated_comment = '   Updated best val_loss!'
 
         comment = epoch_comm + ', ' + train_comm + ', ' + val_comm + updated_comment
@@ -198,15 +218,16 @@ class LossStore:
             df_label_epoch_loss.to_csv(save_path, index=False)
 
 
-def set_loss_store(label_list: List[str], num_epochs: int) -> LossStore:
+def set_loss_store(label_list: List[str], num_epochs: int, dataset_info: Dict[str, int]) -> LossStore:
     """
     Return class LossStore.
 
     Args:
         label_list (List[str]): label list
         num_epochs (int) : number of epochs
+        dataset_info (Dict[str, int]):  dataset sizes of 'train' and 'val'
 
     Returns:
         LossStore: LossStore
     """
-    return LossStore(label_list, num_epochs)
+    return LossStore(label_list, num_epochs, dataset_info)

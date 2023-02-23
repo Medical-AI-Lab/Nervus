@@ -9,7 +9,7 @@ import torch.nn as nn
 from .component import create_net
 from .logger import BaseLogger
 from lib import ParamSet
-from typing import Dict, Tuple, Union
+from typing import List, Dict, Tuple, Union
 
 # Alias of typing
 # eg. {'labels': {'label_A: torch.Tensor([0, 1, ...]), ...}}
@@ -33,7 +33,6 @@ class BaseModel(ABC):
         self.params = params
         self.label_list = self.params.label_list
         self.device = self.params.device
-        self.gpu_ids = self.params.gpu_ids
 
         self.network = create_net(
                                 mlp=self.params.mlp,
@@ -51,13 +50,13 @@ class BaseModel(ABC):
 
     def train(self) -> None:
         """
-        Make self.network training mode.
+        Make network training mode.
         """
         self.network.train()
 
     def eval(self) -> None:
         """
-        Make self.network evaluation mode.
+        Make network evaluation mode.
         """
         self.network.eval()
 
@@ -71,9 +70,12 @@ class BaseModel(ABC):
                         ]:
         raise NotImplementedError
 
-    def to_gpu(self, gpu_ids):
+    def to_gpu(self, gpu_ids: List[int]) -> None:
         """
         Make model compute on the GPU.
+
+        Args:
+            gpu_ids (List[int]): GPU ids
         """
         if gpu_ids != []:
             assert torch.cuda.is_available(), 'No available GPU on this machine.'
@@ -96,14 +98,21 @@ class BaseModel(ABC):
                                 )
 
 
-class ModelMixin:
+class SaveLoadWeight:
     """
-    Class including methods for save or load weight.
+    Class to save or load weight.
     """
-    # For weight
+    def __init__(self) -> None:
+        # variables to keep best_weight and best_epoch temporarily.
+        self.acting_best_weight = None
+        self.acting_best_epoch = None
+
     def store_weight(self, at_epoch: int = 0) -> None:
         """
-        Store weight.
+        Store weight and epoch number when it is saved.
+
+        Args:
+            at_epoch (int): epoch number when save weight
         """
         self.acting_best_epoch = at_epoch
 
@@ -151,7 +160,7 @@ class ModelMixin:
         self.network.load_state_dict(weight)
 
 
-class ModelWidget(BaseModel, ModelMixin):
+class ModelWidget(BaseModel, SaveLoadWeight):
     """
     Class for a widget to inherit multiple classes simultaneously
     """
