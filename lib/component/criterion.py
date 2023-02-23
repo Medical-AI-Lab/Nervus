@@ -317,6 +317,7 @@ class Criterion:
                     'periods': [5, 10, 7, ...],
                     'network': network
                 }
+        -> {label_A: loss_A, label_B: loss_B, ... , total: loss_total}
         """
         _labels = labels['labels']
         _label_list = labels['labels'].keys()

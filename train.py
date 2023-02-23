@@ -39,7 +39,7 @@ def main(args):
     dataloaders = {split: create_dataloader(dataloader_params, split=split) for split in ['train', 'val']}
 
     criterion = set_criterion(model_params.criterion, model_params.device)
-    loss_store = set_loss_store(model_params.label_list, model_params.device)
+    loss_store = set_loss_store(model_params.label_list, epochs)
     optimizer = set_optimizer(model_params.optimizer, model.network, model_params.lr)
 
     for epoch in range(epochs):
@@ -65,11 +65,11 @@ def main(args):
                         loss.backward()
                         optimizer.step()
 
-                loss_store.store(losses, epoch, phase, batch_size=len(data['imgpath']))  # Store running loss every phase.
+                loss_store.store(losses, phase, batch_size=len(data['imgpath']))
             #! ---------- End iteration ----------
         #! ---------- End phase -------
-        loss_store.cal_epoch_loss(epoch, dataset_info=print_params.dataset_info)  # Calculate epoch loss for all phases all at once.
-        loss_store.print_epoch_loss(epochs, epoch)
+        loss_store.cal_epoch_loss(at_epoch=epoch, dataset_info=print_params.dataset_info)  # Calculate epoch loss for all phases all at once.
+        loss_store.print_epoch_loss(at_epoch=epoch)
 
         if loss_store.is_val_loss_updated():
             model.store_weight(at_epoch=epoch)
@@ -78,7 +78,9 @@ def main(args):
     #! ---------- End of epoch ----------
 
     save_parameter(save_params, save_datetime_dir + '/' + 'parameters.json')
+
     loss_store.save_learning_curve(save_datetime_dir)
+
     model.save_weight(save_datetime_dir, as_best=True)
     if model_params.mlp is not None:
         dataloaders['train'].dataset.save_scaler(save_datetime_dir + '/' + 'scaler.pkl')
