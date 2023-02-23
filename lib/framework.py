@@ -45,6 +45,10 @@ class BaseModel(ABC):
                                 pretrained=self.params.pretrained
                                 )
 
+        # variables to keep best_weight and best_epoch temporarily.
+        self.acting_best_weight = None
+        self.acting_best_epoch = None
+
     def train(self) -> None:
         """
         Make self.network training mode.
@@ -94,16 +98,8 @@ class BaseModel(ABC):
 
 class ModelMixin:
     """
-    Class including methods for save or load weight, or learning_curve.
+    Class including methods for save or load weight.
     """
-    # variables to keep best_weight and best_epoch temporarily.
-    acting_best_weight = None
-    acting_best_epoch = None
-
-    # self.acting_best_weight = None  -> BaseModel ?
-    # self.acting_best_epoch = None
-
-
     # For weight
     def store_weight(self, at_epoch: int = 0) -> None:
         """
