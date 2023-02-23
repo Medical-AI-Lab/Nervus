@@ -25,9 +25,9 @@ class LabelLoss:
         self.train_epoch_loss = []
         self.val_epoch_loss = []
 
-        self.best_val_loss = 0.0
-        self.best_epoch = 0
-        self.is_val_loss_updated = False
+        self.best_val_loss = None        # float
+        self.best_epoch = None           # int
+        self.is_val_loss_updated = None  # bool
 
     def append_loss(self, new_loss: float, phase: str, target: str) -> None:
         """
