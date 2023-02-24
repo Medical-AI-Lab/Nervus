@@ -544,11 +544,11 @@ def _train_parse(args: argparse.Namespace) -> Dict[str, ParamSet]:
 
     # Dispatch parameters
     return {
-            'model': _dispatch_by_group(args, 'model'),
-            'dataloader': _dispatch_by_group(args, 'dataloader'),
-            'conf': _dispatch_by_group(args, 'train_conf'),
-            'print': _dispatch_by_group(args, 'train_print'),
-            'save': _dispatch_by_group(args, 'save')
+            'args_model': _dispatch_by_group(args, 'model'),
+            'args_dataloader': _dispatch_by_group(args, 'dataloader'),
+            'args_conf': _dispatch_by_group(args, 'train_conf'),
+            'args_print': _dispatch_by_group(args, 'train_print'),
+            'args_save': _dispatch_by_group(args, 'save')
             }
 
 
@@ -609,10 +609,10 @@ def _test_parse(args: argparse.Namespace) -> Dict[str, ParamSet]:
 
     # Dispatch parameters
     return {
-            'model': _dispatch_by_group(args, 'model'),
-            'dataloader': _dispatch_by_group(args, 'dataloader'),
-            'conf': _dispatch_by_group(args, 'test_conf'),
-            'print': _dispatch_by_group(args, 'test_print')
+            'args_model': _dispatch_by_group(args, 'model'),
+            'args_dataloader': _dispatch_by_group(args, 'dataloader'),
+            'args_conf': _dispatch_by_group(args, 'test_conf'),
+            'args_print': _dispatch_by_group(args, 'test_print')
             }
 
 def set_options(datetime_name: str = None, phase: str = None) -> argparse.Namespace:

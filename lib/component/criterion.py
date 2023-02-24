@@ -327,6 +327,7 @@ class Criterion:
         else:
             _args_nll = {'periods': labels['periods'], 'network': labels['networks']}
 
+        # loss for each label and total of losses for all labels, ie. batch_loss label-wise
         losses = dict()
         _total = torch.tensor([0.0]).to(self.device)
         for label_name in _label_list:

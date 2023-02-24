@@ -16,33 +16,31 @@ from lib.component import set_likelihood
 logger = BaseLogger.get_logger(__name__)
 
 
-def main(args):
-    model_params = args['model']
-    dataloader_params = args['dataloader']
-    conf_params = args['conf']
-    print_params = args['print']
-    print_parameter(print_params)
+def main(
+        args_model = None,
+        args_dataloader = None,
+        args_conf = None,
+        args_print = None
+        ):
 
-    test_splits = conf_params.test_splits
-    task = conf_params.task
-    num_outputs_for_label = conf_params.num_outputs_for_label
-    save_datetime_dir = conf_params.save_datetime_dir
-    weight_paths = conf_params.weight_paths
+    print_parameter(args_print)
 
-    model = create_model(model_params)
-    dataloaders = {split: create_dataloader(dataloader_params, split=split) for split in test_splits}
-    likelihood = set_likelihood(task, num_outputs_for_label)
+    test_splits = args_conf.test_splits
+    save_datetime_dir = args_conf.save_datetime_dir
 
-    for weight_path in weight_paths:
+    model = create_model(args_model)
+    dataloaders = {split: create_dataloader(args_dataloader, split=split) for split in test_splits}
+    likelihood = set_likelihood(args_conf.task, args_conf.num_outputs_for_label)
+
+    for weight_path in args_conf.weight_paths:
         logger.info(f"Inference ...")
         model.load_weight(weight_path)
-        model.to_gpu(conf_params.gpu_ids)
+        model.to_gpu(args_conf.gpu_ids)
         model.eval()
 
         for i, split in enumerate(test_splits):
             for j, data in enumerate(dataloaders[split]):
                 in_data, _ = model.set_data(data)
-                # in_data, _ = model.set_data(data, device)  ?
 
                 with torch.no_grad():
                     outputs = model(in_data)
@@ -67,7 +65,7 @@ if __name__ == '__main__':
         logger.info('\nTest started.\n')
 
         args = set_options(phase='test')
-        main(args)
+        main(**args)
 
     except Exception as e:
         logger.error(e, exc_info=True)

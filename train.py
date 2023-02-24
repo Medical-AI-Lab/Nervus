@@ -22,28 +22,29 @@ from lib.component import (
 logger = BaseLogger.get_logger(__name__)
 
 
-def main(args):
-    model_params = args['model']   # Delete criterion, optimizer, gpu_ids
-    dataloader_params = args['dataloader']
-    conf_params = args['conf']     # <- dataset_info, gpu_ids
-    print_params = args['print']
-    save_params = args['save']
-    print_parameter(print_params)
+def main(
+        args_model = None,
+        args_dataloader = None,
+        args_conf = None,
+        args_print = None,
+        args_save = None
+        ):
 
-    # Unpack params?
-    save_weight_policy = conf_params.save_weight_policy
-    save_datetime_dir = conf_params.save_datetime_dir
+    print_parameter(args_print)
 
-    model = create_model(model_params)
-    model.to_gpu(conf_params.gpu_ids)
-    dataloaders = {split: create_dataloader(dataloader_params, split=split) for split in ['train', 'val']}
+    isMLP = args_model.mlp is not None
+    save_weight_policy = args_conf.save_weight_policy
+    save_datetime_dir = args_conf.save_datetime_dir
 
-    criterion = set_criterion(conf_params.criterion, conf_params.device)
-    loss_store = set_loss_store(conf_params.label_list, conf_params.epochs, conf_params.dataset_info)
-    optimizer = set_optimizer(conf_params.optimizer, model.network, conf_params.lr)
+    model = create_model(args_model)
+    model.to_gpu(args_conf.gpu_ids)
+    dataloaders = {split: create_dataloader(args_dataloader, split=split) for split in ['train', 'val']}
 
-    # Epoch starts from 1.
-    for epoch in range(1, conf_params.epochs + 1):
+    criterion = set_criterion(args_conf.criterion, args_conf.device)
+    loss_store = set_loss_store(args_conf.label_list, args_conf.epochs, args_conf.dataset_info)
+    optimizer = set_optimizer(args_conf.optimizer, model.network, args_conf.lr)
+
+    for epoch in range(1, args_conf.epochs + 1):
         for phase in ['train', 'val']:
             if phase == 'train':
                 model.train()
@@ -77,10 +78,10 @@ def main(args):
             if (epoch > 1) and (save_weight_policy == 'each'):
                 model.save_weight(save_datetime_dir, as_best=False)
     #! ---------- End of epoch ----------
-    save_parameter(save_params, save_datetime_dir + '/' + 'parameters.json')
+    save_parameter(args_save, save_datetime_dir + '/' + 'parameters.json')
     loss_store.save_learning_curve(save_datetime_dir)
     model.save_weight(save_datetime_dir, as_best=True)
-    if model_params.mlp is not None:
+    if isMLP:
         dataloaders['train'].dataset.save_scaler(save_datetime_dir + '/' + 'scaler.pkl')
 
 
@@ -90,7 +91,7 @@ if __name__ == '__main__':
         logger.info(f"\nTraining started at {datetime_name}.\n")
 
         args = set_options(datetime_name=datetime_name, phase='train')
-        main(args)
+        main(**args)
 
     except Exception as e:
         logger.error(e, exc_info=True)
