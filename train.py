@@ -42,7 +42,8 @@ def main(args):
     loss_store = set_loss_store(conf_params.label_list, conf_params.epochs, conf_params.dataset_info)
     optimizer = set_optimizer(conf_params.optimizer, model.network, conf_params.lr)
 
-    for epoch in range(conf_params.epochs):
+    # Epoch starts from 1.
+    for epoch in range(1, conf_params.epochs + 1):
         for phase in ['train', 'val']:
             if phase == 'train':
                 model.train()
@@ -58,7 +59,7 @@ def main(args):
                 in_data, labels = model.set_data(data)
                 with torch.set_grad_enabled(phase == 'train'):
                     outputs = model(in_data)
-                    losses = criterion(outputs, labels)  # loss for each label and total of losses for all labels, ie. batch_loss label-wise
+                    losses = criterion(outputs, labels)
 
                     if phase == 'train':
                         loss = losses['total']
@@ -69,11 +70,11 @@ def main(args):
             #! ---------- End iteration ----------
                 print(epoch, phase, i)
         #! ---------- End phase -------
-        loss_store.cal_epoch_loss(at_epoch=epoch)  # Calculate epoch loss for all phases all at once.
+        loss_store.cal_epoch_loss(at_epoch=epoch)
         loss_store.print_epoch_loss(at_epoch=epoch)
         if loss_store.is_val_loss_updated():
             model.store_weight(at_epoch=loss_store.get_best_epoch())
-            if (epoch > 0) and (save_weight_policy == 'each'):
+            if (epoch > 1) and (save_weight_policy == 'each'):
                 model.save_weight(save_datetime_dir, as_best=False)
     #! ---------- End of epoch ----------
     save_parameter(save_params, save_datetime_dir + '/' + 'parameters.json')

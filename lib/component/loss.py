@@ -65,24 +65,24 @@ class LabelLoss:
         """
         return self.get_loss(phase, 'epoch')[-1]
 
-    def update_best_val_loss(self, at_epoch: int = 0) -> None:
+    def update_best_val_loss(self, at_epoch: int = None) -> None:
         """
         Update val_epoch_loss is the best.
 
         Args:
             at_epoch (int): epoch when checked
         """
-        if at_epoch == 0:
-            _best_val_loss = self.get_latest_epoch_loss('val')
-            self.best_val_loss = _best_val_loss
-            self.best_epoch = at_epoch + 1
+        _latest_val_loss = self.get_latest_epoch_loss('val')
+
+        if at_epoch == 1:
+            self.best_val_loss = _latest_val_loss
+            self.best_epoch = at_epoch
             self.is_val_loss_updated = True
         else:
-            # When at_epoch > 0
-            _latest_val_loss = self.get_latest_epoch_loss('val')
+            # When at_epoch > 1
             if _latest_val_loss < self.best_val_loss:
                 self.best_val_loss = _latest_val_loss
-                self.best_epoch = at_epoch + 1
+                self.best_epoch = at_epoch
                 self.is_val_loss_updated = True
             else:
                 self.is_val_loss_updated = False
@@ -120,7 +120,7 @@ class LossStore:
             _label_batch_loss = losses[label_name].item() * batch_size  # torch.FloatTensor -> float
             self.label_losses[label_name].append_loss(_label_batch_loss, phase, 'batch')
 
-    def cal_epoch_loss(self, at_epoch: int = 0) -> None:
+    def cal_epoch_loss(self, at_epoch: int = None) -> None:
         """
         Calculate epoch loss for each phase all at once.
 
@@ -169,7 +169,7 @@ class LossStore:
         """
         return self.label_losses['total'].best_epoch
 
-    def print_epoch_loss(self, at_epoch: int = 0) -> None:
+    def print_epoch_loss(self, at_epoch: int = None) -> None:
         """
         Print train_loss and val_loss for the ith epoch.
 
@@ -180,12 +180,12 @@ class LossStore:
         train_epoch_loss = self.label_losses['total'].get_latest_epoch_loss('train')
         val_epoch_loss = self.label_losses['total'].get_latest_epoch_loss('val')
 
-        epoch_comm = f"epoch [{at_epoch + 1:>3}/{self.num_epochs:<3}]"
+        epoch_comm = f"epoch [{at_epoch:>3}/{self.num_epochs:<3}]"
         train_comm = f"train_loss: {train_epoch_loss :>8.4f}"
         val_comm = f"val_loss: {val_epoch_loss:>8.4f}"
 
         updated_comment = ''
-        if (at_epoch > 0) and (self.is_val_loss_updated()):
+        if (at_epoch > 1) and (self.is_val_loss_updated()):
             updated_comment = '   Updated best val_loss!'
 
         comment = epoch_comm + ', ' + train_comm + ', ' + val_comm + updated_comment

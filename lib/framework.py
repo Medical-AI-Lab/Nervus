@@ -44,7 +44,7 @@ class BaseModel(ABC):
                                 pretrained=self.params.pretrained
                                 )
 
-        # variables to keep best_weight and best_epoch temporarily.
+        # variables to keep temporary best_weight and best_epoch
         self.acting_best_weight = None
         self.acting_best_epoch = None
 
@@ -70,44 +70,7 @@ class BaseModel(ABC):
                         ]:
         raise NotImplementedError
 
-    def to_gpu(self, gpu_ids: List[int]) -> None:
-        """
-        Make model compute on the GPU.
-
-        Args:
-            gpu_ids (List[int]): GPU ids
-        """
-        if gpu_ids != []:
-            assert torch.cuda.is_available(), 'No available GPU on this machine.'
-            self.network.to(self.device)
-            self.network = nn.DataParallel(self.network, device_ids=gpu_ids)
-
-    def init_network(self) -> None:
-        """
-        Initialize network.
-        This method is used at test to reset the current weight by redefining network.
-        """
-        self.network = create_net(
-                                mlp=self.params.mlp,
-                                net=self.params.net,
-                                num_outputs_for_label=self.params.num_outputs_for_label,
-                                mlp_num_inputs=self.params.mlp_num_inputs,
-                                in_channel=self.params.in_channel,
-                                vit_image_size=self.params.vit_image_size,
-                                pretrained=self.params.pretrained
-                                )
-
-
-class SaveLoadWeight:
-    """
-    Class to save or load weight.
-    """
-    def __init__(self) -> None:
-        # variables to keep best_weight and best_epoch temporarily.
-        self.acting_best_weight = None
-        self.acting_best_epoch = None
-
-    def store_weight(self, at_epoch: int = 0) -> None:
+    def store_weight(self, at_epoch: int = None) -> None:
         """
         Store weight and epoch number when it is saved.
 
@@ -123,7 +86,7 @@ class SaveLoadWeight:
         else:
             self.acting_best_weight = copy.deepcopy(_network.state_dict())
 
-    def save_weight(self, save_datetime_dir: str, as_best: bool) -> None:
+    def save_weight(self, save_datetime_dir: str, as_best: bool = None) -> None:
         """
         Save weight.
 
@@ -131,6 +94,7 @@ class SaveLoadWeight:
             save_datetime_dir (str): save_datetime_dir
             as_best (bool): True if weight is saved as best, otherwise False. Defaults to None.
         """
+
         save_dir = Path(save_datetime_dir, 'weights')
         save_dir.mkdir(parents=True, exist_ok=True)
         save_name = 'weight_epoch-' + str(self.acting_best_epoch).zfill(3) + '.pt'
@@ -160,7 +124,36 @@ class SaveLoadWeight:
         self.network.load_state_dict(weight)
 
 
-class ModelWidget(BaseModel, SaveLoadWeight):
+class ModelMixin:
+    def to_gpu(self, gpu_ids: List[int]) -> None:
+        """
+        Make model compute on the GPU.
+
+        Args:
+            gpu_ids (List[int]): GPU ids
+        """
+        if gpu_ids != []:
+            assert torch.cuda.is_available(), 'No available GPU on this machine.'
+            self.network.to(self.device)
+            self.network = nn.DataParallel(self.network, device_ids=gpu_ids)
+
+    def init_network(self) -> None:
+        """
+        Initialize network.
+        This method is used at test to reset the current weight by redefining network.
+        """
+        self.network = create_net(
+                                mlp=self.params.mlp,
+                                net=self.params.net,
+                                num_outputs_for_label=self.params.num_outputs_for_label,
+                                mlp_num_inputs=self.params.mlp_num_inputs,
+                                in_channel=self.params.in_channel,
+                                vit_image_size=self.params.vit_image_size,
+                                pretrained=self.params.pretrained
+                                )
+
+
+class ModelWidget(BaseModel, ModelMixin):
     """
     Class for a widget to inherit multiple classes simultaneously
     """
