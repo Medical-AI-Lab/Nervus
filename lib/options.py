@@ -362,7 +362,6 @@ class ParamTable:
 
 PARAM_TABLE = ParamTable.make_table()
 
-
 class ParamSet:
     """
     Class to store required parameters for each group.

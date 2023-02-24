@@ -68,16 +68,15 @@ def main(
                         optimizer.step()
 
                 loss_store.store(losses, phase, batch_size=len(data['imgpath']))
-            #! ---------- End iteration ----------
-                print(epoch, phase, i)
-        #! ---------- End phase -------
+
+        # Post-processing of each epoch
         loss_store.cal_epoch_loss(at_epoch=epoch)
         loss_store.print_epoch_loss(at_epoch=epoch)
         if loss_store.is_val_loss_updated():
             model.store_weight(at_epoch=loss_store.get_best_epoch())
             if (epoch > 1) and (save_weight_policy == 'each'):
                 model.save_weight(save_datetime_dir, as_best=False)
-    #! ---------- End of epoch ----------
+
     save_parameter(args_save, save_datetime_dir + '/' + 'parameters.json')
     loss_store.save_learning_curve(save_datetime_dir)
     model.save_weight(save_datetime_dir, as_best=True)

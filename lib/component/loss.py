@@ -106,7 +106,7 @@ class LossStore:
         # Added a special label 'total' to store total of losses of all labels.
         self.label_losses = {label_name: LabelLoss() for label_name in self.label_list + ['total']}
 
-    def store(self, losses: Dict[str, torch.FloatTensor], phase: str, batch_size: int = 0) -> None:
+    def store(self, losses: Dict[str, torch.FloatTensor], phase: str, batch_size: int = None) -> None:
         """
         Store label-wise losses of phase.
 
@@ -115,7 +115,7 @@ class LossStore:
             phase (str): 'train' or 'val'
             batch_size (int): batch size
         """
-        # self.loss_stores['total'] is already total of losses of all label, calculated by criterion.
+        # self.loss_stores['total'] is already total of losses of all label, calculated in criterion.py.
         for label_name in self.label_list + ['total']:
             _label_batch_loss = losses[label_name].item() * batch_size  # torch.FloatTensor -> float
             self.label_losses[label_name].append_loss(_label_batch_loss, phase, 'batch')

@@ -71,7 +71,7 @@ class InputDataMixin:
             scaler = pickle.load(f)
         return scaler
 
-    def _load_input_value_if_mlp(self, idx: int) -> Union[torch.Tensor, str]:
+    def _load_input_value_if_mlp(self, idx: int) -> Union[torch.FloatTensor, str]:
         """
         Load input values after converting them into tensor if MLP is used.
 
@@ -92,9 +92,9 @@ class InputDataMixin:
         # Since the shape (1, N) is not acceptable when forwarding, convert (1, N) -> (N,) is needed.
         index_input_list = [self.col_index_dict[input] for input in self.input_list]
         _df_inputs_value = self.df_split.iloc[[idx], index_input_list]
-        inputs_value = self.scaler.transform(_df_inputs_value).reshape(-1)
-        inputs_value = np.array(inputs_value, dtype=np.float64)
-        inputs_value = torch.from_numpy(inputs_value.astype(np.float32)).clone()
+        inputs_value = self.scaler.transform(_df_inputs_value).reshape(-1)  #    np.float64
+        inputs_value = np.array(inputs_value, dtype=np.float32)             # -> np.float32
+        inputs_value = torch.from_numpy(inputs_value).clone()               # -> torch.float32
         return inputs_value
 
 
@@ -179,7 +179,7 @@ class DeepSurvMixin:
     """
     Class to handle required data for deepsurv.
     """
-    def _load_periods_if_deepsurv(self, idx: int) -> Union[int, str]:
+    def _load_periods_if_deepsurv(self, idx: int) -> Union[torch.FloatTensor, str]:
         """
         Return period if deepsurv.
 
@@ -187,7 +187,7 @@ class DeepSurvMixin:
             idx (int): index
 
         Returns:
-            Union[int, str]: period, or empty string
+            Union[torch.FloatTensor, str]: period, or empty string
         """
         periods = ''
 
@@ -195,9 +195,9 @@ class DeepSurvMixin:
             return periods
 
         assert (self.params.task == 'deepsurv') and (len(self.label_list) == 1), 'Deepsurv cannot work in multi-label.'
-        periods = self.df_split.iat[idx, self.col_index_dict[self.period_name]]
-        periods = np.array(periods, dtype=np.float64)
-        periods = torch.from_numpy(periods.astype(np.float32)).clone()
+        periods = self.df_split.iat[idx, self.col_index_dict[self.period_name]]  #    int64
+        periods = np.array(periods, dtype=np.float32)                             # -> np.float32
+        periods = torch.from_numpy(periods).clone()                               # -> torch.float32
         return periods
 
 

@@ -23,7 +23,7 @@ class RMSELoss(nn.Module):
         self.mse = nn.MSELoss()
         self.eps = eps
 
-    def forward(self, yhat: float, y: float) -> float:
+    def forward(self, yhat: float, y: float) -> torch.FloatTensor:
         """
         Calculate RMSE.
 
@@ -57,7 +57,7 @@ class Regularization:
         self.order = order
         self.weight_decay = weight_decay
 
-    def __call__(self, network: nn.Module) -> float:
+    def __call__(self, network: nn.Module) -> torch.FloatTensor:
         """"
         Calculates regularization(self.order) loss for network.
 
@@ -65,7 +65,7 @@ class Regularization:
             model: (torch.nn.Module object)
 
         Returns:
-            torch.Tensor[float]: the regularization(self.order) loss
+            torch.FloatTensor: the regularization(self.order) loss
         """
         reg_loss = 0
         for name, w in network.named_parameters():
@@ -93,7 +93,7 @@ class NegativeLogLikelihood(nn.Module):
                 self,
                 output: torch.FloatTensor,
                 label: torch.IntTensor,
-                periods: torch.IntTensor,
+                periods: torch.FloatTensor,
                 network: nn.Module
                 ) -> torch.FloatTensor:
         """
@@ -162,10 +162,11 @@ class ClsCriterion:
         Returns:
             torch.FloatTensor: loss
 
-        # No reshape:
-        # eg.
-        # output: [64, 2]
-        # label:  [64, 2]
+        # No reshape and no cast:
+        eg.
+        output: [64, 2]: torch.float32
+        label:  [64, 2]: torch.int64
+        label.dtype should be torch.int64, otherwise nn.CrossEntropyLoss() causes error.
         """
         loss = self.criterion(output, label)
         return loss
@@ -197,12 +198,14 @@ class RegCriterion:
         Returns:
             torch.FloatTensor: loss
 
-        Reshape
+        # Reshape and cast
         eg.
-        output: [64, 1] -> [64]
-        label:             [64]
+        output: [64, 1] -> [64]: torch.float32
+        label:             [64]: torch.float64 -> torch.float32
+        # label.dtype should be torch.float32, otherwise cannot backward.
         """
         output = output.squeeze()
+        label = label.to(torch.float32)
         loss = self.criterion(output, label)
         return loss
 
@@ -226,7 +229,7 @@ class DeepSurvCriterion:
                 self,
                 output: torch.FloatTensor = None,
                 label: torch.IntTensor = None,
-                periods: torch.IntTensor = None,
+                periods: torch.FloatTensor = None,
                 network: nn.Module = None
                 ) -> torch.FloatTensor:
         """
@@ -234,18 +237,18 @@ class DeepSurvCriterion:
 
         Args:
             output (torch.FloatTensor): output, or risk prediction
-            label (torch.IntTensor): label
-            periods (torch.IntTensor): period
+            label (torch.IntTensor): label, or occurrence of event
+            periods (torch.FloatTensor): period
             network (nn.Module): network. Its weight is used when calculating loss.
 
         Returns:
             torch.FloatTensor: loss
 
-        Reshape
+        # Reshape and no cast
         eg.
-        output:          [64, 1]
-        label:   [64] -> [64, 1]
-        periods: [64] -> [64, 1]
+        output:          [64, 1]: torch.float32
+        label:   [64] -> [64, 1]: torch.int64
+        period:  [64] -> [64, 1]: torch.float32
         """
         label = label.reshape(-1, 1)
         periods = periods.reshape(-1, 1)
@@ -325,7 +328,7 @@ class Criterion:
         if 'periods' not in labels:
             _args_nll = {}
         else:
-            _args_nll = {'periods': labels['periods'], 'network': labels['networks']}
+            _args_nll = {'periods': labels['periods'], 'network': labels['network']}
 
         # loss for each label and total of losses for all labels, ie. batch_loss label-wise
         losses = dict()
