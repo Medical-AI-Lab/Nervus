@@ -45,7 +45,7 @@ class LabelLoss:
 
     def store_batch_loss(self, phase: str, new_batch_loss: torch.FloatTensor, batch_size: int) -> None:
         """
-        Store new batch loss to previous one for phase by multiplying by batch_size.
+        Add new batch loss to previous one for phase by multiplying by batch_size.
 
         Args:
             phase (str): 'train' or 'val'
