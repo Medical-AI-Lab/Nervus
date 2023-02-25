@@ -127,232 +127,205 @@ class NegativeLogLikelihood(nn.Module):
         return loss
 
 
-CRITERIONS = {
-        'CEL': nn.CrossEntropyLoss,
-        'MSE': nn.MSELoss,
-        'RMSE': RMSELoss,
-        'MAE': nn.L1Loss,
-        'NLL': NegativeLogLikelihood
-        }
-
-
 class ClsCriterion:
     """
     Class of criterion for classification.
     """
-    def __init__(self, criterion_name: str = None) -> None:
+    def __init__(self, device: torch.device = None) -> None:
         """
         Set CrossEntropyLoss.
         """
-        self.criterion_name = criterion_name
+        self.device = device
         self.criterion = nn.CrossEntropyLoss()
 
     def __call__(
                 self,
-                output: torch.FloatTensor = None,
-                label: torch.IntTensor = None
-                ) -> torch.FloatTensor:
+                outputs: Dict[str, torch.FloatTensor],
+                labels: Dict[str, LabelDict]
+                ) -> Dict[str, torch.FloatTensor]:
         """
         Calculate loss.
 
         Args:
-            output (torch.FloatTensor): output
-            label (torch.IntTensor): label
+            outputs (Dict[str, torch.FloatTensor], optional): output
+            labels (Dict[str, LabelDict]): labels
 
         Returns:
-            torch.FloatTensor: loss
+            Dict[str, torch.FloatTensor]: loss for each label and their total loss
 
         # No reshape and no cast:
-        eg.
         output: [64, 2]: torch.float32
-        label:  [64, 2]: torch.int64
+        label:  [64]   : torch.int64
         label.dtype should be torch.int64, otherwise nn.CrossEntropyLoss() causes error.
+
+        eg.
+        outputs = {'label_A': [[0.8, 0.2], ...] 'label_B': [[0.7, 0.3]], ...}
+        labels = { 'labels': {'label_A: 1: [1, 1, 0, ...], 'label_B': [0, 0, 1, ...], ...} }
+
+        -> losses = {total: loss_total, label_A: loss_A, label_B: loss_B, ... }
         """
-        loss = self.criterion(output, label)
-        return loss
+        _labels = labels['labels']
+        # loss for each label and total of their losses
+        losses = dict()
+        losses['total'] = torch.tensor([0.0]).to(self.device)
+        for label_name in labels['labels'].keys():
+            _output = outputs[label_name]
+            _label = _labels[label_name]
+            _label_loss = self.criterion(_output, _label)
+            losses[label_name] = _label_loss
+            losses['total'] = torch.add(losses['total'], _label_loss)
+        return losses
 
 
 class RegCriterion:
     """
     Class of criterion for regression.
     """
-    def __init__(self, criterion_name: str = None) -> None:
+    CRITERIONS = {
+        'CEL': nn.CrossEntropyLoss,
+        'MSE': nn.MSELoss,
+        'RMSE': RMSELoss,
+        'MAE': nn.L1Loss,
+        'NLL': NegativeLogLikelihood
+        }
+    def __init__(self, criterion_name: str = None, device: torch.device = None) -> None:
         """
         Set MSE, RMSE or MAE.
         """
-        self.criterion_name = criterion_name
-        self.criterion = CRITERIONS[self.criterion_name]()
+        self.device = device
+
+        if criterion_name == 'MSE':
+            self.criterion = nn.MSELoss()
+        elif criterion_name == 'RMSE':
+            self.criterion = RMSELoss()
+        elif criterion_name == 'MAE':
+            self.criterion = nn.L1Loss()
+        else:
+            raise ValueError(f"Invalid criterion for regression: {criterion_name}.")
 
     def __call__(
                 self,
-                output: torch.FloatTensor = None,
-                label: torch.FloatTensor = None
-                ) -> torch.FloatTensor:
+                outputs: Dict[str, torch.FloatTensor],
+                labels: Dict[str, LabelDict]
+                ) -> Dict[str, torch.FloatTensor]:
         """
         Calculate loss.
 
         Args:
-            output (torch.FloatTensor): output
-            label (torch.FloatTensor): label
+            Args:
+            outputs (Dict[str, torch.FloatTensor], optional): output
+            labels (Dict[str, LabelDict]): labels
 
         Returns:
-            torch.FloatTensor: loss
+            Dict[str, torch.FloatTensor]: loss for each label and their total loss
 
         # Reshape and cast
-        eg.
         output: [64, 1] -> [64]: torch.float32
         label:             [64]: torch.float64 -> torch.float32
         # label.dtype should be torch.float32, otherwise cannot backward.
+
+        eg.
+        outputs = {'label_A': [[10.8], ...] 'label_B': [[15.7]], ...}
+        labels = {'labels': {'label_A: 1: [10, 9, ...], 'label_B': [12, 17,], ...}}
+        -> losses = {total: loss_total, label_A: loss_A, label_B: loss_B, ... }
         """
-        output = output.squeeze()
-        label = label.to(torch.float32)
-        loss = self.criterion(output, label)
-        return loss
+        _outputs = {label_name: _output.squeeze() for label_name, _output in outputs.items()}
+        _labels = {label_name: _label.to(torch.float32) for label_name, _label in labels['labels'].items()}
+
+        # loss for each label and total of their losses
+        losses = dict()
+        losses['total'] = torch.tensor([0.0]).to(self.device)
+        for label_name in labels['labels'].keys():
+            _output = _outputs[label_name]
+            _label = _labels[label_name]
+            _label_loss = self.criterion(_output, _label)
+            losses[label_name] = _label_loss
+            losses['total'] = torch.add(losses['total'], _label_loss)
+        return losses
 
 
 class DeepSurvCriterion:
     """
     Class of criterion for deepsurv.
     """
-    def __init__(self, criterion_name: str = None, device: torch.device = None) -> None:
+    def __init__(self,device: torch.device = None) -> None:
         """
         Set NegativeLogLikelihood.
 
         Args:
             device (torch.device, optional): device
         """
-        self.criterion_name = criterion_name
         self.device = device
         self.criterion = NegativeLogLikelihood(self.device).to(self.device)
 
     def __call__(
                 self,
-                output: torch.FloatTensor = None,
-                label: torch.IntTensor = None,
-                periods: torch.FloatTensor = None,
-                network: nn.Module = None
-                ) -> torch.FloatTensor:
+                outputs: Dict[str, torch.FloatTensor],
+                labels: Dict[str, Union[LabelDict, torch.IntTensor, nn.Module]]
+                ) -> Dict[str, torch.FloatTensor]:
         """
         Calculate loss.
 
         Args:
-            output (torch.FloatTensor): output, or risk prediction
-            label (torch.IntTensor): label, or occurrence of event
-            periods (torch.FloatTensor): period
-            network (nn.Module): network. Its weight is used when calculating loss.
+            outputs (Dict[str, torch.FloatTensor], optional): output
+            labels (Dict[str, Union[LabelDict, torch.IntTensor, nn.Module]]): labels, periods, and network
 
         Returns:
-            torch.FloatTensor: loss
+            Dict[str, torch.FloatTensor]: loss for each label and their total loss
 
         # Reshape and no cast
+        output:         [64, 1]: torch.float32
+        label:  [64] -> [64, 1]: torch.int64
+        period: [64] -> [64, 1]: torch.float32
+
         eg.
-        output:          [64, 1]: torch.float32
-        label:   [64] -> [64, 1]: torch.int64
-        period:  [64] -> [64, 1]: torch.float32
+        outputs = {'label_A': [[10.8], ...] 'label_B': [[15.7]], ...}
+        labels = {
+                    'labels': {'label_A: 1: [1, 0, 1, ...] },
+                    'periods': [5, 10, 7, ...],
+                    'network': network
+                }
+        -> losses = {total: loss_total, label_A: loss_A, label_B: loss_B, ... }
         """
-        label = label.reshape(-1, 1)
-        periods = periods.reshape(-1, 1)
-        loss = self.criterion(output, label, periods, network)
-        return loss
+        _labels = {label_name: _label.reshape(-1, 1) for label_name, _label in labels['labels'].items()}
+        _periods = labels['periods'].reshape(-1, 1)
+        _network = labels['network']
+
+        # loss for each label and total of their losses
+        losses = dict()
+        losses['total'] = torch.tensor([0.0]).to(self.device)
+        for label_name in labels['labels'].keys():
+            _output = outputs[label_name]
+            _label = _labels[label_name]
+            _label_loss = self.criterion(_output, _label, _periods, _network)
+            losses[label_name] = _label_loss
+            losses['total'] = torch.add(losses['total'], _label_loss)
+        return losses
 
 
-def select_criterion(
+def set_criterion(
                 criterion_name: str,
                 device: torch.device
                 ) -> Union[ClsCriterion, RegCriterion, DeepSurvCriterion]:
     """
-    Set criterion for task.
+    Return criterion class
 
     Args:
         criterion_name (str): criterion name
         device (torch.device): device
 
     Returns:
-        Union[ClsCriterion, RegCriterion, DeepSurvCriterion]: criterion
+        Union[ClsCriterion, RegCriterion, DeepSurvCriterion]: criterion class
     """
 
     if criterion_name == 'CEL':
-        return ClsCriterion(criterion_name=criterion_name)
+        return ClsCriterion(device=device)
 
     elif criterion_name in ['MSE', 'RMSE', 'MAE']:
-        return RegCriterion(criterion_name=criterion_name)
+        return RegCriterion(criterion_name=criterion_name, device=device)
 
     elif criterion_name == 'NLL':
-        return  DeepSurvCriterion(criterion_name=criterion_name, device=device)
+        return DeepSurvCriterion(device=device)
 
     else:
         raise ValueError(f"Invalid criterion: {criterion_name}.")
-
-
-class Criterion:
-    """
-    criterion class.
-    """
-    def __init__(self, criterion_name: str, device: torch.device) -> None:
-        """
-        Args:
-            criterion_name (str): criterion name
-            device (torch.device): device
-        """
-        self.criterion_name = criterion_name
-        self.device = device
-        self.criterion = select_criterion(self.criterion_name, self.device)
-
-    def __call__(
-                self,
-                outputs: Dict[str, torch.FloatTensor],
-                labels: Dict[str, Union[LabelDict, torch.IntTensor, nn.Module]],
-                ) -> Dict[str, torch.FloatTensor]:
-        """
-        Calculate loss for each label.
-
-        Args:
-            outputs (Dict[str, torch.FloatTensor], optional): output
-            labels (Dict[str, Union[LabelDict, torch.IntTensor, nn.Module]]): input of model and data for calculating loss.
-
-        Return:
-            Dict[str, torch.FloatTensor]: loss for each label and their total loss
-
-        eg.
-        outputs = {'label_A': [0.8, 0.2], 'label_B': [0.7, 0.3], ...}
-        labels = {
-                    'labels': {'label_A: 1: [1, 0, 1, ..], 'label_B': [0, 0, 1, ...], ...},
-                    'periods': [5, 10, 7, ...],
-                    'network': network
-                }
-        -> {label_A: loss_A, label_B: loss_B, ... , total: loss_total}
-        """
-        _labels = labels['labels']
-        _label_list = labels['labels'].keys()
-
-        if 'periods' not in labels:
-            _args_nll = {}
-        else:
-            _args_nll = {'periods': labels['periods'], 'network': labels['network']}
-
-        # loss for each label and total of losses for all labels, ie. batch_loss label-wise
-        losses = dict()
-        _total = torch.tensor([0.0]).to(self.device)
-        for label_name in _label_list:
-            _args = {**{'output': outputs[label_name], 'label': _labels[label_name]}, **_args_nll}
-            # For each label
-            losses[label_name] = self.criterion(**_args)
-            # For total
-            _total = torch.add(_total, losses[label_name])
-
-        losses['total'] = _total
-        return losses
-
-
-def set_criterion(criterion_name: str, device: torch.device) -> Criterion:
-    """
-    Return class Criterion.
-
-    Args:
-        criterion_name (str): criterion name
-        device (torch.device): device
-
-    Returns:
-        Criterion: Criterion
-    """
-    return Criterion(criterion_name, device)
