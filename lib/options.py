@@ -379,6 +379,7 @@ class ParamSet:
     """
     pass
 
+
 def _dispatch_by_group(args: argparse.Namespace, group_name: str) -> ParamSet:
     """
     Dispatch parameters depending on group.
