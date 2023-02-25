@@ -31,7 +31,6 @@ class BaseModel(ABC):
             param (ParamSet): parameters
         """
         self.params = params
-        self.label_list = self.params.label_list
         self.device = self.params.device
 
         self.network = create_net(
