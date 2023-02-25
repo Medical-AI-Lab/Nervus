@@ -5,19 +5,6 @@ import torch.optim as optim
 import torch.nn as nn
 
 
-class Optimizer:
-    """
-    Optimizer.
-    """
-    optimizers = {
-        'SGD': optim.SGD,
-        'Adadelta': optim.Adadelta,
-        'Adam': optim.Adam,
-        'RMSprop': optim.RMSprop,
-        'RAdam': optim.RAdam
-        }
-
-
 def set_optimizer(optimizer_name: str, network: nn.Module, lr: float) -> optim:
     """
     Set optimizer.
@@ -28,10 +15,20 @@ def set_optimizer(optimizer_name: str, network: nn.Module, lr: float) -> optim:
     Returns:
         torch.optim: optimizer
     """
-    assert (optimizer_name in Optimizer.optimizers), f"No specified optimizer: {optimizer_name}."
+    optimizers = {
+        'SGD': optim.SGD,
+        'Adadelta': optim.Adadelta,
+        'Adam': optim.Adam,
+        'RMSprop': optim.RMSprop,
+        'RAdam': optim.RAdam
+        }
+
+    assert (optimizer_name in optimizers), f"No specified optimizer: {optimizer_name}."
+
+    _optim = optimizers[optimizer_name]
 
     if lr is None:
-        optimizer = Optimizer.optimizers[optimizer_name](network.parameters())
+        optimizer = _optim(network.parameters())
     else:
-        optimizer = Optimizer.optimizers[optimizer_name](network.parameters(), lr=lr)
+        optimizer = _optim(network.parameters(), lr=lr)
     return optimizer

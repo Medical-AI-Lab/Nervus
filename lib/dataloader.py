@@ -17,9 +17,6 @@ from typing import List, Dict, Union
 logger = BaseLogger.get_logger(__name__)
 
 
-#
-# The below is for dataloader.
-#
 class PrivateAugment(torch.nn.Module):
     """
     Augmentation defined privately.
@@ -196,8 +193,8 @@ class DeepSurvMixin:
 
         assert (self.params.task == 'deepsurv') and (len(self.label_list) == 1), 'Deepsurv cannot work in multi-label.'
         periods = self.df_split.iat[idx, self.col_index_dict[self.period_name]]  #    int64
-        periods = np.array(periods, dtype=np.float32)                             # -> np.float32
-        periods = torch.from_numpy(periods).clone()                               # -> torch.float32
+        periods = np.array(periods, dtype=np.float32)                            # -> np.float32
+        periods = torch.from_numpy(periods).clone()                              # -> torch.float32
         return periods
 
 
