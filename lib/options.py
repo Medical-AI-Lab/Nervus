@@ -451,20 +451,20 @@ def print_parameter(params: ParamSet) -> None:
 
     _header = f" Configuration of {phase} "
     _padding = (LINE_LENGTH - len(_header) + 1) // 2  # round up
-    _header = f"{'-' * _padding}{_header}{'-' * _padding}\n"
+    _header = ('-' * _padding) + _header + ('-' * _padding) + '\n'
 
     _footer = ' End '
     _padding = (LINE_LENGTH - len(_footer) + 1) // 2
-    _footer = f"{'-' * _padding}{_footer}{'-' * _padding}\n"
+    _footer = ('-' * _padding) + _footer + ('-' * _padding) + '\n'
 
     message = ''
     message += _header
 
-    params_dict = vars(params)
-    del params_dict['isTrain']
-    for _param, _arg in params_dict.items():
+    _params_dict = vars(params)
+    del _params_dict['isTrain']
+    for _param, _arg in _params_dict.items():
         _str_arg = _arg2str(_param, _arg)
-        message += '{:>30}: {:<40}\n'.format(_param, _str_arg)
+        message += f"{_param:>30}: {_str_arg:<40}\n"
 
     message += _footer
     logger.info(message)

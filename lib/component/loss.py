@@ -199,14 +199,13 @@ class LossStore:
         train_epoch_loss = self.label_losses['total'].get_latest_epoch_loss('train')
         val_epoch_loss = self.label_losses['total'].get_latest_epoch_loss('val')
 
-        epoch_comm = f"epoch [{at_epoch:>3}/{self.num_epochs:<3}]"
-        train_comm = f"train_loss: {train_epoch_loss :>8.4f}"
-        val_comm = f"val_loss: {val_epoch_loss:>8.4f}"
-        updated_comment = ''
+        _epoch_comm = f"epoch [{at_epoch:>3}/{self.num_epochs:<3}]"
+        _train_comm = f"train_loss: {train_epoch_loss :>8.4f}"
+        _val_comm = f"val_loss: {val_epoch_loss:>8.4f}"
+        _updated_comment = ''
         if (at_epoch > 1) and (self.is_val_loss_updated()):
-            updated_comment = '   Updated best val_loss!'
-
-        comment = epoch_comm + ', ' + train_comm + ', ' + val_comm + updated_comment
+            _updated_comment = '   Updated best val_loss!'
+        comment = _epoch_comm + ', ' + _train_comm + ', ' + _val_comm + _updated_comment
         logger.info(comment)
 
     def save_learning_curve(self, save_datetime_dir: str) -> None:
