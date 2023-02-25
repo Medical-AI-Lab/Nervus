@@ -114,15 +114,18 @@ To do the tutorial, please visit this site [https://colab.research.google.com/dr
 # CUDA VERSION
 CUDA Version = 11
 
+
 # Citation
 If you find this project useful, please cite our paper:
 
-`@article{preparing,
-  title = {preparing},
-  author = {preparing},
-  journal={preparing},
-  year = {preparing},
+`@article{Nervus2022,
+  title = {Nervus: A comprehensive deep learning classification, regression, and prognostication tool for both medical image and clinical data analysis},
+  author = {Toshimasa Matsumoto, Shannon L Walston, Yukio Miki, Daiju Ueda},
+  year = {2022},
+  archivePrefix = {arXiv},
+  eprint = {2212.11113}
 }`
 
+
 # Acknowledgement
-This project is working in progress, thus the codebase and model might not be perfect or bug-free. We will very much appreciate any kind of contribution or and issue raised. If you find a bug or have any suggestion, please feel free to open an issue or contact us. 
+This project is working in progress, thus the codebase and model might not be perfect or bug-free. We will very much appreciate any kind of contribution or and issue raised. If you find a bug or have any suggestion, please feel free to open an issue or contact us.
