@@ -67,7 +67,7 @@ def main(
                         loss.backward()
                         optimizer.step()
 
-                loss_store.store(losses, phase, batch_size=len(data['imgpath']))
+                loss_store.store(phase, losses, batch_size=len(data['imgpath']))
 
         # Post-processing of each epoch
         loss_store.cal_epoch_loss(at_epoch=epoch)
