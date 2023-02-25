@@ -355,7 +355,7 @@ class ParamTable:
         df_table = df_table.rename(columns={'index': 'parameter'})
         return df_table
 
-    def get_param_name_by_group(self, group_name: str) -> List[str]:
+    def get_by_group(self, group_name: str) -> List[str]:
         """
         Return list of parameters which belong to group
 
@@ -391,7 +391,7 @@ def _dispatch_by_group(args: argparse.Namespace, group_name: str) -> ParamSet:
     Returns:
         ParamSet: class containing parameters for group
     """
-    _param_names = Param_Table.get_param_name_by_group(group_name)
+    _param_names = Param_Table.get_by_group(group_name)
     param_set = ParamSet()
     for param_name in _param_names:
         if hasattr(args, param_name):
@@ -429,7 +429,7 @@ def _retrieve_parameter(parameter_path: str) -> Dict[str, Union[str, int, float]
     with open(parameter_path) as f:
         params = json.load(f)
 
-    _required = Param_Table.get_param_name_by_group('load')
+    _required = Param_Table.get_by_group('load')
     params = {p: v for p, v in params.items() if p in _required}
     return params
 
