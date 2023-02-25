@@ -16,12 +16,12 @@ class LabelLoss:
     Class to store loss for every bash and epoch loss of each label.
     """
     def __init__(self) -> None:
-        # Accumulate batch_loss=loss * batch_size
+        # Accumulate batch_loss(=loss * batch_size)
         self.train_batch_loss = 0.0
         self.val_batch_loss = 0.0
 
         # epoch_loss = batch_loss / dataset_size
-        self.train_epoch_loss = []
+        self.train_epoch_loss = []       # List[float]
         self.val_epoch_loss = []
 
         self.best_val_loss = None        # float
