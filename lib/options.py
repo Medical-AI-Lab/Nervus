@@ -267,91 +267,87 @@ class ParamTable:
     """
     Class to make table to dispatch parameters by group.
     """
-    # groups
-    # key is abbreviation, value is group name
-    groups = {
-            'mo': 'model',
-            'dl': 'dataloader',
-            #'cr': 'criterion',
-            #'opt': 'optimizer',
-            #'los': 'loss',
-            'trc': 'train_conf',
-            'tsc': 'test_conf',
-            'sa': 'save',
-            'lo': 'load',
-            'trp': 'train_print',
-            'tsp': 'test_print'
-            }
+    def __init__(self) -> None:
+        # groups
+        # key is abbreviation, value is group name
+        self.groups = {
+                        'mo': 'model',
+                        'dl': 'dataloader',
+                        'trc': 'train_conf',
+                        'tsc': 'test_conf',
+                        'sa': 'save',
+                        'lo': 'load',
+                        'trp': 'train_print',
+                        'tsp': 'test_print'
+                        }
 
-    mo = groups['mo']
-    dl = groups['dl']
-    #cr = groups['cr']
-    #opt = groups['opt']
-    #los = groups['los']
-    trc = groups['trc']
-    tsc = groups['tsc']
-    sa = groups['sa']
-    lo = groups['lo']
-    trp = groups['trp']
-    tsp = groups['tsp']
+        mo = self.groups['mo']
+        dl = self.groups['dl']
+        trc = self.groups['trc']
+        tsc = self.groups['tsc']
+        sa = self.groups['sa']
+        lo = self.groups['lo']
+        trp = self.groups['trp']
+        tsp = self.groups['tsp']
 
-    # The below shows that which group each parameter belongs to.
-    table = {
-            'datetime': [sa],
-            'project': [sa, trp, tsp],
-            'csvpath': [sa, trp, tsp],
-            'task': [dl, tsc, sa, lo, trp, tsp],
-            'isTrain': [dl, trp, tsp],
+        # The below shows that which group each parameter dispatches to.
+        self.dispatch = {
+                'datetime': [sa],
+                'project': [sa, trp, tsp],
+                'csvpath': [sa, trp, tsp],
+                'task': [dl, tsc, sa, lo, trp, tsp],
+                'isTrain': [dl, trp, tsp],
 
-            'model': [sa, lo, trp, tsp],
-            'vit_image_size': [mo, sa, lo, trp, tsp],
-            'pretrained': [mo, sa, trp],
-            'mlp': [mo, dl],
-            'net': [mo, dl],
+                'model': [sa, lo, trp, tsp],
+                'vit_image_size': [mo, sa, lo, trp, tsp],
+                'pretrained': [mo, sa, trp],
+                'mlp': [mo, dl],
+                'net': [mo, dl],
 
-            'weight_dir': [tsc, tsp],
-            'weight_paths': [tsc],
+                'weight_dir': [tsc, tsp],
+                'weight_paths': [tsc],
 
-            'criterion': [trc, sa, trp],
-            'optimizer': [trc, sa, trp],
-            'lr': [trc, sa, trp],
-            'epochs': [trc, sa, trp],
+                'criterion': [trc, sa, trp],
+                'optimizer': [trc, sa, trp],
+                'lr': [trc, sa, trp],
+                'epochs': [trc, sa, trp],
 
-            'batch_size': [dl, sa, trp],
-            'test_batch_size': [dl, tsp],
-            'test_splits': [tsc, tsp],
+                'batch_size': [dl, sa, trp],
+                'test_batch_size': [dl, tsp],
+                'test_splits': [tsc, tsp],
 
-            'in_channel': [mo, dl, sa, lo, trp, tsp],
-            'normalize_image': [dl, sa, lo, trp, tsp],
-            'augmentation': [dl, sa, trp],
-            'sampler': [dl, sa, trp],
+                'in_channel': [mo, dl, sa, lo, trp, tsp],
+                'normalize_image': [dl, sa, lo, trp, tsp],
+                'augmentation': [dl, sa, trp],
+                'sampler': [dl, sa, trp],
 
-            'df_source': [dl],
-            'label_list': [mo, dl, trc, sa, lo],
-            'input_list': [dl, sa, lo],
-            'period_name': [dl, sa, lo],
-            'mlp_num_inputs': [mo, sa, lo],
-            'num_outputs_for_label': [mo, sa, lo, tsc],
+                'df_source': [dl],
+                'label_list': [dl, trc, sa, lo],
+                'input_list': [dl, sa, lo],
+                'period_name': [dl, sa, lo],
+                'mlp_num_inputs': [mo, sa, lo],
+                'num_outputs_for_label': [mo, sa, lo, tsc],
 
-            'save_weight_policy': [sa, trp, trc],
-            'scaler_path': [dl, tsp],
-            'save_datetime_dir': [trc, tsc, trp, tsp],
+                'save_weight_policy': [sa, trp, trc],
+                'scaler_path': [dl, tsp],
+                'save_datetime_dir': [trc, tsc, trp, tsp],
 
-            'gpu_ids': [trc, tsc, sa, trp, tsp],
-            'device': [mo, trc, tsc],
-            'dataset_info': [trc, sa, trp, tsp]
-            }
+                'gpu_ids': [trc, tsc, sa, trp, tsp],
+                'device': [mo, trc, tsc],
+                'dataset_info': [trc, sa, trp, tsp]
+                }
 
-    @classmethod
-    def make_table(cls) -> pd.DataFrame:
+        self.table = self._make_table()
+
+    def _make_table(self) -> pd.DataFrame:
         """
         Make table to dispatch parameters by group.
 
         Returns:
             pd.DataFrame: table which shows that which group each parameter belongs to.
         """
-        df_table = pd.DataFrame([], index=cls.table.keys(), columns=cls.groups.values()).fillna('no')
-        for param, grps in cls.table.items():
+        df_table = pd.DataFrame([], index=self.dispatch.keys(), columns=self.groups.values()).fillna('no')
+        for param, grps in self.dispatch.items():
             for grp in grps:
                 df_table.loc[param, grp] = 'yes'
 
@@ -359,30 +355,29 @@ class ParamTable:
         df_table = df_table.rename(columns={'index': 'parameter'})
         return df_table
 
+    def get_param_name_by_group(self, group_name: str) -> List[str]:
+        """
+        Return list of parameters which belong to group
 
-PARAM_TABLE = ParamTable.make_table()
+        Args:
+            group_name (str): group name
+
+        Returns:
+            List[str]: list of parameters
+        """
+        _df_table = self.table
+        _param_names = _df_table[_df_table[group_name] == 'yes']['parameter'].tolist()
+        return _param_names
+
+
+Param_Table = ParamTable()
+
 
 class ParamSet:
     """
     Class to store required parameters for each group.
     """
     pass
-
-
-def _get_param_name_by_group(group_name: str) -> List[str]:
-    """
-    Return list of parameters which belong to group
-
-    Args:
-        group_name (str): group name
-
-    Returns:
-        List[str]: list of parameters
-    """
-    _df_table = PARAM_TABLE
-    _param_names = _df_table[_df_table[group_name] == 'yes']['parameter'].tolist()
-    return _param_names
-
 
 def _dispatch_by_group(args: argparse.Namespace, group_name: str) -> ParamSet:
     """
@@ -395,7 +390,7 @@ def _dispatch_by_group(args: argparse.Namespace, group_name: str) -> ParamSet:
     Returns:
         ParamSet: class containing parameters for group
     """
-    _param_names = _get_param_name_by_group(group_name)
+    _param_names = Param_Table.get_param_name_by_group(group_name)
     param_set = ParamSet()
     for param_name in _param_names:
         if hasattr(args, param_name):
@@ -420,9 +415,9 @@ def save_parameter(params: ParamSet, save_path: str) -> None:
         json.dump(_saved, f, indent=4)
 
 
-def _load_parameter(parameter_path: str) -> Dict[str, Union[str, int, float]]:
+def _retrieve_parameter(parameter_path: str) -> Dict[str, Union[str, int, float]]:
     """
-    Return dictionary of parameters at training.
+    Retrieve only parameters required at test from parameters at training.
 
     Args:
         parameter_path (str): path to parameter_path
@@ -432,6 +427,9 @@ def _load_parameter(parameter_path: str) -> Dict[str, Union[str, int, float]]:
     """
     with open(parameter_path) as f:
         params = json.load(f)
+
+    _required = Param_Table.get_param_name_by_group('load')
+    params = {p: v for p, v in params.items() if p in _required}
     return params
 
 
@@ -573,19 +571,16 @@ def _test_parse(args: argparse.Namespace) -> Dict[str, ParamSet]:
     # Get datetime at training
     _train_datetime_dir = Path(args.weight_dir).parents[0]
     _train_datetime = _train_datetime_dir.name
+
     args.save_datetime_dir = str(Path('results', args.project, 'trials', _train_datetime))
 
-    # Load parameters
+    # Retrieve only parameters required at test
     _parameter_path = str(Path(_train_datetime_dir, 'parameters.json'))
-    params = _load_parameter(_parameter_path)
-
-    # Delete parameters which do not need to be passed on at test.
-    _required_params = _get_param_name_by_group('load')
+    params = _retrieve_parameter(_parameter_path)
     for _param, _arg in params.items():
-        if _param in _required_params:
-            setattr(args, _param, _arg)
+        setattr(args, _param, _arg)
 
-    # When test, always fix the following
+    # When test, the followings are always fixed.
     args.augmentation = 'no'
     args.sampler = 'no'
     args.pretrained = False
