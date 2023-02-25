@@ -118,13 +118,15 @@ CUDA Version = 11
 # Citation
 If you find this project useful, please cite our paper:
 
-`@article{Nervus2022,
+```
+@article{Nervus2022,
   title = {Nervus: A comprehensive deep learning classification, regression, and prognostication tool for both medical image and clinical data analysis},
   author = {Toshimasa Matsumoto, Shannon L Walston, Yukio Miki, Daiju Ueda},
   year = {2022},
   archivePrefix = {arXiv},
   eprint = {2212.11113}
-}`
+}
+```
 
 
 # Acknowledgement
