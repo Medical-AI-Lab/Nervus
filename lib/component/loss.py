@@ -43,9 +43,9 @@ class LabelLoss:
         _target = phase + '_' + target + '_loss'
         return getattr(self, _target)
 
-    def add_batch_loss(self, phase: str, new_batch_loss: torch.FloatTensor, batch_size: int) -> None:
+    def store_batch_loss(self, phase: str, new_batch_loss: torch.FloatTensor, batch_size: int) -> None:
         """
-        Added new batch loss to previous one for phase
+        Store new batch loss to previous one for phase by multiplying by batch_size.
 
         Args:
             phase (str): 'train' or 'val'
@@ -124,7 +124,7 @@ class LossStore:
 
     def store(self, phase: str, losses: Dict[str, torch.FloatTensor], batch_size: int = None) -> None:
         """
-        Add label-wise batch losses of phase to previous one.
+        Store label-wise batch losses of phase to previous one.
 
         Args:
             phase (str): 'train' or 'val'
@@ -137,7 +137,7 @@ class LossStore:
         """
         for label_name in self.label_list + ['total']:
             _new_batch_loss = losses[label_name]
-            self.label_losses[label_name].add_batch_loss(phase, _new_batch_loss, batch_size)
+            self.label_losses[label_name].store_batch_loss(phase, _new_batch_loss, batch_size)
 
     def cal_epoch_loss(self, at_epoch: int = None) -> None:
         """
@@ -152,14 +152,14 @@ class LossStore:
                 _batch_loss = self.label_losses[label_name].get_loss(phase, 'batch')
                 _dataset_size = self.dataset_info[phase]
                 _new_epoch_loss = _batch_loss / _dataset_size
-                self.label_losses[label_name].append_epoch_loss(_new_epoch_loss, phase, 'epoch')
+                self.label_losses[label_name].append_epoch_loss(phase, _new_epoch_loss)
 
         # For total, average by dataset_size and the number of labels.
         for phase in ['train', 'val']:
             _batch_loss = self.label_losses['total'].get_loss(phase, 'batch')
             _dataset_size = self.dataset_info[phase]
             _new_epoch_loss = _batch_loss / (_dataset_size * len(self.label_list))
-            self.label_losses['total'].append_epoch_loss(_new_epoch_loss, phase, 'epoch')
+            self.label_losses['total'].append_epoch_loss(phase, _new_epoch_loss)
 
         # Update val_best_loss and best_epoch.
         for label_name in self.label_list + ['total']:
@@ -172,7 +172,7 @@ class LossStore:
 
     def is_val_loss_updated(self) -> bool:
         """
-        Check if val_loss of 'total' updated.
+        Check if val_loss of 'total' is updated.
 
         Returns:
             bool: Updated or not
