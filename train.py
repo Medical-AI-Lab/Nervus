@@ -69,7 +69,6 @@ def main(
 
                 loss_store.store(phase, losses, batch_size=len(data['imgpath']))
 
-        # Post-processing of each epoch
         loss_store.cal_epoch_loss(at_epoch=epoch)
         loss_store.print_epoch_loss(at_epoch=epoch)
         if loss_store.is_val_loss_updated():
