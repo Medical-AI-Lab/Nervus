@@ -181,13 +181,6 @@ class RegCriterion:
     """
     Class of criterion for regression.
     """
-    CRITERIONS = {
-        'CEL': nn.CrossEntropyLoss,
-        'MSE': nn.MSELoss,
-        'RMSE': RMSELoss,
-        'MAE': nn.L1Loss,
-        'NLL': NegativeLogLikelihood
-        }
     def __init__(self, criterion_name: str = None, device: torch.device = None) -> None:
         """
         Set MSE, RMSE or MAE.
