@@ -165,6 +165,7 @@ class ClsCriterion:
         -> losses = {total: loss_total, label_A: loss_A, label_B: loss_B, ... }
         """
         _labels = labels['labels']
+
         # loss for each label and total of their losses
         losses = dict()
         losses['total'] = torch.tensor([0.0]).to(self.device)

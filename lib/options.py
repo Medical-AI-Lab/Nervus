@@ -512,6 +512,25 @@ def _arg2str(param: str, arg: Union[str, int, float]) -> str:
             return str_arg
 
 
+def _check_if_valid_criterion(task: str = None, criterion: str = None) -> None:
+    """
+    Check if criterion is valid.
+
+    Args:
+        task (str): task
+        criterion (str): criterion
+    """
+    valid_criterion = {
+        'classification': ['CEL'],
+        'regression': ['MSE', 'RMSE', 'MAE'],
+        'deepsurv': ['NLL']
+    }
+    if criterion in valid_criterion[task]:
+        pass
+    else:
+        raise ValueError(f"Invalid criterion for task: task={task}, criterion={criterion}.")
+
+
 def _train_parse(args: argparse.Namespace) -> Dict[str, ParamSet]:
     """
     Parse parameters required at training.
@@ -522,11 +541,14 @@ def _train_parse(args: argparse.Namespace) -> Dict[str, ParamSet]:
     Returns:
         Dict[str, ParamSet]: parameters dispatched by group
     """
+    # Check if criterion is valid.
+    _check_if_valid_criterion(task=args.task, criterion=args.criterion)
+
     args.project = Path(args.csvpath).stem
     args.gpu_ids = _parse_gpu_ids(args.gpu_ids)
     args.device = torch.device(f"cuda:{args.gpu_ids[0]}") if args.gpu_ids != [] else torch.device('cpu')
     args.mlp, args.net = _parse_model(args.model)
-    args.pretrained = bool(args.pretrained)   # strtobool('False') = 0 (== False)
+    args.pretrained = bool(args.pretrained)  # strtobool('False') = 0 (== False)
     args.save_datetime_dir = str(Path('results', args.project, 'trials', args.datetime))
 
     # Parse csv
