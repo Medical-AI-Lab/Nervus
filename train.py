@@ -6,32 +6,45 @@ import torch
 from lib import (
         set_options,
         create_model,
-        print_paramater,
+        print_parameter,
         save_parameter,
         create_dataloader,
         BaseLogger
+        )
+
+from lib.component import (
+            set_criterion,
+            set_optimizer,
+            set_loss_store
         )
 
 
 logger = BaseLogger.get_logger(__name__)
 
 
-def main(args):
-    model_params = args['model']
-    datalaoder_params = args['dataloader']
-    conf_params = args['conf']
-    print_params = args['print']
-    save_params = args['save']
-    print_paramater(print_params)
+def main(
+        args_model = None,
+        args_dataloader = None,
+        args_conf = None,
+        args_print = None,
+        args_save = None
+        ):
 
-    epochs = conf_params.epochs
-    save_weight_policy = conf_params.save_weight_policy
-    save_datetime_dir = conf_params.save_datetime_dir
+    print_parameter(args_print)
 
-    model = create_model(model_params)
-    dataloaders = {split: create_dataloader(datalaoder_params, split=split) for split in ['train', 'val']}
+    isMLP = args_model.mlp is not None
+    save_weight_policy = args_conf.save_weight_policy
+    save_datetime_dir = args_conf.save_datetime_dir
 
-    for epoch in range(epochs):
+    model = create_model(args_model)
+    model.to_gpu(args_conf.gpu_ids)
+    dataloaders = {split: create_dataloader(args_dataloader, split=split) for split in ['train', 'val']}
+
+    criterion = set_criterion(args_conf.criterion, args_conf.device)
+    loss_store = set_loss_store(args_conf.label_list, args_conf.epochs, args_conf.dataset_info)
+    optimizer = set_optimizer(args_conf.optimizer, model.network, args_conf.lr)
+
+    for epoch in range(1, args_conf.epochs + 1):
         for phase in ['train', 'val']:
             if phase == 'train':
                 model.train()
@@ -42,36 +55,32 @@ def main(args):
 
             split_dataloader = dataloaders[phase]
             for i, data in enumerate(split_dataloader):
-                model.optimizer.zero_grad()
-                in_data, labels = model.set_data(data)
+                optimizer.zero_grad()
 
+                in_data, labels = model.set_data(data)
                 with torch.set_grad_enabled(phase == 'train'):
-                    output = model(in_data)
-                    model.cal_batch_loss(output, labels)
+                    outputs = model(in_data)
+                    losses = criterion(outputs, labels)
 
                     if phase == 'train':
-                        model.backward()
-                        model.optimize_parameters()
+                        loss = losses['total']
+                        loss.backward()
+                        optimizer.step()
 
-                model.cal_running_loss(batch_size=len(data['imgpath']))
+                loss_store.store(phase, losses, batch_size=len(data['imgpath']))
 
-            dataset_size = len(split_dataloader.dataset)
-            model.cal_epoch_loss(epoch, phase, dataset_size=dataset_size)
-
-        model.print_epoch_loss(epochs, epoch)
-
-        if model.is_total_val_loss_updated():
-            model.store_weight()
-            if (epoch > 0) and (save_weight_policy == 'each'):
+        loss_store.cal_epoch_loss(at_epoch=epoch)
+        loss_store.print_epoch_loss(at_epoch=epoch)
+        if loss_store.is_val_loss_updated():
+            model.store_weight(at_epoch=loss_store.get_best_epoch())
+            if (epoch > 1) and (save_weight_policy == 'each'):
                 model.save_weight(save_datetime_dir, as_best=False)
 
-    model.save_learning_curve(save_datetime_dir)
+    save_parameter(args_save, save_datetime_dir + '/' + 'parameters.json')
+    loss_store.save_learning_curve(save_datetime_dir)
     model.save_weight(save_datetime_dir, as_best=True)
-
-    if model_params.mlp is not None:
+    if isMLP:
         dataloaders['train'].dataset.save_scaler(save_datetime_dir + '/' + 'scaler.pkl')
-
-    save_parameter(save_params, save_datetime_dir + '/' + 'parameters.json')
 
 
 if __name__ == '__main__':
@@ -80,7 +89,7 @@ if __name__ == '__main__':
         logger.info(f"\nTraining started at {datetime_name}.\n")
 
         args = set_options(datetime_name=datetime_name, phase='train')
-        main(args)
+        main(**args)
 
     except Exception as e:
         logger.error(e, exc_info=True)

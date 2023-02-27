@@ -2,10 +2,10 @@
 # -*- coding: utf-8 -*-
 
 from .options import (
-    set_options,
     ParamSet,
+    set_options,
     save_parameter,
-    print_paramater
+    print_parameter
     )
 from .dataloader import create_dataloader
 from .framework import create_model
@@ -13,9 +13,9 @@ from .metrics import set_eval
 from .logger import BaseLogger
 
 __all__ = [
-            'set_options',
             'ParamSet',
-            'print_paramater',
+            'set_options',
+            'print_parameter',
             'save_parameter',
             'create_dataloader',
             'create_model',

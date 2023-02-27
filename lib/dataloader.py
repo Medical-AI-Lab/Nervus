@@ -17,9 +17,6 @@ from typing import List, Dict, Union
 logger = BaseLogger.get_logger(__name__)
 
 
-#
-# The below is for dataloader.
-#
 class PrivateAugment(torch.nn.Module):
     """
     Augmentation defined privately.
@@ -39,7 +36,7 @@ class InputDataMixin:
     """
     def _make_scaler(self) -> MinMaxScaler:
         """
-        Make scaler to mormalize inputa data by min-max normalization with train data.
+        Make scaler to normalize input data by min-max normalization with train data.
 
         Returns:
             MinMaxScaler: scaler
@@ -71,7 +68,7 @@ class InputDataMixin:
             scaler = pickle.load(f)
         return scaler
 
-    def _load_input_value_if_mlp(self, idx: int) -> Union[torch.Tensor, str]:
+    def _load_input_value_if_mlp(self, idx: int) -> Union[torch.FloatTensor, str]:
         """
         Load input values after converting them into tensor if MLP is used.
 
@@ -89,12 +86,12 @@ class InputDataMixin:
         # After iloc[[idx], index_input_list], pd.DataFrame is obtained.
         # DataFrame fits the input type of self.scaler.transform.
         # However, after normalizing, the shape of inputs_value is (1, N), where N is the number of input values.
-        # Since the shape (1, N) is not accaptable when forwarding, convert (1, N) -> (N,) is needed.
+        # Since the shape (1, N) is not acceptable when forwarding, convert (1, N) -> (N,) is needed.
         index_input_list = [self.col_index_dict[input] for input in self.input_list]
         _df_inputs_value = self.df_split.iloc[[idx], index_input_list]
-        inputs_value = self.scaler.transform(_df_inputs_value).reshape(-1)
-        inputs_value = np.array(inputs_value, dtype=np.float64)
-        inputs_value = torch.from_numpy(inputs_value.astype(np.float32)).clone()
+        inputs_value = self.scaler.transform(_df_inputs_value).reshape(-1)  #    np.float64
+        inputs_value = np.array(inputs_value, dtype=np.float32)             # -> np.float32
+        inputs_value = torch.from_numpy(inputs_value).clone()               # -> torch.float32
         return inputs_value
 
 
@@ -106,7 +103,7 @@ class ImageMixin:
         """
         Define which augmentation is applied.
 
-        When traning, augmentation is needed for train data only.
+        When training, augmentation is needed for train data only.
         When test, no need of augmentation.
         """
         _augmentation = []
@@ -135,7 +132,7 @@ class ImageMixin:
         _transforms.append(transforms.ToTensor())
 
         assert (self.params.normalize_image is not None), 'Specify normalize_image by yes or no.'
-        assert (self.params.in_channel is not None), 'Speficy in_channel by 1 or 3.'
+        assert (self.params.in_channel is not None), 'Specify in_channel by 1 or 3.'
         if self.params.normalize_image == 'yes':
             # transforms.Normalize accepts only Tensor.
             if self.params.in_channel == 1:
@@ -162,7 +159,7 @@ class ImageMixin:
         if self.params.net is None:
             return image
 
-        assert (self.params.in_channel is not None), 'Speficy in_channel by 1 or 3.'
+        assert (self.params.in_channel is not None), 'Specify in_channel by 1 or 3.'
         imgpath = self.df_split.iat[idx, self.col_index_dict['imgpath']]
         if self.params.in_channel == 1:
             image = Image.open(imgpath).convert('L')    # eg. np.array(image).shape = (64, 64)
@@ -179,7 +176,7 @@ class DeepSurvMixin:
     """
     Class to handle required data for deepsurv.
     """
-    def _load_periods_if_deepsurv(self, idx: int) -> Union[int, str]:
+    def _load_periods_if_deepsurv(self, idx: int) -> Union[torch.FloatTensor, str]:
         """
         Return period if deepsurv.
 
@@ -187,7 +184,7 @@ class DeepSurvMixin:
             idx (int): index
 
         Returns:
-            Union[int, str]: period, or empty string
+            Union[torch.FloatTensor, str]: period, or empty string
         """
         periods = ''
 
@@ -195,9 +192,9 @@ class DeepSurvMixin:
             return periods
 
         assert (self.params.task == 'deepsurv') and (len(self.label_list) == 1), 'Deepsurv cannot work in multi-label.'
-        periods = self.df_split.iat[idx, self.col_index_dict[self.period_name]]
-        periods = np.array(periods, dtype=np.float64)
-        periods = torch.from_numpy(periods.astype(np.float32)).clone()
+        periods = self.df_split.iat[idx, self.col_index_dict[self.period_name]]  #    int64
+        periods = np.array(periods, dtype=np.float32)                            # -> np.float32
+        periods = torch.from_numpy(periods).clone()                              # -> torch.float32
         return periods
 
 
@@ -219,7 +216,7 @@ class LoadDataSet(Dataset, DataSetWidget):
                 ) -> None:
         """
         Args:
-            params (ModelParam): paramater for model
+            params (ModelParam): parameter for model
             split (str): split
         """
         self.params = params
@@ -262,13 +259,13 @@ class LoadDataSet(Dataset, DataSetWidget):
         """
         Return labels.
         If no column of label when csv of external dataset is used,
-        empty dictionaty is returned.
+        empty dictionary is returned.
 
         Args:
             idx (int): index
 
         Returns:
-            Dict[str, Union[int, float]]: dictionary of label name anbd its value
+            Dict[str, Union[int, float]]: dictionary of label name and its value
         """
         # For checking if columns of labels exist when used csv for external dataset.
         label_list_in_split = list(self.df_split.columns[self.df_split.columns.str.startswith('label')])
@@ -318,7 +315,7 @@ def _make_sampler(split_data: LoadDataSet) -> WeightedRandomSampler:
     Make sampler.
 
     Args:
-        split_data (LoadDataSet): dataset for anyt of train
+        split_data (LoadDataSet): dataset
 
     Returns:
         WeightedRandomSampler: sampler
@@ -339,10 +336,10 @@ def create_dataloader(
                     split: str = None
                     ) -> DataLoader:
     """
-    Creeate data loader ofr split.
+    Create data loader ofr split.
 
     Args:
-        params (ModelParam): paramater for dataloader
+        params (ModelParam): parameter for dataloader
         split (str): split. Defaults to None.
 
     Returns:
@@ -363,7 +360,7 @@ def create_dataloader(
         shuffle = False
         sampler = _make_sampler(split_data)
     else:
-        # When pramas.sampler == 'no'
+        # When params.sampler == 'no'
         sampler = None
 
     split_loader = DataLoader(
