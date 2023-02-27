@@ -115,16 +115,16 @@ class NegativeLogLikelihood(nn.Module):
         # Note: torch.sum(_loss, dim=0) possibly returns nan, in particular MLP.
         _loss = torch.sum(_loss, dim=0) / torch.sum(mask, dim=0)
         _loss = torch.log(_loss).reshape(-1, 1)
-
         num_occurs = torch.sum(label)
 
         if num_occurs.item() == 0.0:
-            loss = torch.tensor([1e-7], requires_grad=True)  # To avoid zero division, set small value as loss
+            loss = torch.tensor([1e-7], requires_grad=True).to(self.device)  # To avoid zero division, set small value as loss
+            return loss
         else:
             neg_log_loss = -torch.sum((output - _loss) * label) / num_occurs
             l2_loss = self.reg(network)
             loss = neg_log_loss + l2_loss
-        return loss
+            return loss
 
 
 class ClsCriterion:
@@ -134,6 +134,9 @@ class ClsCriterion:
     def __init__(self, device: torch.device = None) -> None:
         """
         Set CrossEntropyLoss.
+
+        Args:
+            device (torch.device): device
         """
         self.device = device
         self.criterion = nn.CrossEntropyLoss()
@@ -168,7 +171,7 @@ class ClsCriterion:
 
         # loss for each label and total of their losses
         losses = dict()
-        losses['total'] = torch.tensor([0.0]).to(self.device)
+        losses['total'] = torch.tensor([0.0], requires_grad=True).to(self.device)
         for label_name in labels['labels'].keys():
             _output = outputs[label_name]
             _label = _labels[label_name]
@@ -185,6 +188,10 @@ class RegCriterion:
     def __init__(self, criterion_name: str = None, device: torch.device = None) -> None:
         """
         Set MSE, RMSE or MAE.
+
+        Args:
+            criterion_name (str): 'MSE', 'RMES', or 'MAE'
+            device (torch.device): device
         """
         self.device = device
 
@@ -228,7 +235,7 @@ class RegCriterion:
 
         # loss for each label and total of their losses
         losses = dict()
-        losses['total'] = torch.tensor([0.0]).to(self.device)
+        losses['total'] = torch.tensor([0.0], requires_grad=True).to(self.device)
         for label_name in labels['labels'].keys():
             _output = _outputs[label_name]
             _label = _labels[label_name]
@@ -242,7 +249,7 @@ class DeepSurvCriterion:
     """
     Class of criterion for deepsurv.
     """
-    def __init__(self,device: torch.device = None) -> None:
+    def __init__(self, device: torch.device = None) -> None:
         """
         Set NegativeLogLikelihood.
 
@@ -287,7 +294,7 @@ class DeepSurvCriterion:
 
         # loss for each label and total of their losses
         losses = dict()
-        losses['total'] = torch.tensor([0.0]).to(self.device)
+        losses['total'] = torch.tensor([0.0], requires_grad=True).to(self.device)
         for label_name in labels['labels'].keys():
             _output = outputs[label_name]
             _label = _labels[label_name]

@@ -22,7 +22,7 @@ class LabelLoss:
 
         # epoch_loss = batch_loss / dataset_size
         self.train_epoch_loss = []       # List[float]
-        self.val_epoch_loss = []
+        self.val_epoch_loss = []         # List[float]
 
         self.best_val_loss = None        # float
         self.best_epoch = None           # int
@@ -33,7 +33,6 @@ class LabelLoss:
         Return loss depending on phase and target
 
         Args:
-            new_epoch_loss (float): batch loss or epoch loss
             phase (str): 'train' or 'val'
             target (str): 'batch' or 'epoch'
 
@@ -193,7 +192,6 @@ class LossStore:
         Print train_loss and val_loss for the ith epoch.
 
         Args:
-            num_epochs (int): ith epoch
             at_epoch (int): epoch number
         """
         train_epoch_loss = self.label_losses['total'].get_latest_epoch_loss('train')
