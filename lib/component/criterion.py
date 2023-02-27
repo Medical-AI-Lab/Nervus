@@ -190,7 +190,7 @@ class RegCriterion:
         Set MSE, RMSE or MAE.
 
         Args:
-            criterion_name (str): 'MSE', 'RMES', or 'MAE'
+            criterion_name (str): 'MSE', 'RMSE', or 'MAE'
             device (torch.device): device
         """
         self.device = device
