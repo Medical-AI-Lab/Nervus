@@ -62,7 +62,7 @@ class InputDataMixin:
         Load scaler.
 
         Args:
-            scaler_path (str): path tp scaler
+            scaler_path (str): path to scaler
         """
         with open(scaler_path, 'rb') as f:
             scaler = pickle.load(f)
@@ -159,7 +159,6 @@ class ImageMixin:
         if self.params.net is None:
             return image
 
-        assert (self.params.in_channel is not None), 'Specify in_channel by 1 or 3.'
         imgpath = self.df_split.iat[idx, self.col_index_dict['imgpath']]
         if self.params.in_channel == 1:
             image = Image.open(imgpath).convert('L')    # eg. np.array(image).shape = (64, 64)
@@ -216,7 +215,7 @@ class LoadDataSet(Dataset, DataSetWidget):
                 ) -> None:
         """
         Args:
-            params (ModelParam): parameter for model
+            params (ParamSet): parameter for model
             split (str): split
         """
         self.params = params
@@ -339,7 +338,7 @@ def create_dataloader(
     Create data loader ofr split.
 
     Args:
-        params (ModelParam): parameter for dataloader
+        params (ParamSet): parameter for dataloader
         split (str): split. Defaults to None.
 
     Returns:
