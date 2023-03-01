@@ -44,7 +44,7 @@ Note:
 - `label_XXX` should have a classification target. Any name is available. If you use more than two `label_XXX`, it will be automatically recognize multi-label classification and automatically prepare a proper number of classifiers (FCs).
 - `split` should have `train`, `val`, and `test`.
 - When you use inputs other than image, `input_XXX` is needed.
-- When you use deepsurv, `periords_XXX` is needed as well.
+- When you use deepsurv, `periods_XXX` is needed as well.
 
 
 ## Model development
@@ -107,7 +107,7 @@ If you need many trials, use `work_all.sh`. In this case, `parameter.csv` must b
 
 
 # Tutorial
-Tutorial for Nervus library is availabel on Google Colaboratory.
+Tutorial for Nervus library is available on Google Colaboratory.
 To do the tutorial, please visit this site [https://colab.research.google.com/drive/1710VAktDPVyPZdRo39UrSAtuVBYdFsCT].
 
 
