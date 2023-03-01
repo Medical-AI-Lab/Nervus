@@ -89,7 +89,6 @@ class InputDataMixin:
         inputs_value = np.array(inputs_value, dtype=np.float32)      # -> np.float32
         inputs_value = torch.from_numpy(inputs_value).clone()        # -> torch.float32
 
-
     def _load_input_value_if_mlp(self, idx: int) -> Union[torch.FloatTensor, str]:
         """
         Load input values after converting them into tensor if MLP is used.
