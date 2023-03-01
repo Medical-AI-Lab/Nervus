@@ -12,6 +12,7 @@ from sklearn.preprocessing import MinMaxScaler
 import pickle
 from .logger import BaseLogger
 from typing import List, Dict, Union
+import pandas as pd
 
 
 logger = BaseLogger.get_logger(__name__)
@@ -68,6 +69,27 @@ class InputDataMixin:
             scaler = pickle.load(f)
         return scaler
 
+    def _normalize_inputs(self, df_inputs: pd.DataFrame) -> torch.FloatTensor:
+        """
+        Normalize inputs.
+
+        Args:
+            df_inputs (pd.DataFrame): DataFrame of inputs
+
+        Returns:
+            torch.FloatTensor: normalized inputs
+
+        Note:
+        After iloc[[idx], index_input_list], pd.DataFrame is obtained.
+        DataFrame fits the input type of self.scaler.transform.
+        However, after normalizing, the shape of inputs_value is (1, N), where N is the number of input values.
+        Since the shape (1, N) is not acceptable when forwarding, convert (1, N) -> (N,) is needed.
+        """
+        inputs_value = self.scaler.transform(df_inputs).reshape(-1)  #    np.float64
+        inputs_value = np.array(inputs_value, dtype=np.float32)      # -> np.float32
+        inputs_value = torch.from_numpy(inputs_value).clone()        # -> torch.float32
+
+
     def _load_input_value_if_mlp(self, idx: int) -> Union[torch.FloatTensor, str]:
         """
         Load input values after converting them into tensor if MLP is used.
@@ -83,15 +105,9 @@ class InputDataMixin:
         if self.params.mlp is None:
             return inputs_value
 
-        # After iloc[[idx], index_input_list], pd.DataFrame is obtained.
-        # DataFrame fits the input type of self.scaler.transform.
-        # However, after normalizing, the shape of inputs_value is (1, N), where N is the number of input values.
-        # Since the shape (1, N) is not acceptable when forwarding, convert (1, N) -> (N,) is needed.
         index_input_list = [self.col_index_dict[input] for input in self.input_list]
-        _df_inputs_value = self.df_split.iloc[[idx], index_input_list]
-        inputs_value = self.scaler.transform(_df_inputs_value).reshape(-1)  #    np.float64
-        inputs_value = np.array(inputs_value, dtype=np.float32)             # -> np.float32
-        inputs_value = torch.from_numpy(inputs_value).clone()               # -> torch.float32
+        _df_inputs = self.df_split.iloc[[idx], index_input_list]
+        inputs_value = self._normalize_inputs( _df_inputs)
         return inputs_value
 
 
@@ -131,8 +147,6 @@ class ImageMixin:
         _transforms = []
         _transforms.append(transforms.ToTensor())
 
-        assert (self.params.normalize_image is not None), 'Specify normalize_image by yes or no.'
-        assert (self.params.in_channel is not None), 'Specify in_channel by 1 or 3.'
         if self.params.normalize_image == 'yes':
             # transforms.Normalize accepts only Tensor.
             if self.params.in_channel == 1:
@@ -143,6 +157,25 @@ class ImageMixin:
 
         _transforms = transforms.Compose(_transforms)
         return _transforms
+
+    def _open_image_in_channel(self, imgpath: str, in_channel: int) -> Image:
+        """
+        Open image in channel.
+
+        Args:
+            imgpath (str): path to image
+            in_channel (int): channel, or 1 or 3
+
+        Returns:
+            Image: PIL image
+        """
+        if in_channel == 1:
+            image = Image.open(imgpath).convert('L')    # eg. np.array(image).shape = (64, 64)
+            return image
+        else:
+            # ie. self.params.in_channel == 3
+            image = Image.open(imgpath).convert('RGB')  # eg. np.array(image).shape = (64, 64, 3)
+            return image
 
     def _load_image_if_cnn(self, idx: int) -> Union[torch.Tensor, str]:
         """
@@ -160,12 +193,7 @@ class ImageMixin:
             return image
 
         imgpath = self.df_split.iat[idx, self.col_index_dict['imgpath']]
-        if self.params.in_channel == 1:
-            image = Image.open(imgpath).convert('L')    # eg. np.array(image).shape = (64, 64)
-        else:
-            # ie. self.params.in_channel == 3
-            image = Image.open(imgpath).convert('RGB')  # eg. np.array(image).shape = (64, 64, 3)
-
+        image = self._open_image_in_channel(imgpath, self.params.in_channel)
         image = self.augmentation(image)
         image = self.transform(image)
         return image
