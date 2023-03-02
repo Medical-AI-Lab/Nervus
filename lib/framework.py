@@ -42,6 +42,7 @@ class BaseModel(ABC):
                                 vit_image_size=self.params.vit_image_size,
                                 pretrained=self.params.pretrained
                                 )
+        self.network.to(self.device)
 
         # variables to keep temporary best_weight and best_epoch
         self.acting_best_weight = None
@@ -133,7 +134,6 @@ class ModelMixin:
         """
         if gpu_ids != []:
             assert torch.cuda.is_available(), 'No available GPU on this machine.'
-            self.network.to(self.device)
             self.network = nn.DataParallel(self.network, device_ids=gpu_ids)
 
     def init_network(self) -> None:
@@ -150,7 +150,7 @@ class ModelMixin:
                                 vit_image_size=self.params.vit_image_size,
                                 pretrained=self.params.pretrained
                                 )
-
+        self.network.to(self.device)
 
 class ModelWidget(BaseModel, ModelMixin):
     """
