@@ -150,7 +150,7 @@ class ModelMixin:
                                 vit_image_size=self.params.vit_image_size,
                                 pretrained=self.params.pretrained
                                 )
-
+        self.network.to(self.device)
 
 class ModelWidget(BaseModel, ModelMixin):
     """
