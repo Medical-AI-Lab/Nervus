@@ -1,4 +1,4 @@
-# Submitting articles with this library
+# Submitting articles using this library
 This model is used in [article: XXX] published in [journal: YYY] (These will be replaced once publication is finalized).  
 In this article, a regression model with ConvNext was applied.  
 The best performing model was obtained with a loss function of RMSE.  
