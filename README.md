@@ -2,7 +2,7 @@
 This model is used in [XXX] published in [YYY] (These will be replaced once publication is finalized).  
 In this article, a regression model with ConvNext was applied.  
 The best performing model was obtained with a loss function of RMSE.  
-Detailed model descriptions can be found in the article and below.
+Detailed model descriptions are provided in the article and the actual usage of the framework is provided below.
 
 # Nervus
 This is an AI model framework used for single/multi-label and/or single/multi-class tasks with image and/or tabular data.
