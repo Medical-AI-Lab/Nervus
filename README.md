@@ -1,5 +1,5 @@
 # Submitting articles
-This model is used in [XXX] published in [YYY].  
+This model is used in [XXX] published in [YYY] (These will be replaced once publication is finalized).  
 In this article, a regression model with ConvNext was applied.  
 The best performing model was obtained with a loss function of RMSE. 
 Detailed model descriptions can be found below.
