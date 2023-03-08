@@ -1,3 +1,8 @@
+# Submitting articles
+This model is used in [XXX] published in [YYY].
+In this article, a regression model with ConvNextLarge was applied.
+The best performing model was obtained with a loss function of RMSE.
+
 # Nervus
 This is an AI model used for single/multi-label and/or single/multi-class tasks with image and/or tabular data.
 Although this has a possibility to apply wide range of fields, we intended to use this model for medical imaging classification task.
