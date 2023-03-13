@@ -358,6 +358,12 @@ def _make_sampler(split_data: LoadDataSet) -> WeightedRandomSampler:
     return sampler
 
 
+
+import os
+#import torch.distributed as dist
+from torch.utils.data.distributed import DistributedSampler
+
+
 def create_dataloader(
                     params,
                     split: str = None
@@ -384,17 +390,33 @@ def create_dataloader(
     if params.sampler == 'yes':
         assert ((params.task == 'classification') or (params.task == 'deepsurv')), 'Cannot make sampler in regression.'
         assert (len(params.label_list) == 1), 'Cannot make sampler for multi-label.'
-        shuffle = False
         sampler = _make_sampler(split_data)
+        shuffle = False  # shuffle is set by sampler.
     else:
         # When params.sampler == 'no'
         sampler = None
 
+    """
     split_loader = DataLoader(
                             dataset=split_data,
                             batch_size=batch_size,
                             shuffle=shuffle,
                             num_workers=0,
                             sampler=sampler
+                            )
+    """
+    dist_sampler = DistributedSampler(
+                                    split_data,
+                                    shuffle=True
+                                    )
+
+    split_loader = DataLoader(
+                            dataset=split_data,
+                            batch_size=batch_size,
+                            shuffle=(dist_sampler is None), # ie. None
+                            num_workers=0,
+                            #num_workers=os.cpu_count(),
+                            sampler=dist_sampler,
+                            pin_memory=True
                             )
     return split_loader
