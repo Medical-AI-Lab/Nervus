@@ -64,13 +64,12 @@ def train(
     model.network = DDP(model.network, device_ids=None)
     model.network.to('cpu')
 
-
     dataloaders = {split: create_dataloader(args_dataloader, split=split) for split in ['train', 'val']}
 
-
     criterion = set_criterion(args_conf.criterion, args_conf.device)
-    loss_store = set_loss_store(args_conf.label_list, args_conf.epochs, args_conf.dataset_info)
     optimizer = set_optimizer(args_conf.optimizer, model.network, args_conf.lr)
+    loss_store = set_loss_store(args_conf.label_list, args_conf.epochs, args_conf.dataset_info)
+
 
     for epoch in range(1, args_conf.epochs + 1):
         for phase in ['train', 'val']:
@@ -100,21 +99,24 @@ def train(
                         loss.backward()
                         optimizer.step()
 
-
-                #dist.all_reduce(losses, op=dist.ReduceOp.SUM)
+                #print(i, 'rank', rank, 'losses', losses)
+                #print(i, 'rank', rank, 'losses_total', losses['total'])
 
                 # label-wise all-reduce
-                print(i, 'rank', rank, 'losses', losses)
-                dist.all_reduce(losses['total'], op=dist.ReduceOp.SUM)
-                #print(i, 'rank', rank, 'losses_total', losses['total'])
-                print(i, 'rank', rank, 'losses', losses)
-                #for label_name in losses.items():
-                #    dist.all_reduce(losses[label_name], op=dist.ReduceOp.SUM)
+                #dist.all_reduce(losses['total'], op=dist.ReduceOp.SUM)
+                #losses['total'] = losses['total'] / world_size
+                #print(f"Before, rank: {rank}, {losses}")
 
+                for label_name in losses.keys():
+                    #print('All-reduce', label_name)
+                    dist.all_reduce(losses[label_name], op=dist.ReduceOp.SUM)
+                    losses[label_name] = losses[label_name] / world_size   # Average between process
 
                 # Store
-                #loss_store.store(phase, losses, batch_size=len(data['imgpath']))
-
+                # masterだけでいい？
+                loss_store.store(phase, losses, batch_size=len(data['imgpath']))
+                #print(f"After, rank: {rank}, {losses}")
+                #print(f"rank: {rank}, epoch: {epoch}, phase: {phase}, iter: {i+1}, batch_size: {len(data['imgpath'])}")
 
 
         if isMaster:
@@ -176,7 +178,7 @@ if __name__ == '__main__':
     except Exception as e:
         logger.error(e, exc_info=True)
 
-        #dist.destroy_process_group()
+        dist.destroy_process_group()
 
     else:
         logger.info('\nTraining finished.\n')

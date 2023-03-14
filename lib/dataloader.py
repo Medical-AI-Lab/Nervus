@@ -405,18 +405,18 @@ def create_dataloader(
                             sampler=sampler
                             )
     """
-    dist_sampler = DistributedSampler(
-                                    split_data,
-                                    shuffle=True
-                                    )
+    sampler = DistributedSampler(
+                                split_data,
+                                shuffle=True
+                                )
 
     split_loader = DataLoader(
                             dataset=split_data,
                             batch_size=batch_size,
-                            shuffle=(dist_sampler is None), # ie. None
                             num_workers=0,
                             #num_workers=os.cpu_count(),
-                            sampler=dist_sampler,
-                            pin_memory=True
+                            sampler=sampler,
+                            shuffle=False
+                            #pin_memory=True
                             )
     return split_loader
