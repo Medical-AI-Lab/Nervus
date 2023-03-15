@@ -407,7 +407,7 @@ def create_dataloader(
     """
     sampler = DistributedSampler(
                                 split_data,
-                                shuffle=True
+                                shuffle=(True if params.isTrain else False)  # When test, no shuffle
                                 )
 
     split_loader = DataLoader(

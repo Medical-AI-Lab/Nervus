@@ -19,11 +19,12 @@ from lib.component import (
         )
 
 
-# distributed
+# For distributed
+import os
 import torch.distributed as dist
 import torch.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel as DDP
-import os
+
 
 
 logger = BaseLogger.get_logger(__name__)
@@ -52,17 +53,17 @@ def train(
 
     if isMaster:
         print_parameter(args_print)
+        isMLP = args_model.mlp is not None
+        save_weight_policy = args_conf.save_weight_policy
+        save_datetime_dir = args_conf.save_datetime_dir
 
-    isMLP = args_model.mlp is not None
-    save_weight_policy = args_conf.save_weight_policy
-    save_datetime_dir = args_conf.save_datetime_dir
 
     #model = create_model(args_model)
     #model.to_gpu(args_conf.gpu_ids)
 
     model = create_model(args_model)
     model.network = DDP(model.network, device_ids=None)
-    model.network.to('cpu')
+    model.network.to('cpu')  # to(rank)
 
     dataloaders = {split: create_dataloader(args_dataloader, split=split) for split in ['train', 'val']}
 
@@ -181,8 +182,10 @@ if __name__ == '__main__':
     except Exception as e:
         logger.error(e, exc_info=True)
 
-        dist.destroy_process_group()
-
     else:
         logger.info('\nTraining finished.\n')
+
         print(datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S'))
+
+    finally:
+        dist.destroy_process_group()
