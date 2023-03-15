@@ -29,7 +29,7 @@ import os
 logger = BaseLogger.get_logger(__name__)
 
 
-num_gpus = 2            # num process
+num_gpus = 4 #2 #3      # num process
 world_size = num_gpus   # total number of processes
 
 
@@ -68,11 +68,16 @@ def train(
 
     criterion = set_criterion(args_conf.criterion, args_conf.device)
     optimizer = set_optimizer(args_conf.optimizer, model.network, args_conf.lr)
-    loss_store = set_loss_store(args_conf.label_list, args_conf.epochs, args_conf.dataset_info)
+
+    if isMaster:
+        loss_store = set_loss_store(args_conf.label_list, args_conf.epochs, args_conf.dataset_info)
 
 
     for epoch in range(1, args_conf.epochs + 1):
         for phase in ['train', 'val']:
+            # Sync all processes before starting with a new epoch of training
+            dist.barrier()
+
             if phase == 'train':
                 model.train()
             elif phase == 'val':
@@ -82,9 +87,7 @@ def train(
 
             split_dataloader = dataloaders[phase]
 
-            #######################################################################################
-            split_dataloader.sampler.set_epoch(epoch)  # https://pytorch.org/docs/stable/data.html
-            ########################################################################################
+            split_dataloader.sampler.set_epoch(epoch)
 
             for i, data in enumerate(split_dataloader):
                 optimizer.zero_grad()
@@ -103,30 +106,30 @@ def train(
                 #print(i, 'rank', rank, 'losses_total', losses['total'])
 
                 # label-wise all-reduce
-                #dist.all_reduce(losses['total'], op=dist.ReduceOp.SUM)
-                #losses['total'] = losses['total'] / world_size
                 #print(f"Before, rank: {rank}, {losses}")
-
                 for label_name in losses.keys():
-                    #print('All-reduce', label_name)
                     dist.all_reduce(losses[label_name], op=dist.ReduceOp.SUM)
-                    losses[label_name] = losses[label_name] / world_size   # Average between process
+                #print(f"After, rank: {rank}, {losses}")
 
                 # Store
-                # masterだけでいい？
-                loss_store.store(phase, losses, batch_size=len(data['imgpath']))
-                #print(f"After, rank: {rank}, {losses}")
-                #print(f"rank: {rank}, epoch: {epoch}, phase: {phase}, iter: {i+1}, batch_size: {len(data['imgpath'])}")
+                if isMaster:
+                    loss_store.store(phase, losses, batch_size=len(data['imgpath']))
+                    #print(f"After, rank: {rank}, {losses}")
+                    #print(f"rank: {rank}, epoch: {epoch}, phase: {phase}, iter: {i+1}, batch_size: {len(data['imgpath'])}")
 
 
+        #! Wait until every process comes here.
+        dist.barrier()
         if isMaster:
             loss_store.cal_epoch_loss(at_epoch=epoch)
             loss_store.print_epoch_loss(at_epoch=epoch)
+
             if loss_store.is_val_loss_updated():
                 model.store_weight(at_epoch=loss_store.get_best_epoch())
                 if (epoch > 1) and (save_weight_policy == 'each'):
                     model.save_weight(save_datetime_dir, as_best=False)
 
+    dist.barrier()
     if isMaster:
         save_parameter(args_save, save_datetime_dir + '/' + 'parameters.json')
         loss_store.save_learning_curve(save_datetime_dir)
