@@ -30,9 +30,10 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 logger = BaseLogger.get_logger(__name__)
 
 
-num_gpus = 4 #8 #2       # num process
+num_gpus = 4 #8 #2      # num process . 4 -> rank = 0,1,2,3, 1 -> rank=0
 world_size = num_gpus   # total number of processes
 
+# torch.device(f"{cuda:{rank}")
 
 def train(
         rank,
@@ -127,9 +128,6 @@ def train(
                     #print(f"After, rank: {rank}, {losses}")
                     #print(f"rank: {rank}, epoch: {epoch}, phase: {phase}, iter: {i+1}, batch_size: {len(data['imgpath'])}")
 
-
-        #! Wait until every process comes here.
-        dist.barrier()
         if isMaster:
             loss_store.cal_epoch_loss(at_epoch=epoch)
             loss_store.print_epoch_loss(at_epoch=epoch)
@@ -139,7 +137,10 @@ def train(
                 if (epoch > 1) and (save_weight_policy == 'each'):
                     model.save_weight(save_datetime_dir, as_best=False)
 
-    dist.barrier()
+        #! Wait until master store and save weight
+        dist.barrier()
+
+    dist.barrier()  #! No need?
     if isMaster:
         save_parameter(args_save, save_datetime_dir + '/' + 'parameters.json')
         loss_store.save_learning_curve(save_datetime_dir)
