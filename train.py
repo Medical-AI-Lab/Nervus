@@ -30,7 +30,7 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 logger = BaseLogger.get_logger(__name__)
 
 
-num_gpus = 4 #2 #3      # num process
+num_gpus = 4 #8 #2       # num process
 world_size = num_gpus   # total number of processes
 
 
@@ -62,8 +62,17 @@ def train(
     #model.to_gpu(args_conf.gpu_ids)
 
     model = create_model(args_model)
+
+    #! For multi-device modules and CPU modules, device_ids must be None.
     model.network = DDP(model.network, device_ids=None)
-    model.network.to('cpu')  # to(rank)
+    model.network.to('cpu')
+
+    #! For single-device modules, device_ids can contain exactly one device id,
+    #! which represents the only CUDA device where the input module corresponding to this process resides.
+    #model.network = DDP(model.network, device_ids=None)  # OK?
+    #model.network = DDP(model.network, device_ids=[rank])  # 1GPU/1process  if n(>1)-GPU/1process -> slower than 1GPU/1process
+    #model.network.to(rank)
+
 
     dataloaders = {split: create_dataloader(args_dataloader, split=split) for split in ['train', 'val']}
 
@@ -187,5 +196,5 @@ if __name__ == '__main__':
 
         print(datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S'))
 
-    finally:
-        dist.destroy_process_group()
+    #finally:
+    #    dist.destroy_process_group()

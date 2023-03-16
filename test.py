@@ -89,6 +89,7 @@ def test(
 
         for i, split in enumerate(test_splits):
             for j, data in enumerate(dataloaders[split]):
+                dist.barrier()
                 in_data, _ = model.set_data(data)
 
                 with torch.no_grad():
@@ -100,7 +101,7 @@ def test(
                 #! Gather df_likelihood from all processes.
                 # Create enough room to store the collected objects.
                 df_likelihood_list = [None for _ in range(world_size)]
-                dist.all_gather_object(df_likelihood_list, df_likelihood)  # df_likelihood_list will be stored in all processes.
+                dist.all_gather_object(df_likelihood_list, df_likelihood)  # df_likelihood_list will be stored in all processes.  Maybe synced here.
                 #print(f"rank: {rank}, {df_likelihood_list}\n")
 
                 if isMaster:
@@ -115,13 +116,17 @@ def test(
                         df_likelihood.to_csv(save_path, index=False)
                     else:
                         df_likelihood.to_csv(save_path, mode='a', index=False, header=False)
-                    print(i, j)
+                # Wait until writing out
+                dist.barrier()
+                print('rank', rank, i, j)
 
-        dist.barrier
         # Reset the current weight by initializing network.
         print(f"rank: {rank}, init model\n")
         model.init_network()
+        # Wait until models of all process is initialized.
+        dist.barrier()
 
+    dist.destroy_process_group()
 
 
 
@@ -167,5 +172,5 @@ if __name__ == '__main__':
     else:
         logger.info('\nTest finished.\n')
 
-    finally:
-        dist.destroy_process_group()
+    #finally:
+    #    dist.destroy_process_group()
