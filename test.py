@@ -27,9 +27,8 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 logger = BaseLogger.get_logger(__name__)
 
 
-num_gpus = 4 #2 #3      # num process
-world_size = num_gpus   # total number of processes
 
+MASTER = 0
 
 
 def test(
@@ -37,19 +36,28 @@ def test(
         world_size,
         args_model = None,
         args_dataloader = None,
-        args_conf = None,
-        args_print = None
+        args_conf = None
+        #args_print = None
         ):
 
-    isMaster = (rank == 0)
+    isMaster = (rank == MASTER)
 
     # init
-    dist.init_process_group('gloo', rank=rank, world_size=world_size)
+    #dist.init_process_group('gloo', rank=rank, world_size=world_size)
     # For GPU, Distributed package doesn't have NCCL on mac
     #dist.init_process_group('nccl', rank=rank, world_size=world_size)
+    gpu_ids = args_conf.gpu_ids
+    if gpu_ids != []:
+        backend = 'nccl'  # For GPU
+    else:
+        backend = 'gloo'  # For CPU
+
+    dist.init_process_group(backend=backend, rank=rank, world_size=world_size)
+    print(f"rank: {rank}, init!, backend: {backend}")
+
 
     if isMaster:
-        print_parameter(args_print)
+        #print_parameter(args_print)
         save_datetime_dir = args_conf.save_datetime_dir
 
 
@@ -59,6 +67,19 @@ def test(
     model = create_model(args_model)
     #model.network = DDP(model.network, device_ids=None)
     #model.network.to('cpu')
+
+
+    # Set device
+    if gpu_ids == []:  # When CPU
+        device = torch.device('cpu')
+        device_ids = None
+    else:
+        #! When using GPU, define device depending on process
+        # rank starts from 0.
+        # eg. gpu_ids = [0, 1, 2]
+        # if rank = 0 -> gpu_id=gpu_ids[rank] = 0 corresponds to rank and GPU id
+        device = torch.device(f"cuda:{gpu_ids[rank]}")
+        device_ids = [device]
 
 
     dataloaders = {split: create_dataloader(args_dataloader, split=split) for split in test_splits}
@@ -75,13 +96,15 @@ def test(
         # framework.py
         # load weight -> DDP
         logger.info(f"rank: {rank}, Load weight: {weight_path}.\n")
-        weight = torch.load(weight_path)
-        map_location = torch.device('cpu')  # map_location = {'cuda:%d' % 0: 'cuda:%d' % rank}
-        model.network.load_state_dict(weight, map_location)
+
+        # map_location = #torch.device('cpu')  # map_location = {'cuda:%d' % 0: 'cuda:%d' % rank}
+        weight = torch.load(weight_path, map_location=device)
+        model.network.load_state_dict(weight)
+
 
         print(f"rank: {rank}, to DDP\n")
-        model.network = DDP(model.network, device_ids=None)
-        model.network.to('cpu')  # to(rank)
+        model.network = DDP(model.network, device_ids=device_ids)
+        model.network.to(device)  # to(rank)
         model.eval()
 
         #! Should wait until load weight at all processes?
@@ -90,7 +113,7 @@ def test(
         for i, split in enumerate(test_splits):
             for j, data in enumerate(dataloaders[split]):
                 dist.barrier()
-                in_data, _ = model.set_data(data)
+                in_data, _ = model.set_data(data, device)
 
                 with torch.no_grad():
                     outputs = model(in_data)
@@ -122,7 +145,10 @@ def test(
 
         # Reset the current weight by initializing network.
         print(f"rank: {rank}, init model\n")
-        model.init_network()
+        #model.init_network()
+        #model.network.to(device)
+
+        model.init_network(device)
         # Wait until models of all process is initialized.
         dist.barrier()
 
@@ -136,6 +162,10 @@ def main(args):
     args_conf = args['args_conf']
     args_print = args['args_print']
 
+    print_parameter(args_print)
+
+    # total number of processes, 1GPU/1Process
+    world_size = 4  #len(args_conf.gpu_ids)
 
     mp.spawn(
             test,
@@ -143,8 +173,8 @@ def main(args):
                 world_size,
                 args_model,
                 args_dataloader,
-                args_conf,
-                args_print
+                args_conf
+                #args_print
                 ),
             nprocs=world_size,
             join=True
@@ -164,6 +194,10 @@ if __name__ == '__main__':
         os.environ['GLOO_SOCKET_IFNAME'] = 'en0'
         os.environ['MASTER_ADDR'] = 'localhost'  #'127.0.0.1'  # 'localhost'
         os.environ['MASTER_PORT'] = '29500'      #'12355' #'8888'
+
+        #num_gpus = 4 #2 #3      # num process
+        #world_size = num_gpus   # total number of processes
+
         main(args)
 
     except Exception as e:

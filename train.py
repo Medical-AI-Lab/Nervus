@@ -30,10 +30,12 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 logger = BaseLogger.get_logger(__name__)
 
 
-num_gpus = 4 #8 #2      # num process . 4 -> rank = 0,1,2,3, 1 -> rank=0
-world_size = num_gpus   # total number of processes
+#num_gpus = 4 #8 #2      # num process . 4 -> rank = 0,1,2,3, 1 -> rank=0
+#world_size = num_gpus   # total number of processes
 
-# torch.device(f"{cuda:{rank}")
+
+MASTER = 0
+
 
 def train(
         rank,
@@ -41,19 +43,33 @@ def train(
         args_model = None,
         args_dataloader = None,
         args_conf = None,
-        args_print = None,
+        #args_print = None,
         args_save = None
         ):
 
-    isMaster = (rank == 0)
+
+    isMaster = (rank == MASTER)
+
 
     # init
-    dist.init_process_group('gloo', rank=rank, world_size=world_size)
+    #dist.init_process_group('gloo', rank=rank, world_size=world_size)
     # For GPU, Distributed package doesn't have NCCL on mac
     #dist.init_process_group('nccl', rank=rank, world_size=world_size)
+    #
+    #num_gpus = len(args_conf.gpu_ids)a
+    #setup(num_gpus=num_gpus, rank=rank, world_size=world_size)
+    gpu_ids = args_conf.gpu_ids
+    if gpu_ids != []:
+        backend = 'nccl'  # For GPU
+    else:
+        backend = 'gloo'  # For CPU
+
+    dist.init_process_group(backend=backend, rank=rank, world_size=world_size)
+    print(f"rank: {rank}, init!, backend: {backend}")
+
 
     if isMaster:
-        print_parameter(args_print)
+        #print_parameter(args_print)
         isMLP = args_model.mlp is not None
         save_weight_policy = args_conf.save_weight_policy
         save_datetime_dir = args_conf.save_datetime_dir
@@ -64,20 +80,39 @@ def train(
 
     model = create_model(args_model)
 
+
+    # Set device
+    if gpu_ids == []:  # When CPU
+        device = torch.device('cpu')
+        device_ids = None
+    else:
+        #! When using GPU, define device depending on process
+        # rank starts from 0.
+        # eg. gpu_ids = [0, 1, 2]
+        # if rank = 0 -> gpu_id=gpu_ids[rank] = 0 corresponds to rank and GPU id
+        device = torch.device(f"cuda:{gpu_ids[rank]}")
+        device_ids = [device]
+
+
+
     #! For multi-device modules and CPU modules, device_ids must be None.
-    model.network = DDP(model.network, device_ids=None)
-    model.network.to('cpu')
+    #model.network = DDP(model.network, device_ids=None)
+    #model.network.to('cpu')
 
     #! For single-device modules, device_ids can contain exactly one device id,
     #! which represents the only CUDA device where the input module corresponding to this process resides.
-    #model.network = DDP(model.network, device_ids=None)  # OK?
+    #model.network = DDP(model.network, device_ids=None)    # OK?
     #model.network = DDP(model.network, device_ids=[rank])  # 1GPU/1process  if n(>1)-GPU/1process -> slower than 1GPU/1process
     #model.network.to(rank)
+
+    model.network = DDP(model.network, device_ids=device_ids)
+    model.network.to(device)  # to(rank)
 
 
     dataloaders = {split: create_dataloader(args_dataloader, split=split) for split in ['train', 'val']}
 
-    criterion = set_criterion(args_conf.criterion, args_conf.device)
+    #criterion = set_criterion(args_conf.criterion, args_conf.device)
+    criterion = set_criterion(args_conf.criterion, device)             #! Define device depending on process
     optimizer = set_optimizer(args_conf.optimizer, model.network, args_conf.lr)
 
     if isMaster:
@@ -103,7 +138,10 @@ def train(
             for i, data in enumerate(split_dataloader):
                 optimizer.zero_grad()
 
-                in_data, labels = model.set_data(data)
+                #in_data, labels = model.set_data(data)
+
+                in_data, labels = model.set_data(data, device)
+
                 with torch.set_grad_enabled(phase == 'train'):
                     outputs = model(in_data)
                     losses = criterion(outputs, labels)
@@ -152,13 +190,18 @@ def train(
 
 
 def main(args):
-    #print('args', args)
-
     args_model = args['args_model']
     args_dataloader = args['args_dataloader']
     args_conf = args['args_conf']
     args_print = args['args_print']
     args_save = args['args_save']
+
+
+    print_parameter(args_print)
+    #if isdist == 'yes':
+
+    # total number of processes, 1GPU/1Process
+    world_size = 4  #len(args_conf.gpu_ids)
 
     mp.spawn(
             train,
@@ -167,7 +210,7 @@ def main(args):
                 args_model,
                 args_dataloader,
                 args_conf,
-                args_print,
+                #args_print,
                 args_save
                 ),
             nprocs=world_size,
@@ -184,9 +227,13 @@ if __name__ == '__main__':
         args = set_options(datetime_name=datetime_name, phase='train')
         #main(**args)
 
-        os.environ['GLOO_SOCKET_IFNAME'] = 'en0'
-        os.environ['MASTER_ADDR'] = 'localhost'  #'127.0.0.1'  # 'localhost'
-        os.environ['MASTER_PORT'] = '29500'      #'12355' #'8888'
+        os.environ['GLOO_SOCKET_IFNAME'] = 'en0'  # macだからen0？、GPUだといらないかも
+        os.environ['MASTER_ADDR'] = 'localhost'   #'127.0.0.1'  # 'localhost'
+        os.environ['MASTER_PORT'] = '29500'       #'12355' #'8888'
+
+        #num_gpus = 4 #8 #2      # num process . 4 -> rank = 0,1,2,3, 1 -> rank=0
+        #world_size = num_gpus   # total number of processes
+
         main(args)
 
     except Exception as e:

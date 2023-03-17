@@ -32,6 +32,11 @@ class Options:
         # GPU Ids
         self.parser.add_argument('--gpu_ids', type=str, default='cpu', help='gpu ids: e.g. 0, 0-1-2, 0-2. Use cpu for CPU (Default: cpu)')
 
+        # Distributed learning/inference
+        #self.parser.add_argument('--num_gpus', type=int, default=0, help='Number of GPUs. 0 means CPU(Default: 0)')
+        self.parser.add_argument('--dist',     type=str, default='no', choices=['yes', 'no'], help='Distributed learning/inference or not.')
+
+
         if isTrain:
             # Task
             self.parser.add_argument('--task', type=str, required=True, choices=['classification', 'regression', 'deepsurv'], help='Task')
@@ -212,7 +217,9 @@ def _parse_model(model_name: str) -> Tuple[Union[str, None], Union[str, None]]:
 def _parse_gpu_ids(gpu_ids: str) -> List[int]:
     """
     Parse GPU ids concatenated with '-' to list of integers of GPU ids.
-    eg. '0-1-2' -> [0, 1, 2], '-1' -> []
+    eg.:
+        '0-1-2' -> [0, 1, 2],
+        '-1' -> []
 
     Args:
         gpu_ids (str): GPU Ids
@@ -224,6 +231,7 @@ def _parse_gpu_ids(gpu_ids: str) -> List[int]:
         str_ids = []
     else:
         str_ids = gpu_ids.split('-')
+
     _gpu_ids = []
     for str_id in str_ids:
         id = int(str_id)
@@ -546,7 +554,11 @@ def _train_parse(args: argparse.Namespace) -> Dict[str, ParamSet]:
 
     args.project = Path(args.csvpath).stem
     args.gpu_ids = _parse_gpu_ids(args.gpu_ids)
-    args.device = torch.device(f"cuda:{args.gpu_ids[0]}") if args.gpu_ids != [] else torch.device('cpu')
+
+    #! Should define in each process.
+    #args.device = torch.device(f"cuda:{args.gpu_ids[0]}") if args.gpu_ids != [] else torch.device('cpu')
+
+
     args.mlp, args.net = _parse_model(args.model)
     args.pretrained = bool(args.pretrained)  # strtobool('False') = 0 (== False)
     args.save_datetime_dir = str(Path('results', args.project, 'trials', args.datetime))
@@ -584,7 +596,11 @@ def _test_parse(args: argparse.Namespace) -> Dict[str, ParamSet]:
     """
     args.project = Path(args.csvpath).stem
     args.gpu_ids = _parse_gpu_ids(args.gpu_ids)
-    args.device = torch.device(f"cuda:{args.gpu_ids[0]}") if args.gpu_ids != [] else torch.device('cpu')
+
+    #! Should define in each process.
+    #args.device = torch.device(f"cuda:{args.gpu_ids[0]}") if args.gpu_ids != [] else torch.device('cpu')
+
+
 
     # Collect weight paths
     if args.weight_dir is None:

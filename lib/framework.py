@@ -31,7 +31,7 @@ class BaseModel(ABC):
             param (ParamSet): parameters
         """
         self.params = params
-        self.device = self.params.device
+        #self.device = self.params.device
 
         self.network = create_net(
                                 mlp=self.params.mlp,
@@ -42,7 +42,7 @@ class BaseModel(ABC):
                                 vit_image_size=self.params.vit_image_size,
                                 pretrained=self.params.pretrained
                                 )
-        self.network.to(self.device)
+        #self.network.to(self.device)
 
         # variables to keep temporary best_weight and best_epoch
         self.acting_best_weight = None
@@ -136,10 +136,13 @@ class ModelMixin:
             assert torch.cuda.is_available(), 'No available GPU on this machine.'
             self.network = nn.DataParallel(self.network, device_ids=gpu_ids)
 
-    def init_network(self) -> None:
+    def init_network(self, device: torch.device) -> None:
         """
         Initialize network.
         This method is used at test to reset the current weight by redefining network.
+
+        Args:
+        device (torch.device): device
         """
         self.network = create_net(
                                 mlp=self.params.mlp,
@@ -150,7 +153,7 @@ class ModelMixin:
                                 vit_image_size=self.params.vit_image_size,
                                 pretrained=self.params.pretrained
                                 )
-        self.network.to(self.device)
+        self.network.to(device)
 
 class ModelWidget(BaseModel, ModelMixin):
     """
@@ -173,7 +176,8 @@ class MLPModel(ModelWidget):
 
     def set_data(
                 self,
-                data: Dict
+                data: Dict,
+                device: torch.device
                 ) -> Tuple[
                         Dict[str, torch.FloatTensor],
                         Dict[str, Union[LabelDict, torch.IntTensor, nn.Module]]
@@ -185,6 +189,7 @@ class MLPModel(ModelWidget):
 
         Args:
             data (Dict): dictionary of data
+            device (torch.device): device
 
         Returns:
             Tuple[
@@ -194,8 +199,8 @@ class MLPModel(ModelWidget):
         eg.
         ([inputs], [labels]), or ([inputs], [labels, periods, network]) when deepsurv
         """
-        in_data = {'inputs': data['inputs'].to(self.device)}
-        labels = {'labels': {label_name: label.to(self.device) for label_name, label in data['labels'].items()}}
+        in_data = {'inputs': data['inputs'].to(device)}
+        labels = {'labels': {label_name: label.to(device) for label_name, label in data['labels'].items()}}
 
         if not any(data['periods']):
             return in_data, labels
@@ -203,7 +208,7 @@ class MLPModel(ModelWidget):
         # When deepsurv
         labels = {
                   **labels,
-                  **{'periods': data['periods'].to(self.device), 'network': self.network.to(self.device)}
+                  **{'periods': data['periods'].to(device), 'network': self.network.to(device)}
                 }
         return in_data, labels
 
@@ -235,7 +240,8 @@ class CVModel(ModelWidget):
 
     def set_data(
                 self,
-                data: Dict
+                data: Dict,
+                device: torch.device
                 ) -> Tuple[
                         Dict[str, torch.FloatTensor],
                         Dict[str, Union[LabelDict, torch.IntTensor, nn.Module]]
@@ -246,6 +252,7 @@ class CVModel(ModelWidget):
 
         Args:
             data (Dict): dictionary of data
+            device (torch.device): device
 
         Returns:
             Tuple[
@@ -255,8 +262,8 @@ class CVModel(ModelWidget):
         eg.
         ([image], [labels]), or ([image], [labels, periods, network]) when deepsurv
         """
-        in_data = {'image': data['image'].to(self.device)}
-        labels = {'labels': {label_name: label.to(self.device) for label_name, label in data['labels'].items()}}
+        in_data = {'image': data['image'].to(device)}
+        labels = {'labels': {label_name: label.to(device) for label_name, label in data['labels'].items()}}
 
         if not any(data['periods']):
             return in_data, labels
@@ -264,7 +271,7 @@ class CVModel(ModelWidget):
         # When deepsurv
         labels = {
                   **labels,
-                  **{'periods': data['periods'].to(self.device), 'network': self.network.to(self.device)}
+                  **{'periods': data['periods'].to(device), 'network': self.network.to(device)}
                 }
         return in_data, labels
 
@@ -296,7 +303,8 @@ class FusionModel(ModelWidget):
 
     def set_data(
                 self,
-                data: Dict
+                data: Dict,
+                device: torch.device
                 ) -> Tuple[
                         Dict[str, torch.FloatTensor],
                         Dict[str, Union[LabelDict, torch.IntTensor, nn.Module]]
@@ -308,6 +316,7 @@ class FusionModel(ModelWidget):
 
         Args:
             data (Dict): dictionary of data
+            device (torch.device): device
 
         Returns:
             Tuple[
@@ -318,10 +327,10 @@ class FusionModel(ModelWidget):
         ([inputs, image], [labels]), or ([inputs, image], [labels, periods, network]) when deepsurv
         """
         in_data = {
-                'inputs': data['inputs'].to(self.device),
-                'image': data['image'].to(self.device)
+                'inputs': data['inputs'].to(device),
+                'image': data['image'].to(device)
                 }
-        labels = {'labels': {label_name: label.to(self.device) for label_name, label in data['labels'].items()}}
+        labels = {'labels': {label_name: label.to(device) for label_name, label in data['labels'].items()}}
 
         if not any(data['periods']):
             return in_data, labels
@@ -329,7 +338,7 @@ class FusionModel(ModelWidget):
         # When deepsurv
         labels = {
                   **labels,
-                  **{'periods': data['periods'].to(self.device), 'network': self.network.to(self.device)}
+                  **{'periods': data['periods'].to(device), 'network': self.network.to(device)}
                 }
         return in_data, labels
 
