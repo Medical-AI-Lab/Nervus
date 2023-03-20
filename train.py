@@ -105,7 +105,8 @@ def train(
     #model.network = DDP(model.network, device_ids=[rank])  # 1GPU/1process  if n(>1)-GPU/1process -> slower than 1GPU/1process
     #model.network.to(rank)
 
-    model.network = DDP(model.network, device_ids=device_ids)
+    #model.network = DDP(model.network, device_ids=device_ids)       # When specifying device_ids=[rank], error!
+    model.network = DDP(model.network.to(device), device_ids=None)   # Both CPU and GPU
     model.network.to(device)  # to(rank)
 
 
