@@ -1,12 +1,14 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import os
 import numpy as np
 import torch
 import torchvision.transforms as transforms
 from torch.utils.data.dataset import Dataset
 from torch.utils.data.dataloader import DataLoader
 from torch.utils.data.sampler import WeightedRandomSampler
+from torch.utils.data.distributed import DistributedSampler
 from PIL import Image
 from sklearn.preprocessing import MinMaxScaler
 import pickle
@@ -337,32 +339,75 @@ class LoadDataSet(Dataset, DataSetWidget):
         return _data
 
 
-def _make_sampler(split_data: LoadDataSet) -> WeightedRandomSampler:
-    """
-    Make sampler.
 
-    Args:
-        split_data (LoadDataSet): dataset
+# sampler = 'weighted', 'distributed', 'distweight', 'no'
+#sampler = DistributedSampler(
+#                             split_data,
+#                             shuffle=(True if params.isTrain else False)  # When test, no shuffle
+#                            )
+class Sampler:
+    @classmethod
+    def set_weightedrandom_sampler(cls, task=None, sampler=None, shuffle=None, label_list=None, split_data=None):
+        # WeightedRandomSampler does shuffle automatically
+        assert (task == 'classification') or (task == 'deepsurv'), 'Cannot make sampler in regression.'
+        assert (len(label_list) == 1), 'Cannot make sampler for multi-label.'
 
-    Returns:
-        WeightedRandomSampler: sampler
-    """
-    _target = []
-    for _, data in enumerate(split_data):
-        _target.append(list(data['labels'].values())[0])
+        _target = []
+        for _, data in enumerate(split_data):
+            _target.append(list(data['labels'].values())[0])
 
-    class_sample_count = np.array([len(np.where(_target == t)[0]) for t in np.unique(_target)])
-    weight = 1. / class_sample_count
-    samples_weight = np.array([weight[t] for t in _target])
-    sampler = WeightedRandomSampler(samples_weight, len(samples_weight))
-    return sampler
+        class_sample_count = np.array([len(np.where(_target == t)[0]) for t in np.unique(_target)])
+        weight = 1. / class_sample_count
+        samples_weight = np.array([weight[t] for t in _target])
+        _sampler = WeightedRandomSampler(samples_weight, len(samples_weight))
+        return _sampler
+
+    @classmethod
+    def set_distributed_sampler(cls, task=None, sampler=None, shuffle=None, label_list=None, split_data=None):
+        _sampler = DistributedSampler(
+                                    split_data,
+                                    shuffle=shuffle  # When test, No shuffle when tets
+                                    )
+        return _sampler
+
+    @classmethod
+    def set_weighted_random_distributed_sampler(cls, task=None, sampler=None, shuffle=None, label_list=None, split_data=None):
+        raise NotImplementedError
 
 
+def set_sampler(
+                task: str,
+                isTrain: bool,
+                sampler: str,
+                shuffle: bool,
+                label_list: List[str],
+                split_data: LoadDataSet
+                ):
 
-import os
-#import torch.distributed as dist
-from torch.utils.data.distributed import DistributedSampler
+    _sampler = None
 
+    if isTrain:
+        shuffle = True
+
+        if sampler == 'weighted':
+            _sampler = Sampler.set_weightedrandom_sampler(task, sampler, shuffle=shuffle, label_list=label_list, split_data=split_data)
+            return _sampler
+        elif sampler == 'distributed':
+            _sampler = Sampler.set_distributed_sampler(task, sampler, shuffle=shuffle, label_list=label_list, split_data=split_data)
+            return _sampler
+        #elif sampler == 'distweight':
+        #    _sampler = Sampler.set_weighted_random_distributed_sampler(task, sampler, shuffle=shuffle, label_list=label_list, split_data=split_data)
+        #    return _sampler
+        else:
+            return _sampler
+
+    else:
+        shuffle = False
+
+        if sampler == 'distributed':
+            _sampler = Sampler.set_distributed_sampler(task, sampler, shuffle=False, label_list, split_data)
+        else:
+            return _sampler
 
 def create_dataloader(
                     params,
@@ -379,44 +424,32 @@ def create_dataloader(
         DataLoader: data loader
     """
     split_data = LoadDataSet(params, split)
+    sampler = set_sampler(params.task, params.isTrain, params.sampler, split_data)
 
+    # shuffle
     if params.isTrain:
-        batch_size = params.batch_size
-        shuffle = True
+        if sampler is None:
+            shuffle = True
+        else:
+            # When using sampler, shuffle is defined in sampler.
+            pass
     else:
-        batch_size = params.test_batch_size
+        # When test, in spite of whether DistributedSampler ot not.
         shuffle = False
 
-    if params.sampler == 'yes':
-        assert ((params.task == 'classification') or (params.task == 'deepsurv')), 'Cannot make sampler in regression.'
-        assert (len(params.label_list) == 1), 'Cannot make sampler for multi-label.'
-        sampler = _make_sampler(split_data)
-        shuffle = False  # shuffle is set by sampler.
+    # batch size
+    if params.isTrain:
+        batch_size = params.batch_size
     else:
-        # When params.sampler == 'no'
-        sampler = None
-
-    """
-    split_loader = DataLoader(
-                            dataset=split_data,
-                            batch_size=batch_size,
-                            shuffle=shuffle,
-                            num_workers=0,
-                            sampler=sampler
-                            )
-    """
-    sampler = DistributedSampler(
-                                split_data,
-                                shuffle=(True if params.isTrain else False)  # When test, no shuffle
-                                )
+        batch_size = params.test_batch_size
 
     split_loader = DataLoader(
                             dataset=split_data,
                             batch_size=batch_size,
-                            num_workers=0,
-                            #num_workers=os.cpu_count(),
+                            #num_workers=0,
+                            num_workers=os.cpu_count(),
                             sampler=sampler,
-                            shuffle=False
+                            shuffle=shuffle
                             #pin_memory=True
                             )
     return split_loader

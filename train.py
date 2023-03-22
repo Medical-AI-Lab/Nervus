@@ -202,8 +202,6 @@ def main(args):
     # Make dataloader
     #dataloaders = {split: create_dataloader(args_dataloader, split=split) for split in ['train', 'val']}
 
-    #!if isdist == 'yes':
-
     world_size = set_world_size(args_conf.gpu_ids)
 
     mp.spawn(

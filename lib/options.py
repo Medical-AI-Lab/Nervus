@@ -34,7 +34,7 @@ class Options:
 
         # Distributed learning/inference
         #self.parser.add_argument('--num_gpus', type=int, default=0, help='Number of GPUs. 0 means CPU(Default: 0)')
-        self.parser.add_argument('--dist',     type=str, default='no', choices=['yes', 'no'], help='Distributed learning/inference or not.')
+        #self.parser.add_argument('--dist',     type=str, default='no', choices=['yes', 'no'], help='Distributed learning/inference or not.')  #! Need ?
 
 
         if isTrain:
@@ -59,7 +59,7 @@ class Options:
             self.parser.add_argument('--normalize_image',    type=str,                choices=['yes', 'no'], default='yes', help='image normalization: yes, no (Default: yes)')
 
             # Sampler
-            self.parser.add_argument('--sampler',            type=str,  default='no',  choices=['yes', 'no'], help='sample data in training or not, yes or no')
+            self.parser.add_argument('--sampler',            type=str,  default='no',  choices=['weighted', 'distributed', 'distweight', 'no'], help='kind of sampler')
 
             # Input channel
             self.parser.add_argument('--in_channel',         type=int,  required=True, choices=[1, 3], help='channel of input image')
@@ -341,7 +341,6 @@ class ParamTable:
                 'save_datetime_dir': [trc, tsc, trp, tsp],
 
                 'gpu_ids': [trc, tsc, sa, trp, tsp],
-                'device': [mo, trc, tsc],
                 'dataset_info': [trc, sa, trp, tsp]
                 }
 
@@ -520,13 +519,31 @@ def _arg2str(param: str, arg: Union[str, int, float]) -> str:
             return str_arg
 
 
-def _check_if_valid_criterion(task: str = None, criterion: str = None) -> None:
+def _check_if_valid_sampler(sampler: str, gpu_ids: str) -> None:
     """
-    Check if criterion is valid.
+    Check if sampler is valid for gpu_ids.
 
     Args:
-        task (str): task
+        sampler (str): sampler
+        gpu_ids (str): 'cpu' or like '0-1-2'
+    """
+    if gpu_ids == 'cpu':
+        if sampler in ['distributed', 'distweight']:
+            print('Now, Distributed learning on CPU is supposed to be OK.\n')
+            #raise ValueError(f"Invalid sampler: {sampler}, No need of DistributedSampler when using CPU.")
+    else:
+        # When using GPU
+        if sampler in ['weighted', 'no']:
+            raise ValueError(f"Invalid sampler: {sampler}, Required DistributedSampler when using GPU.")
+
+
+def _check_if_valid_criterion(criterion: str, task: str) -> None:
+    """
+    Check if criterion is valid for task.
+
+    Args:
         criterion (str): criterion
+        task (str): task
     """
     valid_criterion = {
         'classification': ['CEL'],
@@ -549,16 +566,16 @@ def _train_parse(args: argparse.Namespace) -> Dict[str, ParamSet]:
     Returns:
         Dict[str, ParamSet]: parameters dispatched by group
     """
-    # Check if criterion is valid.
-    _check_if_valid_criterion(task=args.task, criterion=args.criterion)
+
+    # Check validity of sampler
+    _check_if_valid_sampler(args.sampler, args.gpu_ids)
+
+    # Check validity of criterion
+    _check_if_valid_criterion(args.criterion, args.task)
+
 
     args.project = Path(args.csvpath).stem
     args.gpu_ids = _parse_gpu_ids(args.gpu_ids)
-
-    #! Should define in each process.
-    #args.device = torch.device(f"cuda:{args.gpu_ids[0]}") if args.gpu_ids != [] else torch.device('cpu')
-
-
     args.mlp, args.net = _parse_model(args.model)
     args.pretrained = bool(args.pretrained)  # strtobool('False') = 0 (== False)
     args.save_datetime_dir = str(Path('results', args.project, 'trials', args.datetime))
@@ -597,10 +614,6 @@ def _test_parse(args: argparse.Namespace) -> Dict[str, ParamSet]:
     args.project = Path(args.csvpath).stem
     args.gpu_ids = _parse_gpu_ids(args.gpu_ids)
 
-    #! Should define in each process.
-    #args.device = torch.device(f"cuda:{args.gpu_ids[0]}") if args.gpu_ids != [] else torch.device('cpu')
-
-
 
     # Collect weight paths
     if args.weight_dir is None:
@@ -621,7 +634,9 @@ def _test_parse(args: argparse.Namespace) -> Dict[str, ParamSet]:
 
     # When test, the followings are always fixed.
     args.augmentation = 'no'
-    args.sampler = 'no'
+
+    args.sampler = 'no'    #! <- distributed When using GPU
+
     args.pretrained = False
 
     args.mlp, args.net = _parse_model(args.model)
