@@ -32,11 +32,6 @@ class Options:
         # GPU Ids
         self.parser.add_argument('--gpu_ids', type=str, default='cpu', help='gpu ids: e.g. 0, 0-1-2, 0-2. Use cpu for CPU (Default: cpu)')
 
-        # Distributed learning/inference
-        #self.parser.add_argument('--num_gpus', type=int, default=0, help='Number of GPUs. 0 means CPU(Default: 0)')
-        #self.parser.add_argument('--dist',     type=str, default='no', choices=['yes', 'no'], help='Distributed learning/inference or not.')  #! Need ?
-
-
         if isTrain:
             # Task
             self.parser.add_argument('--task', type=str, required=True, choices=['classification', 'regression', 'deepsurv'], help='Task')
