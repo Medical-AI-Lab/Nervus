@@ -573,7 +573,6 @@ def _train_parse(args: argparse.Namespace) -> Dict[str, ParamSet]:
     # Check validity of criterion
     _check_if_valid_criterion(args.criterion, args.task)
 
-
     args.project = Path(args.csvpath).stem
     args.gpu_ids = _parse_gpu_ids(args.gpu_ids)
     args.mlp, args.net = _parse_model(args.model)
@@ -614,7 +613,6 @@ def _test_parse(args: argparse.Namespace) -> Dict[str, ParamSet]:
     args.project = Path(args.csvpath).stem
     args.gpu_ids = _parse_gpu_ids(args.gpu_ids)
 
-
     # Collect weight paths
     if args.weight_dir is None:
         args.weight_dir = _get_latest_weight_dir()
@@ -634,17 +632,16 @@ def _test_parse(args: argparse.Namespace) -> Dict[str, ParamSet]:
 
     # When test, the followings are always fixed.
     args.augmentation = 'no'
+    args.pretrained = False
 
-
+    """
     if args.gpu_ids == []:
         args.sampler = 'no'
     else:
         # When using GPU, do distributed inference
         args.sampler = 'distributed'
-
-
-    args.pretrained = False
-
+    """
+    args.sampler = 'distributed'  #! For debugging on CPU.
 
 
     args.mlp, args.net = _parse_model(args.model)
@@ -670,6 +667,7 @@ def _test_parse(args: argparse.Namespace) -> Dict[str, ParamSet]:
             'args_conf': _dispatch_by_group(args, 'test_conf'),
             'args_print': _dispatch_by_group(args, 'test_print')
             }
+
 
 def set_options(datetime_name: str = None, phase: str = None) -> argparse.Namespace:
     """

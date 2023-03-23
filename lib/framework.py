@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import os
 from pathlib import Path
 import copy
 from abc import ABC, abstractmethod
@@ -33,7 +34,6 @@ class BaseModel(ABC):
             param (ParamSet): parameters
         """
         self.params = params
-        #self.device = self.params.device
 
         self.network = create_net(
                                 mlp=self.params.mlp,
@@ -44,7 +44,6 @@ class BaseModel(ABC):
                                 vit_image_size=self.params.vit_image_size,
                                 pretrained=self.params.pretrained
                                 )
-        #self.network.to(self.device)
 
         # variables to keep temporary best_weight and best_epoch
         self.acting_best_weight = None
@@ -83,7 +82,7 @@ class BaseModel(ABC):
 
         _network = copy.deepcopy(self.network)
         if hasattr(_network, 'module'):
-            # When DataParallel used, move weight to CPU.
+            # When using DDP, pass weight to CPU.
             self.acting_best_weight = copy.deepcopy(_network.module.to(torch.device('cpu')).state_dict())
         else:
             self.acting_best_weight = copy.deepcopy(_network.state_dict())
@@ -114,75 +113,34 @@ class BaseModel(ABC):
             save_name = 'weight_epoch-' + str(self.acting_best_epoch).zfill(3) + '.pt'
             torch.save(self.acting_best_weight, save_path)
 
-    def load_weight(self, weight_path: Path) -> None:
+    def load_weight(self, weight_path: Path, on_device: torch.device = None) -> None:
         """
         Load wight from weight_path.
 
         Args:
             weight_path (Path): path to weight
+            on_device (torch.device) : the location where all tensors should be loaded.
         """
         logger.info(f"Load weight: {weight_path}.\n")
-        weight = torch.load(weight_path)
+        weight = torch.load(weight_path, map_location=on_device)
         self.network.load_state_dict(weight)
 
 
-def set_device(rank: int = None, gpu_ids: List[int] = None) -> torch.device:
-    """
-    Define device depending on gou_ids and rank.
-
-    Args:
-        rank (int): rank, or process id
-        gpu_ids (List[int]): GPU ids
-
-    Returns:
-        torch.device :device
-
-    eg.
-    When using GPU, device is define by rank-th on gpu_ids.
-    gpu_ids = [1, 2, 0],
-    rank=0 -> gpu_id=gpu_ids[rank]=1
-    """
-    if gpu_ids == []:
-        return torch.device('cpu')
-    else:
-        assert torch.cuda.is_available(), 'No available GPU on this machine.'
-        return torch.device(f"cuda:{gpu_ids[rank]}")
-
-
-def setup(rank: int = None, world_size: int = None, gpu_ids: List[int] = None) -> None:
-    """
-    Initialize the process group.
-
-    Args:
-        rank (int): rank, or process id
-        world_size (int): the total number of process
-        gpu_ids (List[int]): GPU ids
-    """
-    if gpu_ids == []:
-        backend = 'gloo'  # For CPU
-    else:
-        backend = 'nccl'  # For GPU
-    dist.init_process_group(backend=backend, rank=rank, world_size=world_size)
-
-
 class ModelMixin:
-    def to_gpu(self, gpu_ids: List[int]) -> None:
-        """
-        Make model compute on the GPU.
+    #def to_gpu(self, gpu_ids: List[int]) -> None:
+    #    """
+    #    Make model compute on the GPU.
+    #
+    #    Args:
+    #        gpu_ids (List[int]): GPU ids
+    #    """
+    #    if gpu_ids != []:
+    #        self.network = nn.DataParallel(self.network, device_ids=gpu_ids)
 
-        Args:
-            gpu_ids (List[int]): GPU ids
-        """
-        if gpu_ids != []:
-            self.network = nn.DataParallel(self.network, device_ids=gpu_ids)
-
-    def init_network(self, device: torch.device) -> None:
+    def init_network(self) -> None:
         """
         Initialize network.
         This method is used at test to reset the current weight by redefining network.
-
-        Args:
-        device (torch.device): device
         """
         self.network = create_net(
                                 mlp=self.params.mlp,
@@ -193,7 +151,6 @@ class ModelMixin:
                                 vit_image_size=self.params.vit_image_size,
                                 pretrained=self.params.pretrained
                                 )
-        self.network.to(device)
 
 class ModelWidget(BaseModel, ModelMixin):
     """
@@ -413,7 +370,6 @@ def create_model(params: ParamSet) -> nn.Module:
     _isFusionModel = (params.mlp is not None) and (params.net is not None)
 
     if _isMLPModel:
-        _model = MLPModel(params)
         return MLPModel(params)
     elif _isCVModel:
         return CVModel(params)
@@ -421,3 +377,89 @@ def create_model(params: ParamSet) -> nn.Module:
         return FusionModel(params)
     else:
         raise ValueError(f"Invalid model type: mlp={params.mlp}, net={params.net}.")
+
+
+#
+# The below is for distributed learning or inference.
+#
+def is_master(rank: int) -> bool:
+    """
+    Return whether master or not.
+
+    Args:
+        rank (int): rank, or process id
+
+    Returns:
+        bool: whether master or not
+    """
+    MASTER = 0
+    return (rank == MASTER)
+
+
+def set_world_size(gpu_ids: List[int], on_cpu: bool = False) -> int:
+    """
+    Set world_size, ie, total number of processes.
+    Not that 1CPU/1Process or 1GPU/1Process.
+
+    Args:
+        gpu_ids (List[int]): GPU ids
+
+    Returns:
+        int: world_size
+    """
+    if gpu_ids == []:
+        if on_cpu:
+            return 4
+        else:
+            # When using CPU
+            return 1
+    else:
+        return len(gpu_ids)  # When GPU
+
+
+def setup(rank: int = None, world_size: int = None, gpu_ids: List[int] = None) -> None:
+    """
+    Initialize the process group.
+
+    Args:
+        rank (int): rank, or process id
+        world_size (int): the total number of process
+        gpu_ids (List[int]): GPU ids
+    """
+    if gpu_ids == []:
+        backend = 'gloo'  # For CPU
+    else:
+        backend = 'nccl'  # For GPU
+    dist.init_process_group(backend=backend, rank=rank, world_size=world_size)
+
+
+def set_device(rank: int = None, gpu_ids: List[int] = None) -> torch.device:
+    """
+    Define device depending on gou_ids and rank.
+
+    Args:
+        rank (int): rank, or process id
+        gpu_ids (List[int]): GPU ids
+
+    Returns:
+        torch.device :device
+
+    eg.
+    When using GPU, device is define by rank-th on gpu_ids.
+    gpu_ids = [1, 2, 0],
+    rank=0 -> gpu_id=gpu_ids[rank]=1
+    """
+    if gpu_ids == []:
+        return torch.device('cpu')
+    else:
+        assert torch.cuda.is_available(), 'No available GPU on this machine.'
+        return torch.device(f"cuda:{gpu_ids[rank]}")
+
+
+def setenv() -> None:
+    """
+    Set environment variables.
+    """
+    os.environ['GLOO_SOCKET_IFNAME'] = 'en0'
+    os.environ['MASTER_ADDR'] = 'localhost'
+    os.environ['MASTER_PORT'] = '29500'

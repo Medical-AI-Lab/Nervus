@@ -364,7 +364,11 @@ class Sampler:
         Returns:
             DistributedSampler: sampler
         """
-        _sampler = DistributedSampler(split_data, shuffle=shuffle)
+        _sampler = DistributedSampler(
+                                    split_data,
+                                    shuffle=shuffle
+                                    #drop_last=True
+                                    )
         return _sampler
 
     @classmethod
@@ -392,7 +396,10 @@ class Sampler:
         weight = 1. / class_sample_count
         samples_weight = np.array([weight[t] for t in _target])
 
-        _sampler = WeightedRandomSampler(samples_weight, len(samples_weight))
+        _sampler = WeightedRandomSampler(
+                                        samples_weight,
+                                        len(samples_weight)
+                                        )
         return _sampler
 
     @classmethod
@@ -401,7 +408,10 @@ class Sampler:
                                                 split_data: LoadDataSet = None,
                                                 shuffle=None
                                                 ) -> DistributedWeightedSampler:
-        _sampler = DistributedWeightedSampler(split_data, shuffle)
+        _sampler = DistributedWeightedSampler(
+                                            split_data,
+                                            shuffle
+                                            )
         return _sampler
 
 
@@ -426,11 +436,10 @@ def set_sampler(
         Union[DistributedSampler, WeightedRandomSampler, DistributedWeightedSampler]: sampler
     """
     # Whether shuffle or not is defined in sampler.
+    # No shuffle at test.
     if isTrain:
         shuffle = True
     else:
-        # When test, no shuffle when test.
-        # Actually, this is for DistributedSampler.
         shuffle = False
 
     _sampler = None
@@ -503,7 +512,7 @@ def create_dataloader(
                             num_workers=0,
                             #num_workers=os.cpu_count(),
                             sampler=sampler,
-                            shuffle=shuffle
-                            #pin_memory=True
+                            shuffle=shuffle,
+                            pin_memory=True
                             )
     return split_loader
