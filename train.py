@@ -3,21 +3,6 @@
 
 import datetime
 import torch
-from lib import (
-        set_options,
-        create_model,
-        print_parameter,
-        save_parameter,
-        create_dataloader,
-        BaseLogger
-        )
-
-from lib.component import (
-            set_criterion,
-            set_optimizer,
-            set_loss_store
-        )
-
 
 # For distributed
 import os
@@ -25,53 +10,29 @@ import torch.distributed as dist
 import torch.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel as DDP
 
+from lib import (
+        set_options,
+        create_model,
+        set_device,
+        setup,
+        print_parameter,
+        save_parameter,
+        create_dataloader,
+        BaseLogger
+        )
+from lib.component import (
+            set_criterion,
+            set_optimizer,
+            set_loss_store
+        )
+
 from typing import List
 
 
 logger = BaseLogger.get_logger(__name__)
 
 
-
 MASTER = 0
-
-
-def set_device(rank: int = None, gpu_ids: List[int] = None) -> torch.device:
-    """
-    Define device depending on gou_ids and rank.
-
-    Args:
-        rank (int): rank, or process id
-        gpu_ids (List[int]): GPU ids
-
-    Returns:
-        torch.device :device
-
-    eg.
-    When using GPU, device is define by rank-th on gpu_ids.
-    gpu_ids = [1, 2, 0],
-    rank=0 -> gpu_id=gpu_ids[rank]=1
-    """
-    if gpu_ids == []:
-        return torch.device('cpu')
-    else:
-        return torch.device(f"cuda:{gpu_ids[rank]}")
-
-
-def setup(rank: int = None, world_size: int = None, gpu_ids: List[int] = None) -> None:
-    """
-    Initialize the process group.
-
-    Args:
-        rank (int): rank, or process id
-        world_size (int): the total number of process
-        gpu_ids (List[int]): GPU ids
-    """
-    if gpu_ids == []:
-        backend = 'gloo'  # For CPU
-    else:
-        backend = 'nccl'  # For GPU
-    dist.init_process_group(backend=backend, rank=rank, world_size=world_size)
-
 
 
 def train(
@@ -84,12 +45,12 @@ def train(
         ):
 
     isMaster = (rank == MASTER)
+
     gpu_ids = args_conf.gpu_ids
     if isMaster:
         isMLP = args_model.mlp is not None
         save_weight_policy = args_conf.save_weight_policy
         save_datetime_dir = args_conf.save_datetime_dir
-
 
     # Set device
     device = set_device(rank=rank, gpu_ids=gpu_ids)
@@ -97,9 +58,8 @@ def train(
     # Setup
     setup(rank=rank, world_size=world_size, gpu_ids=gpu_ids)
 
-
-    model = create_model(args_model)  #! -> framework.py
-    model.network.to(device)
+    model = create_model(args_model, device)  #! -> framework.py
+    #model.network.to(device)
     model.network = DDP(model.network, device_ids=None)  # device_ids must be None on both CPU and GPUs.
 
     criterion = set_criterion(args_conf.criterion, device)
@@ -184,7 +144,9 @@ def set_world_size(gpu_ids: List[int]) -> int:
         int: world_size
     """
     if gpu_ids == []:
-        return 4 #! <---- temporary  #1  # When CPU
+        # When using CPU
+        # return 1
+        return 4  #! <---- temporary 4
     else:
         return len(gpu_ids)  # When GPU
 

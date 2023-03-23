@@ -8,7 +8,11 @@ from .options import (
     print_parameter
     )
 from .dataloader import create_dataloader
-from .framework import create_model
+from .framework import (
+    create_model,
+    set_device,
+    setup
+    )
 from .metrics import set_eval
 from .logger import BaseLogger
 
@@ -19,6 +23,8 @@ __all__ = [
             'save_parameter',
             'create_dataloader',
             'create_model',
+            'set_device',
+            'setup',
             'set_eval',
             'BaseLogger'
         ]

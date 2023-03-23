@@ -6,10 +6,12 @@ import copy
 from abc import ABC, abstractmethod
 import torch
 import torch.nn as nn
+import torch.distributed as dist
 from .component import create_net
 from .logger import BaseLogger
 from lib import ParamSet
 from typing import List, Dict, Tuple, Union
+
 
 # Alias of typing
 # eg. {'labels': {'label_A: torch.Tensor([0, 1, ...]), ...}}
@@ -124,6 +126,45 @@ class BaseModel(ABC):
         self.network.load_state_dict(weight)
 
 
+def set_device(rank: int = None, gpu_ids: List[int] = None) -> torch.device:
+    """
+    Define device depending on gou_ids and rank.
+
+    Args:
+        rank (int): rank, or process id
+        gpu_ids (List[int]): GPU ids
+
+    Returns:
+        torch.device :device
+
+    eg.
+    When using GPU, device is define by rank-th on gpu_ids.
+    gpu_ids = [1, 2, 0],
+    rank=0 -> gpu_id=gpu_ids[rank]=1
+    """
+    if gpu_ids == []:
+        return torch.device('cpu')
+    else:
+        assert torch.cuda.is_available(), 'No available GPU on this machine.'
+        return torch.device(f"cuda:{gpu_ids[rank]}")
+
+
+def setup(rank: int = None, world_size: int = None, gpu_ids: List[int] = None) -> None:
+    """
+    Initialize the process group.
+
+    Args:
+        rank (int): rank, or process id
+        world_size (int): the total number of process
+        gpu_ids (List[int]): GPU ids
+    """
+    if gpu_ids == []:
+        backend = 'gloo'  # For CPU
+    else:
+        backend = 'nccl'  # For GPU
+    dist.init_process_group(backend=backend, rank=rank, world_size=world_size)
+
+
 class ModelMixin:
     def to_gpu(self, gpu_ids: List[int]) -> None:
         """
@@ -133,7 +174,6 @@ class ModelMixin:
             gpu_ids (List[int]): GPU ids
         """
         if gpu_ids != []:
-            assert torch.cuda.is_available(), 'No available GPU on this machine.'
             self.network = nn.DataParallel(self.network, device_ids=gpu_ids)
 
     def init_network(self, device: torch.device) -> None:
@@ -373,6 +413,7 @@ def create_model(params: ParamSet) -> nn.Module:
     _isFusionModel = (params.mlp is not None) and (params.net is not None)
 
     if _isMLPModel:
+        _model = MLPModel(params)
         return MLPModel(params)
     elif _isCVModel:
         return CVModel(params)
