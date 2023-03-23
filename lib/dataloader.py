@@ -367,7 +367,6 @@ class Sampler:
         _sampler = DistributedSampler(
                                     split_data,
                                     shuffle=shuffle
-                                    #drop_last=True
                                     )
         return _sampler
 
@@ -414,7 +413,6 @@ class Sampler:
                                             )
         return _sampler
 
-
 def set_sampler(
                 task: str = None,
                 isTrain: bool = None,
@@ -451,8 +449,6 @@ def set_sampler(
         _sampler = Sampler.set_distributed_sampler(split_data=split_data, shuffle=shuffle)
         return _sampler
 
-    # When test, neither WeightedRandomSampler nor DistributedWeightedSampler is needed,
-    # ie. no need of weighted.
     if 'weight' in sampler:
         # WeightedRandomSampler does shuffle automatically.
         assert (task == 'classification') or (task == 'deepsurv'), 'Cannot make sampler in regression.'
@@ -485,6 +481,8 @@ def create_dataloader(
         DataLoader: data loader
     """
     split_data = LoadDataSet(params, split)
+
+
     sampler = set_sampler(
                         task=params.task,
                         isTrain=params.isTrain,
@@ -492,9 +490,10 @@ def create_dataloader(
                         sampler=params.sampler,
                         split_data=split_data
                         )
+
     # shuffle
     # When using sampler at training, whether shuffle or not is defined in sampler.
-    # When test, in spite of whether DistributedSampler or not.
+    # No shuffle at test.
     shuffle = False
     if params.isTrain:
         if sampler is None:

@@ -43,6 +43,7 @@ def train(
 
     device = set_device(rank=rank, gpu_ids=gpu_ids)
     isMaster = is_master(rank)
+    isDistributed = (gpu_ids != [])
     if isMaster:
         isMLP = args_model.mlp is not None
         save_weight_policy = args_conf.save_weight_policy
@@ -73,7 +74,7 @@ def train(
 
             split_dataloader = dataloaders[phase]
             """
-            if gpu_ids != []:
+            if isDistributed:
                 # In distributed mode, calling the set_epoch() method
                 # at the beginning of each epoch before creating
                 # the DataLoader iterator is necessary

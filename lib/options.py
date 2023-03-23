@@ -627,17 +627,8 @@ def _test_parse(args: argparse.Namespace) -> Dict[str, ParamSet]:
 
     # When test, the followings are always fixed.
     args.augmentation = 'no'
+    args.sampler = 'no'
     args.pretrained = False
-
-    """
-    if args.gpu_ids == []:
-        args.sampler = 'no'
-    else:
-        # When using GPU, do distributed inference
-        args.sampler = 'distributed'
-    """
-    args.sampler = 'distributed'  #! For debugging on CPU.
-
 
     args.mlp, args.net = _parse_model(args.model)
     if args.mlp is not None:
