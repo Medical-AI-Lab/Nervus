@@ -59,7 +59,7 @@ class Options:
             self.parser.add_argument('--normalize_image',    type=str,                choices=['yes', 'no'], default='yes', help='image normalization: yes, no (Default: yes)')
 
             # Sampler
-            self.parser.add_argument('--sampler',            type=str,  default='no',  choices=['weighted', 'distributed', 'distweight', 'no'], help='kind of sampler')
+            self.parser.add_argument('--sampler',            type=str,  default='no',  choices=['distributed', 'weighted', 'distweight', 'no'], help='kind of sampler')
 
             # Input channel
             self.parser.add_argument('--in_channel',         type=int,  required=True, choices=[1, 3], help='channel of input image')
@@ -635,9 +635,17 @@ def _test_parse(args: argparse.Namespace) -> Dict[str, ParamSet]:
     # When test, the followings are always fixed.
     args.augmentation = 'no'
 
-    args.sampler = 'no'    #! <- distributed When using GPU
+
+    if args.gpu_ids == []:
+        args.sampler = 'no'
+    else:
+        # When using GPU, do distributed inference
+        args.sampler = 'distributed'
+
 
     args.pretrained = False
+
+
 
     args.mlp, args.net = _parse_model(args.model)
     if args.mlp is not None:

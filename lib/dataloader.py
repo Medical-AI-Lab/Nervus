@@ -339,19 +339,51 @@ class LoadDataSet(Dataset, DataSetWidget):
         return _data
 
 
+class DistributedWeightedSampler:
+    def __init__(self, split_data, shuffle):
+        raise NotImplementedError("DistributedWeightedSampler")
 
-# sampler = 'weighted', 'distributed', 'distweight', 'no'
-#sampler = DistributedSampler(
-#                             split_data,
-#                             shuffle=(True if params.isTrain else False)  # When test, no shuffle
-#                            )
+
 class Sampler:
+    """
+    Class to define sampler.
+    """
     @classmethod
-    def set_weightedrandom_sampler(cls, task=None, sampler=None, shuffle=None, label_list=None, split_data=None):
-        # WeightedRandomSampler does shuffle automatically
-        assert (task == 'classification') or (task == 'deepsurv'), 'Cannot make sampler in regression.'
-        assert (len(label_list) == 1), 'Cannot make sampler for multi-label.'
+    def set_distributed_sampler(
+                                cls,
+                                split_data: LoadDataSet = None,
+                                shuffle: bool = None
+                                ) -> DistributedSampler:
+        """
+        Set DistributedSampler.
 
+        Args:
+            split_data (LoadDataSet): dataset
+            shuffle (bool): whether shuffle pr not
+
+        Returns:
+            DistributedSampler: sampler
+        """
+        _sampler = DistributedSampler(split_data, shuffle=shuffle)
+        return _sampler
+
+    @classmethod
+    def set_weightedrandom_sampler(
+                                cls,
+                                split_data: LoadDataSet = None
+                                ) -> WeightedRandomSampler:
+        """
+        Set WeightedRandomSampler.
+
+        Args:
+            split_data (LoadDataSet): dataset
+
+        Returns:
+            WeightedRandomSampler: sampler
+
+        Note:
+            WeightedRandomSampler does shuffle automatically.
+        """
         _target = []
         for _, data in enumerate(split_data):
             _target.append(list(data['labels'].values())[0])
@@ -359,83 +391,105 @@ class Sampler:
         class_sample_count = np.array([len(np.where(_target == t)[0]) for t in np.unique(_target)])
         weight = 1. / class_sample_count
         samples_weight = np.array([weight[t] for t in _target])
+
         _sampler = WeightedRandomSampler(samples_weight, len(samples_weight))
         return _sampler
 
     @classmethod
-    def set_distributed_sampler(cls, task=None, sampler=None, shuffle=None, label_list=None, split_data=None):
-        _sampler = DistributedSampler(
-                                    split_data,
-                                    shuffle=shuffle  # When test, No shuffle when tets
-                                    )
+    def set_weighted_random_distributed_sampler(
+                                                cls,
+                                                split_data: LoadDataSet = None,
+                                                shuffle=None
+                                                ) -> DistributedWeightedSampler:
+        _sampler = DistributedWeightedSampler(split_data, shuffle)
         return _sampler
-
-    @classmethod
-    def set_weighted_random_distributed_sampler(cls, task=None, sampler=None, shuffle=None, label_list=None, split_data=None):
-        raise NotImplementedError
 
 
 def set_sampler(
-                task: str,
-                isTrain: bool,
-                sampler: str,
-                shuffle: bool,
-                label_list: List[str],
-                split_data: LoadDataSet
-                ):
+                task: str = None,
+                isTrain: bool = None,
+                label_list: List[str] = None,
+                sampler: str = None,
+                split_data: LoadDataSet = None
+                ) -> Union[DistributedSampler, WeightedRandomSampler, DistributedWeightedSampler]:
+    """
+    Set sampler.
+
+    Args:
+        task (str): task
+        isTrain (bool): whether training or not
+        label_list (List[str]): label list
+        sampler (str): sampler
+        split_data (LoadDataSet): dataset
+
+    Returns:
+        Union[DistributedSampler, WeightedRandomSampler, DistributedWeightedSampler]: sampler
+    """
+    # Whether shuffle or not is defined in sampler.
+    if isTrain:
+        shuffle = True
+    else:
+        # When test, no shuffle when test.
+        # Actually, this is for DistributedSampler.
+        shuffle = False
 
     _sampler = None
 
-    if isTrain:
-        shuffle = True
+    if sampler == 'no':
+        return _sampler
+
+    if sampler == 'distributed':
+        _sampler = Sampler.set_distributed_sampler(split_data=split_data, shuffle=shuffle)
+        return _sampler
+
+    # When test, neither WeightedRandomSampler nor DistributedWeightedSampler is needed,
+    # ie. no need of weighted.
+    if 'weight' in sampler:
+        # WeightedRandomSampler does shuffle automatically.
+        assert (task == 'classification') or (task == 'deepsurv'), 'Cannot make sampler in regression.'
+        assert (len(label_list) == 1), 'Cannot make weighted sampler for multi-label.'
 
         if sampler == 'weighted':
-            _sampler = Sampler.set_weightedrandom_sampler(task, sampler, shuffle=shuffle, label_list=label_list, split_data=split_data)
-            return _sampler
-        elif sampler == 'distributed':
-            _sampler = Sampler.set_distributed_sampler(task, sampler, shuffle=shuffle, label_list=label_list, split_data=split_data)
-            return _sampler
-        #elif sampler == 'distweight':
-        #    _sampler = Sampler.set_weighted_random_distributed_sampler(task, sampler, shuffle=shuffle, label_list=label_list, split_data=split_data)
-        #    return _sampler
-        else:
+            _sampler = Sampler.set_weightedrandom_sampler(split_data=split_data)
             return _sampler
 
-    else:
-        shuffle = False
-
-        if sampler == 'distributed':
-            _sampler = Sampler.set_distributed_sampler(task, sampler, shuffle=False, label_list, split_data)
-        else:
+        elif sampler == 'distweight':
+            _sampler = Sampler.set_weighted_random_distributed_sampler(split_data=split_data, shuffle=shuffle)
             return _sampler
+
+        else:
+            raise ValueError(f"Invalid sampler: {sampler}.")
+
 
 def create_dataloader(
                     params,
                     split: str = None
                     ) -> DataLoader:
     """
-    Create data loader ofr split.
+    Create data loader for split.
 
     Args:
         params (ParamSet): parameter for dataloader
-        split (str): split. Defaults to None.
+        split (str): split.
 
     Returns:
         DataLoader: data loader
     """
     split_data = LoadDataSet(params, split)
-    sampler = set_sampler(params.task, params.isTrain, params.sampler, split_data)
-
+    sampler = set_sampler(
+                        task=params.task,
+                        isTrain=params.isTrain,
+                        label_list=params.label_list,
+                        sampler=params.sampler,
+                        split_data=split_data
+                        )
     # shuffle
+    # When using sampler at training, whether shuffle or not is defined in sampler.
+    # When test, in spite of whether DistributedSampler or not.
+    shuffle = False
     if params.isTrain:
         if sampler is None:
             shuffle = True
-        else:
-            # When using sampler, shuffle is defined in sampler.
-            pass
-    else:
-        # When test, in spite of whether DistributedSampler ot not.
-        shuffle = False
 
     # batch size
     if params.isTrain:
@@ -446,8 +500,8 @@ def create_dataloader(
     split_loader = DataLoader(
                             dataset=split_data,
                             batch_size=batch_size,
-                            #num_workers=0,
-                            num_workers=os.cpu_count(),
+                            num_workers=0,
+                            #num_workers=os.cpu_count(),
                             sampler=sampler,
                             shuffle=shuffle
                             #pin_memory=True
