@@ -2,8 +2,10 @@
 # -*- coding: utf-8 -*-
 
 import os
-from pathlib import Path
+import random
+import numpy as np
 import copy
+from pathlib import Path
 from abc import ABC, abstractmethod
 import torch
 import torch.nn as nn
@@ -125,22 +127,10 @@ class BaseModel(ABC):
         weight = torch.load(weight_path, map_location=on_device)
         self.network.load_state_dict(weight)
 
-
-class ModelMixin:
-    #def to_gpu(self, gpu_ids: List[int]) -> None:
-    #    """
-    #    Make model compute on the GPU.
-    #
-    #    Args:
-    #        gpu_ids (List[int]): GPU ids
-    #    """
-    #    if gpu_ids != []:
-    #        self.network = nn.DataParallel(self.network, device_ids=gpu_ids)
-
     def init_network(self) -> None:
         """
         Initialize network.
-        This method is used at test to reset the current weight by redefining network.
+        This method is used at test in order to reset the current weight by redefining network.
         """
         self.network = create_net(
                                 mlp=self.params.mlp,
@@ -152,14 +142,8 @@ class ModelMixin:
                                 pretrained=self.params.pretrained
                                 )
 
-class ModelWidget(BaseModel, ModelMixin):
-    """
-    Class for a widget to inherit multiple classes simultaneously
-    """
-    pass
 
-
-class MLPModel(ModelWidget):
+class MLPModel(BaseModel):
     """
     Class for MLP model
     """
@@ -224,7 +208,7 @@ class MLPModel(ModelWidget):
         return output
 
 
-class CVModel(ModelWidget):
+class CVModel(BaseModel):
     """
     Class for CNN or ViT model
     """
@@ -287,7 +271,7 @@ class CVModel(ModelWidget):
         return output
 
 
-class FusionModel(ModelWidget):
+class FusionModel(BaseModel):
     """
     Class for MLP+CNN or MLP+ViT model.
     """
@@ -396,30 +380,34 @@ def is_master(rank: int) -> bool:
     return (rank == MASTER)
 
 
-def set_world_size(gpu_ids: List[int], on_cpu: bool = False) -> int:
+def set_world_size(gpu_ids: List[int], on_cpu: bool = None) -> int:
     """
     Set world_size, ie, total number of processes.
-    Not that 1CPU/1Process or 1GPU/1Process.
 
     Args:
         gpu_ids (List[int]): GPU ids
-        on_cpu (bool): True when distributed learning on CPU
+        on_cpu (bool): True when distributed learning 1CPU/N-Process (N>1) on CPU.
 
     Returns:
         int: world_size
+
+    Note:
+        1CPU/1Process or 1GPU/1Process.
     """
-    NUM_PROCESS = 4
+    NUM_PROCESS_ON_CPU = 4  # Appropriate value based on CPU performance is desirable.
     if gpu_ids == []:
         if on_cpu:
-            return NUM_PROCESS
+            # 1CPU/N-Process (N>1)
+            return NUM_PROCESS_ON_CPU
         else:
-            # When using CPU
+            # 1CPU/1Process
             return 1
     else:
-        return len(gpu_ids)  # When using GPU
+        # When using GPU, 1GPU/1Process
+        return len(gpu_ids)
 
 
-def setup(rank: int = None, world_size: int = None, gpu_ids: List[int] = None) -> None:
+def setup(rank: int = None, world_size: int = None, on_cpu: bool = None) -> None:
     """
     Initialize the process group.
 
@@ -428,7 +416,7 @@ def setup(rank: int = None, world_size: int = None, gpu_ids: List[int] = None) -
         world_size (int): the total number of process
         gpu_ids (List[int]): GPU ids
     """
-    if gpu_ids == []:
+    if on_cpu:
         backend = 'gloo'  # For CPU
     else:
         backend = 'nccl'  # For GPU
@@ -446,10 +434,11 @@ def set_device(rank: int = None, gpu_ids: List[int] = None) -> torch.device:
     Returns:
         torch.device :device
 
-    eg.
-    When using GPU, device is define by rank-th on gpu_ids.
-    gpu_ids = [1, 2, 0],
-    rank=0 -> gpu_id=gpu_ids[rank]=1
+    Note:
+        When using GPU, device is defined by rank-th on gpu_ids.
+        eg.
+        gpu_ids = [1, 2, 0],
+        rank=0 -> gpu_id=gpu_ids[rank]=1
     """
     if gpu_ids == []:
         return torch.device('cpu')
@@ -465,3 +454,10 @@ def setenv() -> None:
     os.environ['GLOO_SOCKET_IFNAME'] = 'en0'
     os.environ['MASTER_ADDR'] = 'localhost'
     os.environ['MASTER_PORT'] = '29500'
+
+    # For reproducible learning
+    SEED = 0
+    np.random.seed(SEED)
+    random.seed(SEED)
+    torch.manual_seed(SEED)
+    torch.cuda.manual_seed(SEED)
