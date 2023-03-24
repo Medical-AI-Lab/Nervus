@@ -413,9 +413,9 @@ class Sampler:
                                             )
         return _sampler
 
+
 def set_sampler(
                 task: str = None,
-                isTrain: bool = None,
                 label_list: List[str] = None,
                 sampler: str = None,
                 split_data: LoadDataSet = None
@@ -425,7 +425,6 @@ def set_sampler(
 
     Args:
         task (str): task
-        isTrain (bool): whether training or not
         label_list (List[str]): label list
         sampler (str): sampler
         split_data (LoadDataSet): dataset
@@ -433,20 +432,13 @@ def set_sampler(
     Returns:
         Union[DistributedSampler, WeightedRandomSampler, DistributedWeightedSampler]: sampler
     """
-    # Whether shuffle or not is defined in sampler.
-    # No shuffle at test.
-    if isTrain:
-        shuffle = True
-    else:
-        shuffle = False
-
     _sampler = None
 
     if sampler == 'no':
         return _sampler
 
     if sampler == 'distributed':
-        _sampler = Sampler.set_distributed_sampler(split_data=split_data, shuffle=shuffle)
+        _sampler = Sampler.set_distributed_sampler(split_data=split_data, shuffle=True)
         return _sampler
 
     if 'weight' in sampler:
@@ -458,12 +450,11 @@ def set_sampler(
             _sampler = Sampler.set_weightedrandom_sampler(split_data=split_data)
             return _sampler
 
-        elif sampler == 'distweight':
-            _sampler = Sampler.set_weighted_random_distributed_sampler(split_data=split_data, shuffle=shuffle)
+        if sampler == 'distweight':
+            _sampler = Sampler.set_weighted_random_distributed_sampler(split_data=split_data, shuffle=True)
             return _sampler
 
-        else:
-            raise ValueError(f"Invalid sampler: {sampler}.")
+    raise ValueError(f"Invalid sampler: {sampler}.")
 
 
 def create_dataloader(
@@ -482,22 +473,28 @@ def create_dataloader(
     """
     split_data = LoadDataSet(params, split)
 
-
-    sampler = set_sampler(
-                        task=params.task,
-                        isTrain=params.isTrain,
-                        label_list=params.label_list,
-                        sampler=params.sampler,
-                        split_data=split_data
-                        )
+    # sampler
+    if params.isTrain:
+        _sampler = set_sampler(
+                            task=params.task,
+                            label_list=params.label_list,
+                            sampler=params.sampler,
+                            split_data=split_data
+                            )
+    else:
+        # No sampler at test.
+        _sampler = None
 
     # shuffle
-    # When using sampler at training, whether shuffle or not is defined in sampler.
-    # No shuffle at test.
-    shuffle = False
     if params.isTrain:
-        if sampler is None:
+        if _sampler is None:
             shuffle = True
+        else:
+            # When using sampler at training, whether shuffle or not is defined in sampler.
+            shuffle = False
+    else:
+        # No shuffle at test.
+        shuffle = False
 
     # batch size
     if params.isTrain:
@@ -510,7 +507,7 @@ def create_dataloader(
                             batch_size=batch_size,
                             num_workers=0,
                             #num_workers=os.cpu_count(),
-                            sampler=sampler,
+                            sampler=_sampler,
                             shuffle=shuffle,
                             pin_memory=True
                             )

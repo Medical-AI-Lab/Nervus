@@ -322,11 +322,10 @@ def set_criterion(
     if criterion_name == 'CEL':
         return ClsCriterion(device=device)
 
-    elif criterion_name in ['MSE', 'RMSE', 'MAE']:
+    if criterion_name in ['MSE', 'RMSE', 'MAE']:
         return RegCriterion(criterion_name=criterion_name, device=device)
 
-    elif criterion_name == 'NLL':
+    if criterion_name == 'NLL':
         return DeepSurvCriterion(device=device)
 
-    else:
-        raise ValueError(f"Invalid criterion: {criterion_name}.")
+    raise ValueError(f"Invalid criterion: {criterion_name}.")

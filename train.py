@@ -43,7 +43,9 @@ def train(
 
     device = set_device(rank=rank, gpu_ids=gpu_ids)
     isMaster = is_master(rank)
-    isDistributed = (gpu_ids != [])
+
+    isDistributed = True # (gpu_ids != [])   #! For debugging on CPU.
+
     if isMaster:
         isMLP = args_model.mlp is not None
         save_weight_policy = args_conf.save_weight_policy
@@ -73,7 +75,7 @@ def train(
                 raise ValueError(f"Invalid phase: {phase}.")
 
             split_dataloader = dataloaders[phase]
-            """
+
             if isDistributed:
                 # In distributed mode, calling the set_epoch() method
                 # at the beginning of each epoch before creating
@@ -81,8 +83,6 @@ def train(
                 # to make shuffling work properly across multiple epochs.
                 # Otherwise, the same ordering will be always used.
                 split_dataloader.sampler.set_epoch(epoch)
-            """
-            split_dataloader.sampler.set_epoch(epoch)  #! For debugging on CPU.
 
             for i, data in enumerate(split_dataloader):
                 optimizer.zero_grad()

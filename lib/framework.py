@@ -380,7 +380,7 @@ def create_model(params: ParamSet) -> nn.Module:
 
 
 #
-# The below is for distributed learning or inference.
+# The below is for distributed learning.
 #
 def is_master(rank: int) -> bool:
     """
@@ -403,18 +403,20 @@ def set_world_size(gpu_ids: List[int], on_cpu: bool = False) -> int:
 
     Args:
         gpu_ids (List[int]): GPU ids
+        on_cpu (bool): True when distributed learning on CPU
 
     Returns:
         int: world_size
     """
+    NUM_PROCESS = 4
     if gpu_ids == []:
         if on_cpu:
-            return 4
+            return NUM_PROCESS
         else:
             # When using CPU
             return 1
     else:
-        return len(gpu_ids)  # When GPU
+        return len(gpu_ids)  # When using GPU
 
 
 def setup(rank: int = None, world_size: int = None, gpu_ids: List[int] = None) -> None:

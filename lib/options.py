@@ -548,7 +548,7 @@ def _check_if_valid_criterion(criterion: str, task: str) -> None:
     if criterion in valid_criterion[task]:
         pass
     else:
-        raise ValueError(f"Invalid criterion for task: task={task}, criterion={criterion}.")
+        raise ValueError(f"Invalid criterion for task: task={task}, criterion={criterion}. Specify any of {valid_criterion[task]}.")
 
 
 def _train_parse(args: argparse.Namespace) -> Dict[str, ParamSet]:
@@ -561,7 +561,6 @@ def _train_parse(args: argparse.Namespace) -> Dict[str, ParamSet]:
     Returns:
         Dict[str, ParamSet]: parameters dispatched by group
     """
-
     # Check validity of sampler
     _check_if_valid_sampler(args.sampler, args.gpu_ids)
 
