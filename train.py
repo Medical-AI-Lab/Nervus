@@ -6,15 +6,15 @@ import torch
 import torch.distributed as dist
 import torch.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel as DDP
-
 from lib import (
         set_options,
         print_parameter,
         save_parameter,
+        set_world_size,
+        setenv,
         create_dataloader,
         create_model,
         is_master,
-        set_world_size,
         setup,
         set_device,
         setenv,
@@ -30,6 +30,12 @@ from lib.component import (
 logger = BaseLogger.get_logger(__name__)
 
 
+# ----- For debugging on CPU -----------
+ON_CPU = False #True
+isDistributed = False
+# --------------------------------------
+
+
 def train(
         rank,
         world_size,
@@ -39,13 +45,13 @@ def train(
         ):
 
     gpu_ids = args_conf.gpu_ids
-    setup(rank=rank, world_size=world_size, gpu_ids=gpu_ids)
+
+    # initialize the process group
+    setup(rank=rank, world_size=world_size, on_cpu=(gpu_ids == []))
 
     device = set_device(rank=rank, gpu_ids=gpu_ids)
     isMaster = is_master(rank)
-
-    isDistributed = True # (gpu_ids != [])   #! For debugging on CPU.
-
+    # isDistributed = (gpu_ids != [])
     if isMaster:
         isMLP = args_model.mlp is not None
         save_weight_policy = args_conf.save_weight_policy
@@ -55,7 +61,8 @@ def train(
 
     model = create_model(args_model)
     model.network.to(device)
-    model.network = DDP(model.network, device_ids=None)  # device_ids must be None on both CPU and GPUs.
+    if gpu_ids != []:
+        model.network = DDP(model.network, device_ids=None)  # device_ids must be None on both CPU and GPUs.
 
     criterion = set_criterion(args_conf.criterion, device)
     optimizer = set_optimizer(args_conf.optimizer, model.network, args_conf.lr)
@@ -64,13 +71,13 @@ def train(
 
     for epoch in range(1, args_conf.epochs + 1):
         for phase in ['train', 'val']:
-            # Sync all processes before starting with a new epoch
+            # Sync all processes before starting with a new epoch.
             dist.barrier()
 
             if phase == 'train':
-                model.train()
+                model.network.train()
             elif phase == 'val':
-                model.eval()
+                model.network.eval()
             else:
                 raise ValueError(f"Invalid phase: {phase}.")
 
@@ -86,7 +93,6 @@ def train(
 
             for i, data in enumerate(split_dataloader):
                 optimizer.zero_grad()
-
                 in_data, labels = model.set_data(data, device)
 
                 with torch.set_grad_enabled(phase == 'train'):
@@ -134,14 +140,14 @@ def main(args):
     args_save = args['args_save']
     print_parameter(args_print)
 
-    world_size = set_world_size(args_conf.gpu_ids, on_cpu=True)
+    world_size = set_world_size(args_conf.gpu_ids)
     mp.spawn(
             train,
             args=(
                 world_size,
                 args_model,
                 args_dataloader,
-                args_conf,
+                args_conf
                 ),
             nprocs=world_size,
             join=True
@@ -156,7 +162,8 @@ if __name__ == '__main__':
         datetime_name = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
         logger.info(f"\nTraining started at {datetime_name}.\n")
 
-        setenv()
+        setenv(is_seed_fixed=True)
+
         args = set_options(datetime_name=datetime_name, phase='train')
         main(args)
 
@@ -164,5 +171,6 @@ if __name__ == '__main__':
         logger.error(e, exc_info=True)
 
     else:
+        logger.info(datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S'))
         logger.info('\nTraining finished.\n')
-        print(datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S'))
+

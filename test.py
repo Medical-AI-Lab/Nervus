@@ -43,7 +43,7 @@ def main(
         if gpu_ids != []:
             model.network = nn.DataParallel(model.network, device_ids=gpu_ids)
 
-        model.eval()
+        model.network.eval()
         for i, split in enumerate(test_splits):
             for j, data in enumerate(dataloaders[split]):
                 in_data, _ = model.set_data(data, device)

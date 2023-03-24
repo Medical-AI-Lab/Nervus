@@ -1,12 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import os
-import random
-import numpy as np
-import copy
-from pathlib import Path
 from abc import ABC, abstractmethod
+from pathlib import Path
+import copy
 import torch
 import torch.nn as nn
 import torch.distributed as dist
@@ -50,18 +47,6 @@ class BaseModel(ABC):
         # variables to keep temporary best_weight and best_epoch
         self.acting_best_weight = None
         self.acting_best_epoch = None
-
-    def train(self) -> None:
-        """
-        Make network training mode.
-        """
-        self.network.train()
-
-    def eval(self) -> None:
-        """
-        Make network evaluation mode.
-        """
-        self.network.eval()
 
     @abstractmethod
     def set_data(
@@ -418,51 +403,3 @@ def setup(rank: int = None, world_size: int = None, on_cpu: bool = None) -> None
     else:
         backend = 'nccl'  # For GPU
     dist.init_process_group(backend=backend, rank=rank, world_size=world_size)
-
-
-def set_world_size(gpu_ids: List[int], on_cpu: bool = None) -> int:
-    """
-    Set world_size, ie, total number of processes.
-
-    Args:
-        gpu_ids (List[int]): GPU ids
-        on_cpu (bool): True when distributed learning 1CPU/N-Process (N>1) on CPU.
-
-    Returns:
-        int: world_size
-
-    Note:
-        1CPU/1Process or 1GPU/1Process.
-    """
-    NUM_PROCESS_ON_CPU = 4  # Appropriate value based on CPU performance is desirable.
-    if gpu_ids == []:
-        if on_cpu:
-            # 1CPU/N-Process (N>1)
-            return NUM_PROCESS_ON_CPU
-        else:
-            # 1CPU/1Process
-            return 1
-    else:
-        # When using GPU, 1GPU/1Process
-        return len(gpu_ids)
-
-
-def setenv(is_seed_fixed: bool = False) -> None:
-    """
-    Set environment variables.
-
-    Args:
-        is_seed_fixed (bool): Whether seed is fixed or not
-
-    """
-    os.environ['GLOO_SOCKET_IFNAME'] = 'en0'  # 'eth0'
-    os.environ['MASTER_ADDR'] = 'localhost'
-    os.environ['MASTER_PORT'] = '29500'
-
-    if is_seed_fixed:
-        # For reproducible learning
-        SEED = 0
-        np.random.seed(SEED)
-        random.seed(SEED)
-        torch.manual_seed(SEED)
-        torch.cuda.manual_seed(SEED)
