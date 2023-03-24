@@ -380,6 +380,46 @@ def is_master(rank: int) -> bool:
     return (rank == MASTER)
 
 
+def set_device(rank: int = None, gpu_ids: List[int] = None) -> torch.device:
+    """
+    Define device depending on gou_ids and rank.
+
+    Args:
+        rank (int): rank, or process id
+        gpu_ids (List[int]): GPU ids
+
+    Returns:
+        torch.device :device
+
+    Note:
+        When using GPU, device is defined by rank-th on gpu_ids.
+        eg.
+        gpu_ids = [1, 2, 0],
+        rank=0 -> gpu_id=gpu_ids[rank]=1
+    """
+    if gpu_ids == []:
+        return torch.device('cpu')
+    else:
+        assert torch.cuda.is_available(), 'No available GPU on this machine.'
+        return torch.device(f"cuda:{gpu_ids[rank]}")
+
+
+def setup(rank: int = None, world_size: int = None, on_cpu: bool = None) -> None:
+    """
+    Initialize the process group.
+
+    Args:
+        rank (int): rank, or process id
+        world_size (int): the total number of process
+        on_cpu (bool]): Whether .................
+    """
+    if on_cpu:
+        backend = 'gloo'  # For CPU
+    else:
+        backend = 'nccl'  # For GPU
+    dist.init_process_group(backend=backend, rank=rank, world_size=world_size)
+
+
 def set_world_size(gpu_ids: List[int], on_cpu: bool = None) -> int:
     """
     Set world_size, ie, total number of processes.
@@ -407,57 +447,22 @@ def set_world_size(gpu_ids: List[int], on_cpu: bool = None) -> int:
         return len(gpu_ids)
 
 
-def setup(rank: int = None, world_size: int = None, on_cpu: bool = None) -> None:
-    """
-    Initialize the process group.
-
-    Args:
-        rank (int): rank, or process id
-        world_size (int): the total number of process
-        gpu_ids (List[int]): GPU ids
-    """
-    if on_cpu:
-        backend = 'gloo'  # For CPU
-    else:
-        backend = 'nccl'  # For GPU
-    dist.init_process_group(backend=backend, rank=rank, world_size=world_size)
-
-
-def set_device(rank: int = None, gpu_ids: List[int] = None) -> torch.device:
-    """
-    Define device depending on gou_ids and rank.
-
-    Args:
-        rank (int): rank, or process id
-        gpu_ids (List[int]): GPU ids
-
-    Returns:
-        torch.device :device
-
-    Note:
-        When using GPU, device is defined by rank-th on gpu_ids.
-        eg.
-        gpu_ids = [1, 2, 0],
-        rank=0 -> gpu_id=gpu_ids[rank]=1
-    """
-    if gpu_ids == []:
-        return torch.device('cpu')
-    else:
-        assert torch.cuda.is_available(), 'No available GPU on this machine.'
-        return torch.device(f"cuda:{gpu_ids[rank]}")
-
-
-def setenv() -> None:
+def setenv(is_seed_fixed: bool = False) -> None:
     """
     Set environment variables.
+
+    Args:
+        is_seed_fixed (bool): Whether seed is fixed or not
+
     """
-    os.environ['GLOO_SOCKET_IFNAME'] = 'en0'
+    os.environ['GLOO_SOCKET_IFNAME'] = 'en0'  # 'eth0'
     os.environ['MASTER_ADDR'] = 'localhost'
     os.environ['MASTER_PORT'] = '29500'
 
-    # For reproducible learning
-    SEED = 0
-    np.random.seed(SEED)
-    random.seed(SEED)
-    torch.manual_seed(SEED)
-    torch.cuda.manual_seed(SEED)
+    if is_seed_fixed:
+        # For reproducible learning
+        SEED = 0
+        np.random.seed(SEED)
+        random.seed(SEED)
+        torch.manual_seed(SEED)
+        torch.cuda.manual_seed(SEED)
