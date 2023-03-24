@@ -4,17 +4,17 @@
 from .options import (
     ParamSet,
     set_options,
+    print_parameter,
     save_parameter,
-    print_parameter
+    set_world_size,
+    setenv
     )
 from .dataloader import create_dataloader
 from .framework import (
     create_model,
     is_master,
-    set_world_size,
-    setup,
     set_device,
-    setenv
+    setup,
     )
 from .metrics import set_eval
 from .logger import BaseLogger
@@ -24,13 +24,17 @@ __all__ = [
             'set_options',
             'print_parameter',
             'save_parameter',
+            'set_world_size',
+            'setenv',
+
             'create_dataloader',
+
             'create_model',
             'is_master',
-            'set_world_size',
-            'setup',
             'set_device',
-            'setenv',
+            'setup',
+
             'set_eval',
+
             'BaseLogger'
         ]

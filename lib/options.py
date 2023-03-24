@@ -1,15 +1,17 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import os
+import random
 import argparse
 from distutils.util import strtobool
-from pathlib import Path
-import pandas as pd
 import json
+from pathlib import Path
+import numpy as np
+import pandas as pd
 import torch
 from .logger import BaseLogger
 from typing import List, Dict, Tuple, Union
-
 
 logger = BaseLogger.get_logger(__name__)
 
@@ -514,27 +516,36 @@ def _arg2str(param: str, arg: Union[str, int, float]) -> str:
             return str_arg
 
 
-def _check_if_valid_sampler(sampler: str, gpu_ids: str) -> None:
+def _check_if_valid_sampler(sampler: str, gpu_ids: List[int]) -> None:
     """
-    Check if sampler is valid for gpu_ids.
+    Check if sampler is valid for gpu_ids at training.
 
     Args:
         sampler (str): sampler
-        gpu_ids (str): 'cpu' or like '0-1-2'
+        gpu_ids (List[str]): list og GPU ids, where [] means CPU.
     """
-    if gpu_ids == 'cpu':
+    if len(gpu_ids) <= 1:
+        # When using CPU or a single GPU
         if sampler in ['distributed', 'distweight']:
-            print('Now, Distributed learning on CPU is supposed to be OK.\n')
-            #raise ValueError(f"Invalid sampler: {sampler}, No need of DistributedSampler when using CPU.")
+            #print('Now, Distributed learning on CPU is supposed to be OK.\n')
+            raise ValueError(f"Invalid sampler: {sampler}, No need of DistributedSampler when using CPU or a single GPU.")
+        elif sampler in ['weighted', 'no']:
+            pass
+        else:
+            raise ValueError(f"Invalid sampler: {sampler}")
     else:
-        # When using GPU
-        if sampler in ['weighted', 'no']:
-            raise ValueError(f"Invalid sampler: {sampler}, Required DistributedSampler when using GPU.")
+        # When using GPUs(>= 2)
+        if sampler in ['distributed', 'distweight']:
+            pass
+        elif sampler in ['weighted', 'no']:
+            raise ValueError(f"Invalid sampler: {sampler}, Specify DistributedSampler when using GPUs.")
+        else:
+            raise ValueError(f"Invalid sampler: {sampler}")
 
 
 def _check_if_valid_criterion(criterion: str, task: str) -> None:
     """
-    Check if criterion is valid for task.
+    Check if criterion is valid for task at training.
 
     Args:
         criterion (str): criterion
@@ -561,6 +572,8 @@ def _train_parse(args: argparse.Namespace) -> Dict[str, ParamSet]:
     Returns:
         Dict[str, ParamSet]: parameters dispatched by group
     """
+    args.gpu_ids = _parse_gpu_ids(args.gpu_ids)
+
     # Check validity of sampler
     _check_if_valid_sampler(args.sampler, args.gpu_ids)
 
@@ -568,7 +581,6 @@ def _train_parse(args: argparse.Namespace) -> Dict[str, ParamSet]:
     _check_if_valid_criterion(args.criterion, args.task)
 
     args.project = Path(args.csvpath).stem
-    args.gpu_ids = _parse_gpu_ids(args.gpu_ids)
     args.mlp, args.net = _parse_model(args.model)
     args.pretrained = bool(args.pretrained)  # strtobool('False') = 0 (== False)
     args.save_datetime_dir = str(Path('results', args.project, 'trials', args.datetime))
@@ -675,3 +687,56 @@ def set_options(datetime_name: str = None, phase: str = None) -> argparse.Namesp
         _args = opt.get_args()
         args = _test_parse(_args)
         return args
+
+
+def set_world_size(gpu_ids: List[int], is_dist_on_cpu: bool = None) -> int:
+    """
+    Set world_size, ie, total number of processes.
+
+    Args:
+        gpu_ids (List[int]): GPU ids
+        is_dist_on_cpu (bool): True when distributed learning 1CPU/N-Process (N>1) on CPU.
+
+    Returns:
+        int: world_size
+
+    Note:
+        1CPU/N-Process, or N-GPU/N-Process, where N > 0
+    """
+    # Appropriate value based on CPU performance is desirable.
+    NUM_PROCESS_ON_CPU = 4
+
+    if gpu_ids == []:
+        return 1
+        """
+        if is_dist_on_cpu:
+            # 1CPU/N-Process
+            return NUM_PROCESS_ON_CPU
+        else:
+            # 1CPU/1Process
+            return 1
+        """
+    else:
+        # When using GPU, N-GPU/N-Process
+        return len(gpu_ids)
+
+
+def setenv(is_seed_fixed: bool = False) -> None:
+    """
+    Set environment variables.
+
+    Args:
+        is_seed_fixed (bool): Whether seed is fixed or not
+
+    """
+    os.environ['GLOO_SOCKET_IFNAME'] = 'en0'  # 'eth0'
+    os.environ['MASTER_ADDR'] = 'localhost'
+    os.environ['MASTER_PORT'] = '29500'
+
+    if is_seed_fixed:
+        # For reproducible learning
+        SEED = 0
+        np.random.seed(SEED)
+        random.seed(SEED)
+        torch.manual_seed(SEED)
+        torch.cuda.manual_seed(SEED)
