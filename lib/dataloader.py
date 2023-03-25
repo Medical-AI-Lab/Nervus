@@ -344,7 +344,7 @@ class DistributedWeightedSampler:
         raise NotImplementedError("DistributedWeightedSampler")
 
 
-class Sampler:
+class SamplerMaker:
     """
     Class to define sampler.
     """
@@ -438,7 +438,7 @@ def set_sampler(
         return _sampler
 
     if sampler == 'distributed':
-        _sampler = Sampler.set_distributed_sampler(split_data=split_data, shuffle=True)
+        _sampler = SamplerMaker.set_distributed_sampler(split_data=split_data, shuffle=True)
         return _sampler
 
     if 'weight' in sampler:
@@ -447,11 +447,11 @@ def set_sampler(
         assert (len(label_list) == 1), 'Cannot make weighted sampler for multi-label.'
 
         if sampler == 'weighted':
-            _sampler = Sampler.set_weightedrandom_sampler(split_data=split_data)
+            _sampler = SamplerMaker.set_weightedrandom_sampler(split_data=split_data)
             return _sampler
 
         if sampler == 'distweight':
-            _sampler = Sampler.set_weighted_random_distributed_sampler(split_data=split_data, shuffle=True)
+            _sampler = SamplerMaker.set_weighted_random_distributed_sampler(split_data=split_data, shuffle=True)
             return _sampler
 
     raise ValueError(f"Invalid sampler: {sampler}.")
