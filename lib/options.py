@@ -524,21 +524,21 @@ def _check_if_valid_sampler(sampler: str, gpu_ids: List[int]) -> None:
         sampler (str): sampler
         gpu_ids (List[str]): list og GPU ids, where [] means CPU.
     """
-    if len(gpu_ids) <= 1:
-        # When using CPU or a single GPU
+    if len(gpu_ids) == 0:
+        # When using CPU
         if sampler in ['distributed', 'distweight']:
             #print('Now, Distributed learning on CPU is supposed to be OK.\n')
-            raise ValueError(f"Invalid sampler: {sampler}, No need of DistributedSampler when using CPU or a single GPU.")
+            raise ValueError(f"Invalid sampler: {sampler}, No need of DistributedSampler when using CPU.")
         elif sampler in ['weighted', 'no']:
             pass
         else:
             raise ValueError(f"Invalid sampler: {sampler}")
     else:
-        # When using GPUs(>= 2)
+        # When using GPU(>= 1), DistributedDataParallel is used.
         if sampler in ['distributed', 'distweight']:
             pass
         elif sampler in ['weighted', 'no']:
-            raise ValueError(f"Invalid sampler: {sampler}, Specify DistributedSampler when using GPUs.")
+            raise ValueError(f"Invalid sampler: {sampler}, Specify DistributedSampler when using GPU.")
         else:
             raise ValueError(f"Invalid sampler: {sampler}")
 
@@ -706,7 +706,8 @@ def set_world_size(gpu_ids: List[int], is_dist_on_cpu: bool = None) -> int:
     # Appropriate value based on CPU performance is desirable.
     NUM_PROCESS_ON_CPU = 4
 
-    if gpu_ids == []:
+    if len(gpu_ids) == 0:
+        # When using CPU, 1CPU/N-Process
         return 1
         """
         if is_dist_on_cpu:

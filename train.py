@@ -30,12 +30,6 @@ from lib.component import (
 logger = BaseLogger.get_logger(__name__)
 
 
-# ----- For debugging on CPU -----------
-ON_CPU = False #True
-isDistributed = False
-# --------------------------------------
-
-
 def train(
         rank,
         world_size,
@@ -51,7 +45,7 @@ def train(
 
     device = set_device(rank=rank, gpu_ids=gpu_ids)
     isMaster = is_master(rank)
-    # isDistributed = (gpu_ids != [])
+    isDistributed = (len(gpu_ids) >= 1)
     if isMaster:
         isMLP = args_model.mlp is not None
         save_weight_policy = args_conf.save_weight_policy
@@ -61,8 +55,10 @@ def train(
 
     model = create_model(args_model)
     model.network.to(device)
-    if gpu_ids != []:
+    if len(gpu_ids) >= 1:
+        # including when using a single GPU
         model.network = DDP(model.network, device_ids=None)  # device_ids must be None on both CPU and GPUs.
+
 
     criterion = set_criterion(args_conf.criterion, device)
     optimizer = set_optimizer(args_conf.optimizer, model.network, args_conf.lr)
@@ -123,10 +119,12 @@ def train(
     # Sync all processes after all epochs.
     dist.barrier()
 
+    # Save learning curve and weight
     if isMaster:
         loss_store.save_learning_curve(save_datetime_dir)
         model.save_weight(save_datetime_dir, as_best=True)
         if isMLP:
+            # Save scaler
             dataloaders['train'].dataset.save_scaler(save_datetime_dir + '/' + 'scaler.pkl')
 
     dist.destroy_process_group()
@@ -162,7 +160,10 @@ if __name__ == '__main__':
         datetime_name = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
         logger.info(f"\nTraining started at {datetime_name}.\n")
 
-        setenv(is_seed_fixed=True)
+        # ----------- For debugging on CPU -----------
+        FIXED = True
+        # --------------------------------------------
+        setenv(is_seed_fixed=FIXED)
 
         args = set_options(datetime_name=datetime_name, phase='train')
         main(args)

@@ -353,7 +353,7 @@ def create_model(params: ParamSet) -> nn.Module:
 #
 def is_master(rank: int) -> bool:
     """
-    Return whether master or not.
+    Return whether rank is master or not.
 
     Args:
         rank (int): rank, or process id
