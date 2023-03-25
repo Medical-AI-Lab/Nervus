@@ -502,6 +502,9 @@ def create_dataloader(
     else:
         batch_size = params.test_batch_size
 
+    # ---------------------
+    # kwargs = {'num_workers': 1, 'pin_memory': True} if use_cuda else {}
+    # ---------------------
     split_loader = DataLoader(
                             dataset=split_data,
                             batch_size=batch_size,
