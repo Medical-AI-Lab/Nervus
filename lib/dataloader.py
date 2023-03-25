@@ -505,8 +505,7 @@ def create_dataloader(
     split_loader = DataLoader(
                             dataset=split_data,
                             batch_size=batch_size,
-                            num_workers=0,
-                            #num_workers=os.cpu_count(),
+                            num_workers=os.cpu_count(),
                             sampler=_sampler,
                             shuffle=shuffle,
                             pin_memory=True
