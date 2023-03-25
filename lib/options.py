@@ -524,8 +524,8 @@ def _check_if_valid_sampler(sampler: str, gpu_ids: List[int]) -> None:
         sampler (str): sampler
         gpu_ids (List[str]): list og GPU ids, where [] means CPU.
     """
-    if len(gpu_ids) == 0:
-        # When using CPU
+    if len(gpu_ids) <= 1:
+        # When using ether of CPU or a single GPU.
         if sampler in ['distributed', 'distweight']:
             #print('Now, Distributed learning on CPU is supposed to be OK.\n')
             raise ValueError(f"Invalid sampler: {sampler}, No need of DistributedSampler when using CPU.")
@@ -534,7 +534,7 @@ def _check_if_valid_sampler(sampler: str, gpu_ids: List[int]) -> None:
         else:
             raise ValueError(f"Invalid sampler: {sampler}")
     else:
-        # When using GPU(>= 1), DistributedDataParallel is used.
+        # When using GPU(>= 2), DistributedDataParallel is used.
         if sampler in ['distributed', 'distweight']:
             pass
         elif sampler in ['weighted', 'no']:
