@@ -55,10 +55,9 @@ def train(
 
     model = create_model(args_model)
     model.network.to(device)
-    if len(gpu_ids) >= 1:
+    if isDistributed:
         # including when using a single GPU
         model.network = DDP(model.network, device_ids=None)  # device_ids must be None on both CPU and GPUs.
-
 
     criterion = set_criterion(args_conf.criterion, device)
     optimizer = set_optimizer(args_conf.optimizer, model.network, args_conf.lr)

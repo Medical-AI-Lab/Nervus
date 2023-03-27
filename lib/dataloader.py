@@ -340,7 +340,9 @@ class LoadDataSet(Dataset, DataSetWidget):
 
 
 class DistributedWeightedSampler:
-    def __init__(self, split_data, shuffle):
+    def __init__(self, split_data):
+        # Shuffle should be done automatically.
+        # rank, world_size?
         raise NotImplementedError("DistributedWeightedSampler")
 
 
@@ -402,15 +404,11 @@ class SamplerMaker:
         return _sampler
 
     @classmethod
-    def set_weighted_random_distributed_sampler(
-                                                cls,
-                                                split_data: LoadDataSet = None,
-                                                shuffle=None
-                                                ) -> DistributedWeightedSampler:
-        _sampler = DistributedWeightedSampler(
-                                            split_data,
-                                            shuffle
-                                            )
+    def set_distributed_weighted_sampler(
+                                        cls,
+                                        split_data: LoadDataSet = None
+                                        ) -> DistributedWeightedSampler:
+        _sampler = DistributedWeightedSampler(split_data)
         return _sampler
 
 
@@ -451,7 +449,7 @@ def set_sampler(
             return _sampler
 
         if sampler == 'distweight':
-            _sampler = SamplerMaker.set_weighted_random_distributed_sampler(split_data=split_data, shuffle=True)
+            _sampler = SamplerMaker.set_distributed_weighted_sampler(split_data=split_data, shuffle=True)
             return _sampler
 
     raise ValueError(f"Invalid sampler: {sampler}.")
@@ -514,3 +512,4 @@ def create_dataloader(
                             pin_memory=True
                             )
     return split_loader
+
