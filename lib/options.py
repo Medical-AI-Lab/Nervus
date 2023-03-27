@@ -337,8 +337,8 @@ class ParamTable:
                 'scaler_path': [dl, tsp],
                 'save_datetime_dir': [trc, tsc, trp, tsp],
 
-                'gpu_ids': [trc, tsc, sa, trp, tsp],
-                'dataset_info': [trc, sa, trp, tsp]
+                'gpu_ids': [dl, trc, tsc, sa, trp, tsp],
+                'dataset_info': [sa, trp, tsp]
                 }
 
         self.table = self._make_table()
@@ -689,7 +689,7 @@ def set_options(datetime_name: str = None, phase: str = None) -> argparse.Namesp
         return args
 
 
-def set_world_size(gpu_ids: List[int], is_dist_on_cpu: bool = None) -> int:
+def set_world_size(gpu_ids: List[int]) -> int:
     """
     Set world_size, ie, total number of processes.
 
@@ -706,16 +706,6 @@ def set_world_size(gpu_ids: List[int], is_dist_on_cpu: bool = None) -> int:
     if len(gpu_ids) == 0:
         # When using CPU, 1CPU/1-Process
         return 1
-        """
-        if is_dist_on_cpu:
-            # 1CPU/N-Process
-            # Appropriate value based on CPU performance is desirable.
-            NUM_PROCESS_ON_CPU = 4
-            return NUM_PROCESS_ON_CPU
-        else:
-            # 1CPU/1Process
-            return 1
-        """
     else:
         # When using GPU, N-GPU/N-Process
         return len(gpu_ids)
@@ -729,7 +719,7 @@ def setenv(is_seed_fixed: bool = False) -> None:
         is_seed_fixed (bool): Whether seed is fixed or not
 
     """
-    os.environ['GLOO_SOCKET_IFNAME'] = 'en0'  # 'eth0'
+    os.environ['GLOO_SOCKET_IFNAME'] = 'lo'  #'en0'
     os.environ['MASTER_ADDR'] = 'localhost'
     os.environ['MASTER_PORT'] = '29500'
 

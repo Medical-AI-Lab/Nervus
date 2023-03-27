@@ -107,16 +107,14 @@ class LossStore:
     """
     Class for calculating loss and store it.
     """
-    def __init__(self, label_list: List[str], num_epochs: int, dataset_info: Dict[str, int]) -> None:
+    def __init__(self, label_list: List[str], num_epochs: int) -> None:
         """
         Args:
             label_list (List[str]): list of internal labels
             num_epochs (int) : number of epochs
-            dataset_info (Dict[str, int]):  dataset sizes of 'train' and 'val'
         """
         self.label_list = label_list
         self.num_epochs = num_epochs
-        self.dataset_info = dataset_info
 
         # Added a special label 'total' to store total of losses of all labels.
         self.label_losses = {label_name: LabelLoss() for label_name in self.label_list + ['total']}
@@ -138,26 +136,25 @@ class LossStore:
             _new_batch_loss = losses[label_name]
             self.label_losses[label_name].store_batch_loss(phase, _new_batch_loss, batch_size)
 
-    def cal_epoch_loss(self, at_epoch: int = None) -> None:
+    def cal_epoch_loss(self, total_num_data: Dict[str, int], at_epoch: int = None) -> None:
         """
         Calculate epoch loss for each phase all at once.
 
         Args:
+            total_num_data (Dict[str, int]): total number of data learned at phase during each epoch
             at_epoch (int): epoch number
         """
         # For each label
         for label_name in self.label_list:
             for phase in ['train', 'val']:
                 _batch_loss = self.label_losses[label_name].get_loss(phase, 'batch')
-                _dataset_size = self.dataset_info[phase]
-                _new_epoch_loss = _batch_loss / _dataset_size
+                _new_epoch_loss = _batch_loss / total_num_data[phase]
                 self.label_losses[label_name].append_epoch_loss(phase, _new_epoch_loss)
 
         # For total, average by dataset_size and the number of labels.
         for phase in ['train', 'val']:
             _batch_loss = self.label_losses['total'].get_loss(phase, 'batch')
-            _dataset_size = self.dataset_info[phase]
-            _new_epoch_loss = _batch_loss / (_dataset_size * len(self.label_list))
+            _new_epoch_loss = _batch_loss / (total_num_data[phase] * len(self.label_list))
             self.label_losses['total'].append_epoch_loss(phase, _new_epoch_loss)
 
         # Update val_best_loss and best_epoch.
@@ -233,16 +230,15 @@ class LossStore:
             df_label_epoch_loss.to_csv(save_path, index=False)
 
 
-def set_loss_store(label_list: List[str], num_epochs: int, dataset_info: Dict[str, int]) -> LossStore:
+def set_loss_store(label_list: List[str], num_epochs: int) -> LossStore:
     """
     Return class LossStore.
 
     Args:
         label_list (List[str]): label list
         num_epochs (int) : number of epochs
-        dataset_info (Dict[str, int]):  dataset sizes of 'train' and 'val'
 
     Returns:
         LossStore: LossStore
     """
-    return LossStore(label_list, num_epochs, dataset_info)
+    return LossStore(label_list, num_epochs)

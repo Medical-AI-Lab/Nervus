@@ -41,7 +41,7 @@ def train(
     gpu_ids = args_conf.gpu_ids
 
     # initialize the process group
-    setup(rank=rank, world_size=world_size, on_cpu=(gpu_ids == []))
+    setup(rank=rank, world_size=world_size, on_gpu=(len(gpu_ids) >= 1))
 
     device = set_device(rank=rank, gpu_ids=gpu_ids)
     isMaster = is_master(rank)
@@ -62,7 +62,8 @@ def train(
     criterion = set_criterion(args_conf.criterion, device)
     optimizer = set_optimizer(args_conf.optimizer, model.network, args_conf.lr)
     if isMaster:
-        loss_store = set_loss_store(args_conf.label_list, args_conf.epochs, args_conf.dataset_info)
+        loss_store = set_loss_store(args_conf.label_list, args_conf.epochs)
+        total_num_data = {'train': 0, 'val': 0}
 
     for epoch in range(1, args_conf.epochs + 1):
         for phase in ['train', 'val']:
@@ -86,6 +87,9 @@ def train(
                 # Otherwise, the same ordering will be always used.
                 split_dataloader.sampler.set_epoch(epoch)
 
+            if isMaster:
+                total_num_data[phase] = 0
+
             for i, data in enumerate(split_dataloader):
                 optimizer.zero_grad()
                 in_data, labels = model.set_data(data, device)
@@ -104,10 +108,15 @@ def train(
                     dist.all_reduce(losses[label_name], op=dist.ReduceOp.SUM)
 
                 if isMaster:
-                    loss_store.store(phase, losses, batch_size=len(data['imgpath']))
+                    batch_size=len(data['imgpath'])
+                    loss_store.store(phase, losses, batch_size=batch_size)
+                    # In each process, same number of data are learned.
+                    total_num_data[phase] = total_num_data[phase] + (batch_size * world_size)
+                    #print('rank', rank, i, 'total_num_data', total_num_data[phase])
 
         if isMaster:
-            loss_store.cal_epoch_loss(at_epoch=epoch)
+            #print(epoch, 'total_num_data', total_num_data)
+            loss_store.cal_epoch_loss(total_num_data, at_epoch=epoch)
             loss_store.print_epoch_loss(at_epoch=epoch)
 
             if loss_store.is_val_loss_updated():
@@ -159,10 +168,7 @@ if __name__ == '__main__':
         datetime_name = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
         logger.info(f"\nTraining started at {datetime_name}.\n")
 
-        # ----------- For debugging on CPU -----------
-        FIXED = True
-        # --------------------------------------------
-        setenv(is_seed_fixed=FIXED)
+        setenv(is_seed_fixed=True)
 
         args = set_options(datetime_name=datetime_name, phase='train')
         main(args)

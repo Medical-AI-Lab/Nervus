@@ -389,17 +389,17 @@ def set_device(rank: int = None, gpu_ids: List[int] = None) -> torch.device:
         return torch.device(f"cuda:{gpu_ids[rank]}")
 
 
-def setup(rank: int = None, world_size: int = None, on_cpu: bool = None) -> None:
+def setup(rank: int = None, world_size: int = None, on_gpu: bool = None) -> None:
     """
     Initialize the process group.
 
     Args:
         rank (int): rank, or process id
         world_size (int): the total number of process
-        on_cpu (bool]): Whether .................
+        on_gpu (bool]): Whether using GPU or not.
     """
-    if on_cpu:
-        backend = 'gloo'  # For CPU
-    else:
+    if on_gpu:
         backend = 'nccl'  # For GPU
+    else:
+        backend = 'gloo'  # For CPU
     dist.init_process_group(backend=backend, rank=rank, world_size=world_size)

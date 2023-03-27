@@ -347,32 +347,6 @@ class DistributedWeightedSampler:
 
 
 class SamplerMaker:
-    """
-    Class to define sampler.
-    """
-    @classmethod
-    def set_distributed_sampler(
-                                cls,
-                                split_data: LoadDataSet = None,
-                                shuffle: bool = None
-                                ) -> DistributedSampler:
-        """
-        Set DistributedSampler.
-
-        Args:
-            split_data (LoadDataSet): dataset
-            shuffle (bool): whether shuffle pr not
-
-        Returns:
-            DistributedSampler: sampler
-        """
-        _sampler = DistributedSampler(
-                                    split_data,
-                                    shuffle=shuffle
-                                    )
-        return _sampler
-
-    @classmethod
     def set_weightedrandom_sampler(
                                 cls,
                                 split_data: LoadDataSet = None
@@ -402,6 +376,30 @@ class SamplerMaker:
                                         len(samples_weight)
                                         )
         return _sampler
+
+    @classmethod
+    def set_distributed_sampler(
+                                cls,
+                                split_data: LoadDataSet = None,
+                                shuffle: bool = None
+                                ) -> DistributedSampler:
+        """
+        Set DistributedSampler.
+
+        Args:
+            split_data (LoadDataSet): dataset
+            shuffle (bool): whether shuffle pr not
+
+        Returns:
+            DistributedSampler: sampler
+        """
+        _sampler = DistributedSampler(
+                                    split_data,
+                                    shuffle=shuffle,
+                                    drop_last=False  # Default
+                                    )
+        return _sampler
+
 
     @classmethod
     def set_distributed_weighted_sampler(
@@ -480,7 +478,7 @@ def create_dataloader(
                             split_data=split_data
                             )
     else:
-        # No sampler at test.
+        # No sampler at test
         _sampler = None
 
     # shuffle
@@ -500,16 +498,19 @@ def create_dataloader(
     else:
         batch_size = params.test_batch_size
 
-    # ---------------------
-    # kwargs = {'num_workers': 1, 'pin_memory': True} if use_cuda else {}
-    # ---------------------
+    if len(params.gpu_ids) >= 1:
+        num_workers = 1
+        pin_memory = True
+    else:
+        num_workers = 0
+        pin_memory = False
+        
     split_loader = DataLoader(
                             dataset=split_data,
                             batch_size=batch_size,
-                            num_workers=os.cpu_count(),
+                            num_workers=num_workers,
                             sampler=_sampler,
                             shuffle=shuffle,
-                            pin_memory=True
+                            pin_memory=pin_memory
                             )
     return split_loader
-
