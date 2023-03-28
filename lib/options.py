@@ -527,8 +527,8 @@ def _check_if_valid_sampler(sampler: str, gpu_ids: List[int]) -> None:
     if len(gpu_ids) == 0:
         # When using ether of CPU.
         if sampler in ['distributed', 'distweight']:
-            #print('Now, Distributed learning on CPU is supposed to be OK.\n')
-            raise ValueError(f"Invalid sampler: {sampler}, No need of DistributedSampler when using CPU.")
+            print('Now, Distributed learning on CPU is supposed to be OK.\n')
+            #raise ValueError(f"Invalid sampler: {sampler}, No need of sampler for distributed learning when using CPU.")
         elif sampler in ['weighted', 'no']:
             pass
         else:
@@ -705,7 +705,10 @@ def set_world_size(gpu_ids: List[int]) -> int:
     """
     if len(gpu_ids) == 0:
         # When using CPU, 1CPU/1-Process
-        return 1
+        #return 1
+        #########################
+        return 4  # number of processes
+        #########################
     else:
         # When using GPU, N-GPU/N-Process
         return len(gpu_ids)
@@ -719,7 +722,8 @@ def setenv(is_seed_fixed: bool = False) -> None:
         is_seed_fixed (bool): Whether seed is fixed or not
 
     """
-    os.environ['GLOO_SOCKET_IFNAME'] = 'lo'  #'en0'
+    # Ubuntu: 'lo', mac: 'lo0'(or 'en0')
+    os.environ['GLOO_SOCKET_IFNAME'] = 'lo0'
     os.environ['MASTER_ADDR'] = 'localhost'
     os.environ['MASTER_PORT'] = '29500'
 

@@ -52,12 +52,15 @@ def train(
         save_datetime_dir = args_conf.save_datetime_dir
 
     dataloaders = {split: create_dataloader(args_dataloader, split=split) for split in ['train', 'val']}
-
     model = create_model(args_model)
     model.network.to(device)
-    if isDistributed:
+    #if isDistributed:
         # including when using a single GPU
-        model.network = DDP(model.network, device_ids=None)  # device_ids must be None on both CPU and GPUs.
+    #    model.network = DDP(model.network, device_ids=None)  # device_ids must be None on both CPU and GPUs.
+
+    ######################
+    model.network = DDP(model.network, device_ids=None)  # device_ids must be None on both CPU and GPUs.
+    ######################
 
     criterion = set_criterion(args_conf.criterion, device)
     optimizer = set_optimizer(args_conf.optimizer, model.network, args_conf.lr)
@@ -112,7 +115,6 @@ def train(
                     loss_store.store(phase, losses, batch_size=batch_size)
                     # In each process, same number of data are learned.
                     total_num_data[phase] = total_num_data[phase] + (batch_size * world_size)
-                    #print('rank', rank, i, 'total_num_data', total_num_data[phase])
 
         if isMaster:
             #print(epoch, 'total_num_data', total_num_data)
@@ -168,7 +170,9 @@ if __name__ == '__main__':
         datetime_name = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
         logger.info(f"\nTraining started at {datetime_name}.\n")
 
-        setenv(is_seed_fixed=True)
+        ############
+        setenv(is_seed_fixed=True)  #! False
+        ############
 
         args = set_options(datetime_name=datetime_name, phase='train')
         main(args)
