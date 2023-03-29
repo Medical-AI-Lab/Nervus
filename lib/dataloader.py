@@ -352,7 +352,7 @@ class DistributedWeightedSampler:
 """
 
 class DistributedWeightedSampler:
-    def __init__(self, dataset, num_replicas=None, rank=None, replacement=True, shuffle=True):
+    def __init__(self, dataset, num_replicas=None, rank=None, replacement=True, shuffle=True, drop_last=False):
         if num_replicas is None:
             if not dist.is_available():
                 raise RuntimeError("Requires distributed package to be available")
@@ -367,76 +367,76 @@ class DistributedWeightedSampler:
         self.num_replicas = num_replicas
         self.rank = rank
         self.epoch = 0
-        self.num_samples = int(math.ceil(len(self.dataset) * 1.0 / self.num_replicas))
-        self.total_size = self.num_samples * self.num_replicas
         self.replacement = replacement
+        self.drop_last = drop_last
+        # If the dataset length is evenly divisible by # of replicas, then there
+        # is no need to drop any data, since the dataset will be split equally.
+        if self.drop_last and len(self.dataset) % self.num_replicas != 0:  # type: ignore[arg-type]
+            # Split to nearest available length that is evenly divisible.
+            # This is to ensure each rank receives the same amount of data when
+            # using this Sampler.
+            self.num_samples = math.ceil(
+                                    (len(self.dataset) - self.num_replicas) / self.num_replicas
+                                )
+        else:
+            self.num_samples = math.ceil(len(self.dataset) / self.num_replicas)
+
+        self.total_size = self.num_samples * self.num_replicas
         self.shuffle = shuffle
 
 
-    def calculate_weights(self, targets):
+    def calculate_weights(self, targets: List[int]) -> torch.tensor:
+        """
+        Calculate weights for each element.
+
+        Args:
+            targets (List[int]): elements to be calculated weight
+
+        Returns:
+            torch.tensor: weights for each element
+        """
         targets = torch.tensor(targets)
         class_sample_count = torch.tensor(
-                                [(targets == t).sum() for t in torch.unique(targets, sorted=True)]
-                            )
+                                    [(targets == t).sum() for t in torch.unique(targets, sorted=True)]
+                                )
         weight = 1. / class_sample_count.double()
         samples_weight = torch.tensor([weight[t] for t in targets])
         return samples_weight
 
 
     def __iter__(self):
-        # deterministically shuffle based on epoch
-        g = torch.Generator()
-        g.manual_seed(self.epoch)
-
         if self.shuffle:
+            # deterministically shuffle based on epoch
+            g = torch.Generator()
+            g.manual_seed(self.epoch)
             indices = torch.randperm(len(self.dataset), generator=g).tolist()  # all indices
         else:
             indices = list(range(len(self.dataset)))
 
-        # add extra samples to make it evenly divisible
-        indices += indices[:(self.total_size - len(indices))]
+        if not self.drop_last:
+            # add extra samples to make it evenly divisible
+            padding_size = self.total_size - len(indices)
+            if padding_size <= len(indices):
+                indices += indices[:padding_size]
+            else:
+                indices += (indices * math.ceil(padding_size / len(indices)))[:padding_size]
+        else:
+            # remove tail of data to make it evenly divisible.
+            indices = indices[:self.total_size]
         assert len(indices) == self.total_size
 
         # subsample indices
-        indices = indices[self.rank:self.total_size:self.num_replicas]  # List[int], indices for rank
+        indices = indices[self.rank:self.total_size:self.num_replicas]
         assert len(indices) == self.num_samples
 
-        """
-        # get targets (you can alternatively pass them in __init__, if this op is expensive)
-        targets = self.dataset.targets.clone()
-        # calculate weights on the complete targets
-        weights = self.calculate_weights(targets)
-        """
-
-        #print(self.rank, 'indices', len(indices))
-        #0 indices 4000
-        #1 indices 4000
-
+        # Calculate weights
         # select only the wanted targets for this subsample
-        #targets = torch.tensor(targets)[indices]
-        #_dataset = self.dataset[indices]
+        _df_target = self.dataset.df_split.iloc[self.rank:self.total_size:self.num_replicas]
+        _label_name = self.dataset.label_list[0]  # should be unique.
+        targets = _df_target[_label_name].tolist()
 
         # randomly sample this subset, producing balanced classes
-        # Calculate weights
-        """
-        _target = []
-        for i, data in enumerate(self.dataset):
-            if i in indices:
-                _target.append(list(data['labels'].values())[0])
-        #print(self.rank, '_target', len(_target), _target)     # 8000
-        print(self.rank, '_target', len(_target))
-
-        class_sample_count = torch.tensor([len(np.where(_target == t)[0]) for t in np.unique(_target)])
-        weight = 1. / class_sample_count.double()
-        samples_weight = torch.tensor([weight[t] for t in _target])
-        """
-        # Get target, label specified by index
-        _df_target = self.dataset.df_split.iloc[indices]
-        _label_name = self.dataset.label_list[0]   # should be unique.
-        targets = _df_target[_label_name].tolist()
         samples_weight = self.calculate_weights(targets)
-
-        #print('rank', self.rank, 'samples_weight', samples_weight, len(samples_weight))
 
         # do the weighted sampling
         subsample_balanced_indices = torch.multinomial(samples_weight, self.total_size, self.replacement) # -> List[torch.Tensor]
@@ -444,13 +444,22 @@ class DistributedWeightedSampler:
         # now map these target indices back to the original dataset index...
         # subsample the balanced indices
         dataset_indices = torch.tensor(indices)[subsample_balanced_indices]
-
         return iter(dataset_indices.tolist())
 
-    def __len__(self):
+
+    def __len__(self) -> int:
         return self.num_samples
 
-    def set_epoch(self, epoch):
+
+    def set_epoch(self, epoch: int) -> None:
+        """
+        Sets the epoch for this sampler. When :attr:`shuffle=True`, this ensures all replicas
+        use a different random ordering for each epoch. Otherwise, the next iteration of this
+        sampler will yield the same ordering.
+
+        Args:
+            epoch (int): epoch number.
+        """
         self.epoch = epoch
 
 
