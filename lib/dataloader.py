@@ -372,15 +372,16 @@ class DistributedWeightedSampler:
         self.replacement = replacement
         self.shuffle = shuffle
 
-    """
+
     def calculate_weights(self, targets):
+        targets = torch.tensor(targets)
         class_sample_count = torch.tensor(
                                 [(targets == t).sum() for t in torch.unique(targets, sorted=True)]
                             )
         weight = 1. / class_sample_count.double()
         samples_weight = torch.tensor([weight[t] for t in targets])
         return samples_weight
-    """
+
 
     def __iter__(self):
         # deterministically shuffle based on epoch
@@ -388,7 +389,7 @@ class DistributedWeightedSampler:
         g.manual_seed(self.epoch)
 
         if self.shuffle:
-            indices = torch.randperm(len(self.dataset), generator=g).tolist()
+            indices = torch.randperm(len(self.dataset), generator=g).tolist()  # all indices
         else:
             indices = list(range(len(self.dataset)))
 
@@ -397,7 +398,7 @@ class DistributedWeightedSampler:
         assert len(indices) == self.total_size
 
         # subsample indices
-        indices = indices[self.rank:self.total_size:self.num_replicas]  # List[int]
+        indices = indices[self.rank:self.total_size:self.num_replicas]  # List[int], indices for rank
         assert len(indices) == self.num_samples
 
         """
@@ -415,9 +416,9 @@ class DistributedWeightedSampler:
         #targets = torch.tensor(targets)[indices]
         #_dataset = self.dataset[indices]
 
-
         # randomly sample this subset, producing balanced classes
         # Calculate weights
+        """
         _target = []
         for i, data in enumerate(self.dataset):
             if i in indices:
@@ -428,11 +429,17 @@ class DistributedWeightedSampler:
         class_sample_count = torch.tensor([len(np.where(_target == t)[0]) for t in np.unique(_target)])
         weight = 1. / class_sample_count.double()
         samples_weight = torch.tensor([weight[t] for t in _target])
+        """
+        # Get target, label specified by index
+        _df_target = self.dataset.df_split.iloc[indices]
+        _label_name = self.dataset.label_list[0]   # should be unique.
+        targets = _df_target[_label_name].tolist()
+        samples_weight = self.calculate_weights(targets)
 
+        #print('rank', self.rank, 'samples_weight', samples_weight, len(samples_weight))
 
         # do the weighted sampling
         subsample_balanced_indices = torch.multinomial(samples_weight, self.total_size, self.replacement) # -> List[torch.Tensor]
-
 
         # now map these target indices back to the original dataset index...
         # subsample the balanced indices
