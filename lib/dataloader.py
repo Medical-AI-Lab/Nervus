@@ -20,7 +20,6 @@ from .logger import BaseLogger
 from typing import List, Dict, Union
 
 
-
 logger = BaseLogger.get_logger(__name__)
 
 
@@ -343,13 +342,6 @@ class LoadDataSet(Dataset, DataSetWidget):
                 }
         return _data
 
-"""
-class DistributedWeightedSampler:
-    def __init__(self, split_data):
-        # Shuffle should be done automatically.
-        # rank, world_size?
-        raise NotImplementedError("DistributedWeightedSampler")
-"""
 
 class DistributedWeightedSampler:
     def __init__(self, dataset, num_replicas=None, rank=None, replacement=True, shuffle=True, drop_last=False):
@@ -384,7 +376,6 @@ class DistributedWeightedSampler:
         self.total_size = self.num_samples * self.num_replicas
         self.shuffle = shuffle
 
-
     def calculate_weights(self, targets: List[int]) -> torch.tensor:
         """
         Calculate weights for each element.
@@ -402,7 +393,6 @@ class DistributedWeightedSampler:
         weight = 1. / class_sample_count.double()
         samples_weight = torch.tensor([weight[t] for t in targets])
         return samples_weight
-
 
     def __iter__(self):
         if self.shuffle:
@@ -439,17 +429,15 @@ class DistributedWeightedSampler:
         samples_weight = self.calculate_weights(targets)
 
         # do the weighted sampling
-        subsample_balanced_indices = torch.multinomial(samples_weight, self.total_size, self.replacement) # -> List[torch.Tensor]
+        subsample_balanced_indices = torch.multinomial(samples_weight, self.total_size, self.replacement)
 
-        # now map these target indices back to the original dataset index...
         # subsample the balanced indices
+        # now map these target indices back to the original dataset index...
         dataset_indices = torch.tensor(indices)[subsample_balanced_indices]
         return iter(dataset_indices.tolist())
 
-
     def __len__(self) -> int:
         return self.num_samples
-
 
     def set_epoch(self, epoch: int) -> None:
         """
@@ -458,7 +446,7 @@ class DistributedWeightedSampler:
         sampler will yield the same ordering.
 
         Args:
-            epoch (int): epoch number.
+            epoch (int): epoch number
         """
         self.epoch = epoch
 
