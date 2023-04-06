@@ -15,7 +15,7 @@ import torch.distributed as dist
 from torch.utils.data.sampler import WeightedRandomSampler
 from torch.utils.data.distributed import DistributedSampler
 from .logger import BaseLogger
-from typing import List, Dict, Union
+from typing import List, Dict, Union, Optional, Iterator
 
 
 logger = BaseLogger.get_logger(__name__)
@@ -128,7 +128,7 @@ class ImageMixin:
         _augmentation = []
         if (self.params.isTrain) and (self.split == 'train'):
             if self.params.augmentation == 'xrayaug':
-                _augmentation = PrivateAugment.xray_augs_list
+                _augmentation.extend(PrivateAugment.xray_augs_list)
             elif self.params.augmentation == 'trivialaugwide':
                 _augmentation.append(transforms.TrivialAugmentWide())
             elif self.params.augmentation == 'randaug':
@@ -251,15 +251,13 @@ class LoadDataSet(Dataset, DataSetWidget):
         """
         self.params = params
         self.split = split
-        #self.df_source = self.params.df_source
-        _df_source = self.params.df_source
-
         self.input_list = self.params.input_list
         self.label_list = self.params.label_list
 
         if self.params.task == 'deepsurv':
             self.period_name = self.params.period_name
 
+        _df_source = self.params.df_source
         self.df_split = _df_source[_df_source['split'] == self.split]
         self.col_index_dict = {col_name: self.df_split.columns.get_loc(col_name) for col_name in self.df_split.columns}
 
@@ -361,7 +359,34 @@ def calculate_weights(targets: List[int]) -> torch.tensor:
 
 
 class DistributedWeightedSampler:
-    def __init__(self, target_label, split_data, num_replicas=None, rank=None, replacement=True, shuffle=True, drop_last=False):
+    def __init__(
+                self,
+                target_label: str,
+                split_data: LoadDataSet,
+                num_replicas:Optional[int] = None,
+                rank: Optional[int] = None,
+                replacement: bool = True,
+                shuffle: bool = True,
+                drop_last: bool = False
+                ) -> None:
+        """
+        Distributed Weighted Sampler.
+        This is used when distributed training is performed with imbalanced dataset.
+
+        Args:
+            target_label (str): target label
+            split_data (LoadDataSet): dataset
+            num_replicas (Optional[int]): number of replicas
+            rank (Optional[int]): rank of the current process within num_replicas.
+                                By default, rank is retrieved from the current distributed group.
+            replacement (bool): if True, samples are drawn with replacement.
+                                If not, they are drawn without replacement,
+                                which means that when a sample index is drawn for a row,
+                                it cannot be drawn again for that row.
+            shuffle (bool): if True, sampler will shuffle the indices.
+            drop_last (bool): if True, the sampler will drop the last batch
+        """
+
         if num_replicas is None:
             if not dist.is_available():
                 raise RuntimeError("Requires distributed package to be available")
@@ -381,7 +406,7 @@ class DistributedWeightedSampler:
         self.drop_last = drop_last
         # If the dataset length is evenly divisible by # of replicas, then there
         # is no need to drop any data, since the dataset will be split equally.
-        if self.drop_last and len(self.split_data) % self.num_replicas != 0:  # type: ignore[arg-type]
+        if self.drop_last and len(self.split_data) % self.num_replicas != 0:
             # Split to nearest available length that is evenly divisible.
             # This is to ensure each rank receives the same amount of data when
             # using this Sampler.
@@ -394,7 +419,14 @@ class DistributedWeightedSampler:
         self.total_size = self.num_samples * self.num_replicas
         self.shuffle = shuffle
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[int]:
+        """
+        Return the iterator of the indices.
+
+        Returns:
+            Iterator[int]: the balanced indices depending on weights
+        """
+
         if self.shuffle:
             # Deterministically shuffle based on epoch
             g = torch.Generator()
@@ -462,7 +494,6 @@ class SamplerMaker:
         Set DistributedSampler.
 
         Args:
-            target_label (str): target label
             split_data (LoadDataSet): dataset,
             shuffle (bool): whether to shuffle or not
 
@@ -514,6 +545,7 @@ class SamplerMaker:
         Set DistributedWeightedSampler.
 
         Args:
+            target_label (str): target label
             split_data (LoadDataSet): dataset
             shuffle (bool): whether to shuffle or not
 
@@ -623,129 +655,9 @@ def create_dataloader(
     split_loader = DataLoader(
                             dataset=split_data,
                             batch_size=batch_size,
-                            num_workers=num_workers,
                             sampler=_sampler,
                             shuffle=shuffle,
+                            num_workers=num_workers,
                             pin_memory=pin_memory
                             )
     return split_loader
-
-
-
-
-#!--------------  Sample -----------------------
-
-imgs = np.arange(100)
-labels = np.array(([0] * 90) + ([1] * 10))
-
-"""
-# WeightedRandomSampler
-
-class SampleLoadDataSet(Dataset):
-    def __init__(self, imgs=None, labels=None):
-            self.imgs = imgs
-            self.labels = labels
-
-    def __len__(self):
-        return len(self.imgs)
-
-    def __getitem__(self, idx):
-        image = self.imgs[idx]
-        label = self.labels[idx]
-        _data = {
-                'image': image,
-                'label': label
-                }
-        return _data
-
-
-train_dataset = SampleLoadDataSet(imgs=imgs, labels=labels)
-
-targets = train_dataset.labels.tolist()
-weights = calculate_weights(targets)
-sampler = WeightedRandomSampler(
-                    weights,
-                    len(weights)
-            )
-
-train_loader = DataLoader(
-                    train_dataset,
-                    batch_size=5,
-                    sampler=sampler,
-                    shuffle=False
-                )
-
-cnt1 = 0
-for i, data in enumerate(train_loader):
-    cnt1 = cnt1 + data['label'].sum().item()
-    print(i, data)
-print('cnt1', cnt1)
-"""
-
-
-# DistributedWeightedSampler
-df_split = pd.DataFrame({
-                        'image': imgs,
-                        'label': labels
-                        })
-
-class SampleLoadDataSet(Dataset):
-    def __init__(self, df_split):
-        self.df_split = df_split
-        self.imgs = self.df_split['image'].values
-        self.labels = self.df_split['label'].values
-
-    def __len__(self):
-        return len(self.imgs)
-
-    def __getitem__(self, idx):
-        image = self.imgs[idx]
-        label = self.labels[idx]
-        _data = {
-                'image': image,
-                'label': label
-                }
-        return _data
-
-
-train_dataset = SampleLoadDataSet(df_split)
-
-target_label = 'label'
-sampler0 = DistributedWeightedSampler(target_label, train_dataset, num_replicas=2, rank=0, replacement=True, shuffle=False, drop_last=False)
-sampler1 = DistributedWeightedSampler(target_label, train_dataset, num_replicas=2, rank=1, replacement=True, shuffle=False, drop_last=False)
-
-train_loader0 = DataLoader(
-                    train_dataset,
-                    batch_size=5,
-                    sampler=sampler0,
-                    shuffle=False
-                )
-
-train_loader1 = DataLoader(
-                    train_dataset,
-                    batch_size=5,
-                    sampler=sampler1,
-                    shuffle=False
-                )
-
-cnt00 = 0
-cnt01 = 0
-print('train_loader0')
-for i0, data0 in enumerate(train_loader0):
-    cnt00 = cnt00 + torch.where(data0['label'] == 0)[0].shape[0]
-    cnt01 = cnt01 + torch.where(data0['label'] == 1)[0].shape[0]
-    print(i0, data0)
-print('cnt00', cnt00)
-print('cnt01', cnt01)
-
-print('\n')
-
-cnt10 = 0
-cnt11 = 0
-print('train_loader1')
-for i1, data1 in enumerate(train_loader1):
-    cnt10 = cnt10 + torch.where(data1['label'] == 0)[0].shape[0]
-    cnt11 = cnt11 + torch.where(data1['label'] == 1)[0].shape[0]
-    print(i1, data1)
-print('cnt10', cnt10)
-print('cnt11', cnt11)
