@@ -2,14 +2,11 @@
 # -*- coding: utf-8 -*-
 
 import os
-import random
 import argparse
 from distutils.util import strtobool
 import json
 from pathlib import Path
-import numpy as np
 import pandas as pd
-import torch
 from .logger import BaseLogger
 from typing import List, Dict, Tuple, Union
 
@@ -719,23 +716,11 @@ def set_world_size(gpu_ids: List[int]) -> int:
         return len(gpu_ids)
 
 
-def setenv(is_seed_fixed: bool = False) -> None:
+def setenv() -> None:
     """
     Set environment variables.
-
-    Args:
-        is_seed_fixed (bool): Whether seed is fixed or not
-
     """
     # Ubuntu: 'lo', mac: 'lo0'(or 'en0')
     os.environ['GLOO_SOCKET_IFNAME'] = 'lo0'
     os.environ['MASTER_ADDR'] = 'localhost'
     os.environ['MASTER_PORT'] = '29500'
-
-    if is_seed_fixed:
-        # For reproducible learning
-        SEED = 0
-        np.random.seed(SEED)
-        random.seed(SEED)
-        torch.manual_seed(SEED)
-        torch.cuda.manual_seed(SEED)
