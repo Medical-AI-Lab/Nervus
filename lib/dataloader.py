@@ -44,9 +44,11 @@ class InputDataMixin:
 
         Returns:
             MinMaxScaler: scaler
+
+        Note:
+        # Input data should be normalized with min and max of training data
         """
         scaler = MinMaxScaler()
-        # should be normalized with min and max of training data
         _df_train = self.df_source[self.df_source['split'] == 'train']
         _ = scaler.fit(_df_train[self.input_list])  # fit only
         return scaler

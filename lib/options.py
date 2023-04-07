@@ -518,17 +518,22 @@ def _arg2str(param: str, arg: Union[str, int, float]) -> str:
 
 def _check_if_valid_sampler(sampler: str, gpu_ids: List[int]) -> None:
     """
-    Check if sampler is valid for gpu_ids at training.
+    Check if sampler is valid for the number of GPU, or
+    depending on distributed learning or not.
 
     Args:
         sampler (str): sampler
         gpu_ids (List[str]): list og GPU ids, where [] means CPU.
     """
+    valid_sampler = {
+        'on_cpu' : ['weighted', 'no'],
+        'on_gpu' : ['distributed', 'distweight']
+    }
+
     if len(gpu_ids) == 0:
         # When using ether of CPU.
         if sampler in ['distributed', 'distweight']:
-            print('Now, Distributed learning on CPU is supposed to be OK.\n')
-            #raise ValueError(f"Invalid sampler: {sampler}, No need of sampler for distributed learning when using CPU.")
+            raise ValueError(f"Invalid sampler: {sampler}, No need of sampler for distributed learning when using CPU.")
         elif sampler in ['weighted', 'no']:
             pass
         else:
@@ -538,7 +543,7 @@ def _check_if_valid_sampler(sampler: str, gpu_ids: List[int]) -> None:
         if sampler in ['distributed', 'distweight']:
             pass
         elif sampler in ['weighted', 'no']:
-            raise ValueError(f"Invalid sampler: {sampler}, Specify DistributedSampler when using GPU.")
+            raise ValueError(f"Invalid sampler: {sampler}, Specify distributed or distweight when using GPU.")
         else:
             raise ValueError(f"Invalid sampler: {sampler}")
 
@@ -574,8 +579,11 @@ def _train_parse(args: argparse.Namespace) -> Dict[str, ParamSet]:
     """
     args.gpu_ids = _parse_gpu_ids(args.gpu_ids)
 
+
+    print('Now, Distributed learning on CPU is supposed to be OK.\n')
     # Check validity of sampler
-    _check_if_valid_sampler(args.sampler, args.gpu_ids)
+    #_check_if_valid_sampler(args.sampler, args.gpu_ids)
+
 
     # Check validity of criterion
     _check_if_valid_criterion(args.criterion, args.task)
@@ -705,10 +713,7 @@ def set_world_size(gpu_ids: List[int]) -> int:
     """
     if len(gpu_ids) == 0:
         # When using CPU, 1CPU/1-Process
-        #return 1
-        #########################
-        return 4  # number of processes
-        #########################
+        return 1
     else:
         # When using GPU, N-GPU/N-Process
         return len(gpu_ids)

@@ -45,7 +45,12 @@ def train(
 
     device = set_device(rank=rank, gpu_ids=gpu_ids)
     isMaster = is_master(rank)
-    isDistributed = (len(gpu_ids) >= 1)
+
+    ####################################################################################
+    # including when using a single GPU
+    isDistributed = True  #! (len(gpu_ids) >= 1)
+    ####################################################################################
+
     if isMaster:
         isMLP = args_model.mlp is not None
         save_weight_policy = args_conf.save_weight_policy
@@ -54,13 +59,9 @@ def train(
     dataloaders = {split: create_dataloader(args_dataloader, split=split) for split in ['train', 'val']}
     model = create_model(args_model)
     model.network.to(device)
-    #if isDistributed:
-        # including when using a single GPU
-    #    model.network = DDP(model.network, device_ids=None)  # device_ids must be None on both CPU and GPUs.
-
-    ######################
-    model.network = DDP(model.network, device_ids=None)  # device_ids must be None on both CPU and GPUs.
-    ######################
+    if isDistributed:
+        # device_ids must be None on both CPU and GPUs.
+        model.network = DDP(model.network, device_ids=None)
 
     criterion = set_criterion(args_conf.criterion, device)
     optimizer = set_optimizer(args_conf.optimizer, model.network, args_conf.lr)
@@ -113,11 +114,11 @@ def train(
                 if isMaster:
                     batch_size=len(data['imgpath'])
                     loss_store.store(phase, losses, batch_size=batch_size)
-                    # In each process, same number of data are learned.
+                    # Each process handles the same number of data.
                     total_num_data[phase] = total_num_data[phase] + (batch_size * world_size)
 
         if isMaster:
-            #print(epoch, 'total_num_data', total_num_data)
+            print(epoch, 'total_num_data', total_num_data)
             loss_store.cal_epoch_loss(total_num_data, at_epoch=epoch)
             loss_store.print_epoch_loss(at_epoch=epoch)
 
@@ -148,7 +149,10 @@ def main(args):
     args_save = args['args_save']
     print_parameter(args_print)
 
-    world_size = set_world_size(args_conf.gpu_ids)
+    ####################################################################################
+    world_size = 4  #! set_world_size(args_conf.gpu_ids)
+    ####################################################################################
+
     mp.spawn(
             train,
             args=(
@@ -170,9 +174,9 @@ if __name__ == '__main__':
         datetime_name = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
         logger.info(f"\nTraining started at {datetime_name}.\n")
 
-        ############
+        ####################################################################################
         setenv(is_seed_fixed=True)  #! False
-        ############
+        ####################################################################################
 
         args = set_options(datetime_name=datetime_name, phase='train')
         main(args)
