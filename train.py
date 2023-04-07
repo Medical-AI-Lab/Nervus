@@ -51,6 +51,10 @@ def train(
     isDistributed = True  #! (len(gpu_ids) >= 1)
     ####################################################################################
 
+    #####
+    count_label = {'0': 0, '1': 0}
+    ####
+
     if isMaster:
         isMLP = args_model.mlp is not None
         save_weight_policy = args_conf.save_weight_policy
@@ -98,6 +102,16 @@ def train(
                 optimizer.zero_grad()
                 in_data, labels = model.set_data(data, device)
 
+                ##### Check if the data is distributed for each rank. #####
+                #count_label
+                _cnt0 = torch.where(labels['labels']['label_dog'] == 0)[0].shape[0]
+                _cnt1 = torch.where(labels['labels']['label_dog'] == 1)[0].shape[0]
+                count_label['0'] += _cnt0
+                count_label['1'] += _cnt1
+                #print(f"rank: {rank}, phase: {phase}, i: {i}, labels: {labels}")
+
+                ################################################################
+
                 with torch.set_grad_enabled(phase == 'train'):
                     outputs = model(in_data)
                     losses = criterion(outputs, labels)
@@ -117,8 +131,20 @@ def train(
                     # Each process handles the same number of data.
                     total_num_data[phase] = total_num_data[phase] + (batch_size * world_size)
 
+
+            ################
+            dist.barrier()
+            if phase == 'train':
+                #total = count_label['0'] + count_label['1']
+                #print('rank', rank, 'epoch', epoch, 'phase', phase, 'count_label', count_label, 'total', total)
+                #print(rank, ',', epoch, ',' ,count_label['0'], ',', count_label['1'])
+                logger.info(f"rank:{rank}, epoch:{epoch}, 0:{count_label['0']}, 1:{count_label['1']}")
+            count_label = {'0': 0, '1': 0}
+            ################
+
+
         if isMaster:
-            print(epoch, 'total_num_data', total_num_data)
+            #print('epoch', epoch, 'total_num_data', total_num_data)
             loss_store.cal_epoch_loss(total_num_data, at_epoch=epoch)
             loss_store.print_epoch_loss(at_epoch=epoch)
 
@@ -174,9 +200,7 @@ if __name__ == '__main__':
         datetime_name = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
         logger.info(f"\nTraining started at {datetime_name}.\n")
 
-        ####################################################################################
-        setenv(is_seed_fixed=True)  #! False
-        ####################################################################################
+        setenv()
 
         args = set_options(datetime_name=datetime_name, phase='train')
         main(args)
@@ -187,4 +211,3 @@ if __name__ == '__main__':
     else:
         logger.info(datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S'))
         logger.info('\nTraining finished.\n')
-
