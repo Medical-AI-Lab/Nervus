@@ -104,8 +104,9 @@ def train(
 
                 ##### Check if the data is distributed for each rank. #####
                 #count_label
-                _cnt0 = torch.where(labels['labels']['label_dog'] == 0)[0].shape[0]
-                _cnt1 = torch.where(labels['labels']['label_dog'] == 1)[0].shape[0]
+                label_name = args_conf.label_list[0]
+                _cnt0 = torch.where(labels['labels'][label_name] == 0)[0].shape[0]
+                _cnt1 = torch.where(labels['labels'][label_name] == 1)[0].shape[0]
                 count_label['0'] += _cnt0
                 count_label['1'] += _cnt1
                 #print(f"rank: {rank}, phase: {phase}, i: {i}, labels: {labels}")
