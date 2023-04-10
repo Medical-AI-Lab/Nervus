@@ -111,7 +111,7 @@ class CSVParser:
         self.label_list = list(_df_source.columns[_df_source.columns.str.startswith('label')])
         if self.task == 'deepsurv':
             _period_name_list = list(_df_source.columns[_df_source.columns.str.startswith('period')])
-            assert (len(_period_name_list) == 1), f"One column of period should be contained in {self.csvpath} when deepsurv."
+            assert (len(_period_name_list) == 1), f"Only one column on period should be included in {self.csvpath} when deepsurv."
             self.period_name = _period_name_list[0]
 
         _df_source = self._cast(_df_source, self.task)
@@ -720,7 +720,20 @@ def setenv() -> None:
     """
     Set environment variables.
     """
+
     # Ubuntu: 'lo', mac: 'lo0'(or 'en0')
-    os.environ['GLOO_SOCKET_IFNAME'] = 'lo0'
+    import platform
+    _system = platform.system()
+
+    # When using CPU
+    if _system == 'Darwin':
+        os.environ['GLOO_SOCKET_IFNAME'] = 'lo0'
+    elif _system == 'Linux':
+        os.environ['GLOO_SOCKET_IFNAME'] = 'lo'
+    else:
+        raise ValueError(f'Not supported system: {_system}')
+
+
+    # os.environ['GLOO_SOCKET_IFNAME'] = 'lo0'
     os.environ['MASTER_ADDR'] = 'localhost'
     os.environ['MASTER_PORT'] = '29500'

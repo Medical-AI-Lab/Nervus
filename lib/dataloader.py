@@ -341,29 +341,10 @@ class LoadDataSet(Dataset, DataSetWidget):
         return _data
 
 
-def calculate_weights(targets: List[int]) -> torch.tensor:
-    """
-    Calculate weights for each element.
-
-    Args:
-        targets (List[int]): elements to be calculated weight
-
-    Returns:
-        torch.tensor: weights for each element
-    """
-    targets = torch.tensor(targets)
-    class_sample_count = torch.tensor(
-                                [(targets == t).sum() for t in torch.unique(targets, sorted=True)]
-                            )
-    weight = 1. / class_sample_count.double()
-    samples_weight = torch.tensor([weight[t] for t in targets])
-    return samples_weight
-
-
 class DistributedWeightedSampler:
     def __init__(
                 self,
-                target_label: str,
+                weights: torch.tensor,
                 split_data: LoadDataSet,
                 num_replicas:Optional[int] = None,
                 rank: Optional[int] = None,
@@ -376,7 +357,7 @@ class DistributedWeightedSampler:
         This is used when distributed training is performed with imbalanced dataset.
 
         Args:
-            target_label (str): target label
+            weights (torch.tensor): weights for each label in split_data
             split_data (LoadDataSet): dataset
             num_replicas (Optional[int]): number of replicas
             rank (Optional[int]): rank of the current process within num_replicas.
@@ -388,7 +369,6 @@ class DistributedWeightedSampler:
             shuffle (bool): if True, sampler will shuffle the indices.
             drop_last (bool): if True, the sampler will drop the last batch
         """
-
         if num_replicas is None:
             if not dist.is_available():
                 raise RuntimeError("Requires distributed package to be available")
@@ -399,15 +379,15 @@ class DistributedWeightedSampler:
                 raise RuntimeError("Requires distributed package to be available")
             rank = dist.get_rank()
 
-        self.target_label = target_label
+        self.weights = weights
         self.split_data = split_data
         self.num_replicas = num_replicas
         self.rank = rank
         self.epoch = 0
         self.replacement = replacement
         self.drop_last = drop_last
-        # If the dataset length is evenly divisible by # of replicas, then there
-        # is no need to drop any data, since the dataset will be split equally.
+        # If the dataset length is evenly divisible by the number of replicas, then
+        # there is no need to drop any data, since the dataset will be split equally.
         if self.drop_last and len(self.split_data) % self.num_replicas != 0:
             # Split to nearest available length that is evenly divisible.
             # This is to ensure each rank receives the same amount of data when
@@ -428,7 +408,6 @@ class DistributedWeightedSampler:
         Returns:
             Iterator[int]: the balanced indices depending on weights
         """
-
         if self.shuffle:
             # Deterministically shuffle based on epoch
             g = torch.Generator()
@@ -453,18 +432,12 @@ class DistributedWeightedSampler:
         indices = indices[self.rank:self.total_size:self.num_replicas]
         assert len(indices) == self.num_samples
 
-        # Get targets
-        targets = self.split_data.df_split[self.target_label].tolist()
-
-        # Calculate the weights on the whole targets
-        weights = calculate_weights(targets)
-
         # Select only the wanted weights for this subsample
-        weights = weights[indices]
+        _weights = self.weights[indices]
 
         # Do the weighted sampling
         # Randomly sample this subset, producing balanced classes
-        subsample_balanced_indices = torch.multinomial(weights, self.num_samples, self.replacement)
+        subsample_balanced_indices = torch.multinomial(_weights, self.num_samples, self.replacement)
 
         # Subsample the balanced indices
         # Now, map these subsample_balanced_indices back to the original dataset index
@@ -486,80 +459,23 @@ class DistributedWeightedSampler:
         self.epoch = epoch
 
 
-class SamplerMaker:
-    @staticmethod
-    def set_distributed_sampler(
-                                split_data: LoadDataSet,
-                                shuffle: bool = None
-                                ) -> DistributedSampler:
-        """
-        Set DistributedSampler.
+def calculate_weights(targets: List[int]) -> torch.tensor:
+    """
+    Calculate weights for each element.
 
-        Args:
-            split_data (LoadDataSet): dataset,
-            shuffle (bool): whether to shuffle or not
+    Args:
+        targets (List[int]): elements to be calculated weight
 
-        Returns:
-            DistributedSampler: sampler
-        """
-        sampler = DistributedSampler(
-                                    split_data,
-                                    shuffle=shuffle,
-                                    drop_last=False
-                                    )
-        return sampler
-
-    @staticmethod
-    def set_weightedrandom_sampler(
-                                target_label: str,
-                                split_data: LoadDataSet,
-                                ) -> WeightedRandomSampler:
-        """
-        Set WeightedRandomSampler.
-
-        Args:
-            target_label (str): target label
-            split_data (LoadDataSet): dataset
-
-        Returns:
-            WeightedRandomSampler: sampler
-
-        Note:
-            WeightedRandomSampler does shuffle automatically.
-        """
-
-        # Calculate weights
-        targets = split_data.df_split[target_label].tolist()
-        weights = calculate_weights(targets)
-        sampler = WeightedRandomSampler(
-                                        weights,
-                                        len(weights)
-                                        )
-        return sampler
-
-    @staticmethod
-    def set_distributed_weighted_sampler(
-                                        target_label: str,
-                                        split_data: LoadDataSet,
-                                        shuffle: bool = None
-                                        ) -> DistributedWeightedSampler:
-        """
-        Set DistributedWeightedSampler.
-
-        Args:
-            target_label (str): target label
-            split_data (LoadDataSet): dataset
-            shuffle (bool): whether to shuffle or not
-
-        Returns:
-            DistributedWeightedSampler: sampler
-        """
-        sampler = DistributedWeightedSampler(
-                                            target_label,
-                                            split_data,
-                                            shuffle=shuffle
-                                            )
-        return sampler
+    Returns:
+        torch.tensor: weights for each element
+    """
+    targets = torch.tensor(targets)
+    class_sample_count = torch.tensor(
+                                [(targets == t).sum() for t in torch.unique(targets, sorted=True)]
+                            )
+    weight = 1. / class_sample_count.double()
+    samples_weight = torch.tensor([weight[t] for t in targets])
+    return samples_weight
 
 
 def set_sampler(
@@ -579,23 +495,46 @@ def set_sampler(
 
     Returns:
         Union[DistributedSampler, WeightedRandomSampler, DistributedWeightedSampler]: sampler
+
+    Note:
+        Samplers are used only at training.
     """
+    shuffle = True
+    drop_last = False
+
     if sampler == 'distributed':
-        _sampler = SamplerMaker.set_distributed_sampler(split_data, shuffle=True)
+        _sampler = DistributedSampler(
+                                    split_data,
+                                    shuffle=shuffle,
+                                    drop_last=drop_last
+                                    )
         return _sampler
 
-    if 'weight' in sampler:
-        assert (task == 'classification') or (task == 'deepsurv'), 'Cannot make sampler in regression.'
+    if sampler in ['weighted', 'distweight']:
+        assert (task == 'classification') or (task == 'deepsurv'), 'Cannot make sampler based on weight in regression.'
         assert (len(label_list) == 1), 'Cannot make sampler for multi-label.'
-        target_label = label_list[0]  # should be unique.
+
+        # Calculate weights on the whole targets
+        _target_label = label_list[0]
+        _targets = split_data.df_split[_target_label].tolist()
+        weights = calculate_weights(_targets)
 
         if sampler == 'weighted':
             # WeightedRandomSampler does shuffle automatically.
-            _sampler = SamplerMaker.set_weightedrandom_sampler(target_label, split_data)
+            _sampler = WeightedRandomSampler(
+                                            weights,
+                                            len(weights)
+                                            )
             return _sampler
 
         if sampler == 'distweight':
-            _sampler = SamplerMaker.set_distributed_weighted_sampler(target_label, split_data, shuffle=True)
+            _sampler = DistributedWeightedSampler(
+                                            weights,
+                                            split_data,
+                                            shuffle=shuffle,
+                                            drop_last=drop_last
+                                            )
+
             return _sampler
 
     raise ValueError(f"Invalid sampler: {sampler}.")
