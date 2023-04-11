@@ -348,29 +348,13 @@ def create_model(params: ParamSet) -> nn.Module:
         raise ValueError(f"Invalid model type: mlp={params.mlp}, net={params.net}.")
 
 
-#
-# The below is for distributed learning.
-#
-def is_master(rank: int) -> bool:
-    """
-    Return whether rank is master or not.
-
-    Args:
-        rank (int): rank, or process id
-
-    Returns:
-        bool: whether master or not
-    """
-    MASTER = 0
-    return (rank == MASTER)
-
-
-def set_device(rank: int = None, gpu_ids: List[int] = None) -> torch.device:
+def set_device(rank: int = 0, gpu_ids: List[int] = None) -> torch.device:
     """
     Define device depending on gou_ids and rank.
+    The first element of gpu_ids is used as master.
 
     Args:
-        rank (int): rank, or process id
+        rank (int): rank, or process id, Default: 0(=master)
         gpu_ids (List[int]): GPU ids
 
     Returns:
@@ -396,7 +380,7 @@ def setup(rank: int = None, world_size: int = None, on_gpu: bool = None) -> None
     Args:
         rank (int): rank, or process id
         world_size (int): the total number of process
-        on_gpu (bool]): Whether using GPU or not.
+        on_gpu (bool]): whether to use GPU or not.
     """
     if on_gpu:
         backend = 'nccl'  # For GPU
