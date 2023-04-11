@@ -107,17 +107,27 @@ class LossStore:
     """
     Class for calculating loss and store it.
     """
-    def __init__(self, label_list: List[str], num_epochs: int) -> None:
+    def __init__(
+                self,
+                label_list: List[str] = None,
+                num_epochs: int = None,
+                world_size: int = None
+                ) -> None:
         """
         Args:
             label_list (List[str]): list of internal labels
             num_epochs (int) : number of epochs
+            world_size (int): number of processes.
         """
         self.label_list = label_list
         self.num_epochs = num_epochs
+        self.world_size = world_size
 
         # Added a special label 'total' to store total of losses of all labels.
         self.label_losses = {label_name: LabelLoss() for label_name in self.label_list + ['total']}
+
+        # For counting total number of data learned at phase in each epoch.
+        self.total_num_data = {'train': 0, 'val': 0}
 
     def store(self, phase: str, losses: Dict[str, torch.FloatTensor], batch_size: int = None) -> None:
         """
@@ -136,25 +146,28 @@ class LossStore:
             _new_batch_loss = losses[label_name]
             self.label_losses[label_name].store_batch_loss(phase, _new_batch_loss, batch_size)
 
-    def cal_epoch_loss(self, total_num_data: Dict[str, int], at_epoch: int = None) -> None:
+        # Add total number of data in each phase and each iteration.
+        # Each process handles the same number of data.
+        self.total_num_data[phase] = self.total_num_data[phase] + (batch_size * self.world_size)
+
+    def cal_epoch_loss(self, at_epoch: int = None) -> None:
         """
         Calculate epoch loss for each phase all at once.
 
         Args:
-            total_num_data (Dict[str, int]): total number of data learned at phase during each epoch
             at_epoch (int): epoch number
         """
         # For each label
         for label_name in self.label_list:
             for phase in ['train', 'val']:
                 _batch_loss = self.label_losses[label_name].get_loss(phase, 'batch')
-                _new_epoch_loss = _batch_loss / total_num_data[phase]
+                _new_epoch_loss = _batch_loss / self.total_num_data[phase]
                 self.label_losses[label_name].append_epoch_loss(phase, _new_epoch_loss)
 
         # For total, average by dataset_size and the number of labels.
         for phase in ['train', 'val']:
             _batch_loss = self.label_losses['total'].get_loss(phase, 'batch')
-            _new_epoch_loss = _batch_loss / (total_num_data[phase] * len(self.label_list))
+            _new_epoch_loss = _batch_loss / (self.total_num_data[phase] * len(self.label_list))
             self.label_losses['total'].append_epoch_loss(phase, _new_epoch_loss)
 
         # Update val_best_loss and best_epoch.
@@ -165,6 +178,10 @@ class LossStore:
         for label_name in self.label_list + ['total']:
             self.label_losses[label_name].train_batch_loss = 0.0
             self.label_losses[label_name].val_batch_loss = 0.0
+
+        # Reset total number of data learned at phase in each epoch.
+        for phase in ['train', 'val']:
+            self.total_num_data[phase] = 0
 
     def is_val_loss_updated(self) -> bool:
         """
@@ -230,15 +247,16 @@ class LossStore:
             df_label_epoch_loss.to_csv(save_path, index=False)
 
 
-def set_loss_store(label_list: List[str], num_epochs: int) -> LossStore:
+def set_loss_store(label_list: List[str], num_epochs: int, world_size: int) -> LossStore:
     """
     Return class LossStore.
 
     Args:
         label_list (List[str]): label list
         num_epochs (int) : number of epochs
+        world_size (int): number of processes
 
     Returns:
         LossStore: LossStore
     """
-    return LossStore(label_list, num_epochs)
+    return LossStore(label_list=label_list, num_epochs=num_epochs, world_size=world_size)
