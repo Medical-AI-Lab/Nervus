@@ -7,6 +7,7 @@ from distutils.util import strtobool
 import json
 from pathlib import Path
 import pandas as pd
+import datetime
 from .logger import BaseLogger
 from typing import List, Dict, Tuple, Union
 
@@ -522,14 +523,14 @@ def _check_if_valid_sampler(sampler: str, gpu_ids: List[int]) -> None:
         sampler (str): sampler
         gpu_ids (List[str]): list og GPU ids, where [] means CPU.
     """
-    dist_sampler =  ['distributed', 'distweight']
-    no_dist_sampler = ['weighted', 'no']
-    isDistributed = (len(gpu_ids) >= 1)
-    if isDistributed:
-        assert (sampler in dist_sampler), \
+    _dist_sampler = ['distributed', 'distweight']
+    _no_dist_sampler = ['weighted', 'no']
+    _isDistributed = (len(gpu_ids) >= 1)
+    if _isDistributed:
+        assert (sampler in _dist_sampler), \
                 f"Invalid sampler: {sampler}, Specify distributed or distweight when using GPU."
     else:
-        assert (sampler in no_dist_sampler), \
+        assert (sampler in _no_dist_sampler), \
             f"Invalid sampler: {sampler}, No need of sampler for distributed learning when using CPU."
 
 
@@ -563,9 +564,9 @@ def _train_parse(args: argparse.Namespace) -> Dict[str, ParamSet]:
     args.gpu_ids = _parse_gpu_ids(args.gpu_ids)
 
 
-    #print('Now, Distributed learning on CPU is supposed to be OK.\n')
+    print('Now, Distributed learning on CPU is supposed to be OK.\n')
     # Check validity of sampler
-    _check_if_valid_sampler(args.sampler, args.gpu_ids)
+    #_check_if_valid_sampler(args.sampler, args.gpu_ids)
 
     # Check validity of criterion
     _check_if_valid_criterion(args.criterion, args.task)
@@ -691,9 +692,11 @@ def set_world_size(gpu_ids: List[int]) -> int:
         int: world_size
 
     Note:
-        1-CPU/1-Process, 1-GPU/1-Process
+        1-CPU/1-Process: Even if using CPU, run 1 process, but DistributedDataParallel is not used.
+        1-GPU/1-Process
     """
     if gpu_ids == []:
+        # When using CPU, world_size is always 1.
         return 1
     else:
         return len(gpu_ids)
@@ -717,3 +720,25 @@ def setenv() -> None:
 
     os.environ['MASTER_ADDR'] = 'localhost'
     os.environ['MASTER_PORT'] = '29500'
+
+
+def get_elapsed_time(
+                    start_datetime: datetime.datetime,
+                    end_datetime: datetime.datetime
+                    ) -> Tuple[int, int, int, int]:
+    """
+    Get elapsed time
+
+    Args:
+        start_datetime (datetime.datetime): start datetime
+        end_datetime (datetime.datetime): end datetime
+
+    Returns:
+        Tuple: elapsed time
+    """
+    _elapsed_datetime = (end_datetime - start_datetime)
+    days = _elapsed_datetime.days
+    hours = _elapsed_datetime.seconds // 3600
+    minutes = ((_elapsed_datetime.seconds) // 60) % 60
+    seconds = _elapsed_datetime.seconds % 60
+    return (days, hours, minutes, seconds)

@@ -7,7 +7,8 @@ from .options import (
     print_parameter,
     save_parameter,
     set_world_size,
-    setenv
+    setenv,
+    get_elapsed_time
     )
 from .dataloader import create_dataloader
 from .framework import (
@@ -25,6 +26,7 @@ __all__ = [
             'save_parameter',
             'set_world_size',
             'setenv',
+            'get_elapsed_time',
             'create_dataloader',
             'create_model',
             'set_device',
