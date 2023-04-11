@@ -13,12 +13,11 @@ from lib import (
         set_world_size,
         setenv,
         create_dataloader,
-        create_model,
-        is_master,
         setup,
         set_device,
-        setenv,
+        create_model,
         BaseLogger
+
         )
 from lib.component import (
             set_criterion,
@@ -35,25 +34,16 @@ def train(
         world_size,
         args_model = None,
         args_dataloader = None,
-        args_conf = None
+        args_conf = None,
+        on_distributed = None
         ):
 
-    gpu_ids = args_conf.gpu_ids
-
     # initialize the process group
-    setup(rank=rank, world_size=world_size, on_gpu=(len(gpu_ids) >= 1))
+    setup(rank=rank, world_size=world_size, on_gpu=(len(args_conf.gpu_ids) >= 1))
 
-    device = set_device(rank=rank, gpu_ids=gpu_ids)
-    isMaster = is_master(rank)
-
-    ####################################################################################
-    # including when using a single GPU
-    isDistributed = True  #! (len(gpu_ids) >= 1)
-    ####################################################################################
-
-    #####
-    count_label = {'0': 0, '1': 0}
-    ####
+    device = set_device(rank=rank, gpu_ids=args_conf.gpu_ids)
+    isDistributed = on_distributed
+    isMaster = (rank == 0)  # rank 0 is the master process
 
     if isMaster:
         isMLP = args_model.mlp is not None
@@ -64,14 +54,14 @@ def train(
     model = create_model(args_model)
     model.network.to(device)
     if isDistributed:
-        # device_ids must be None on both CPU and GPUs.
+        # device_ids should be None.
         model.network = DDP(model.network, device_ids=None)
 
     criterion = set_criterion(args_conf.criterion, device)
     optimizer = set_optimizer(args_conf.optimizer, model.network, args_conf.lr)
     if isMaster:
         loss_store = set_loss_store(args_conf.label_list, args_conf.epochs)
-        total_num_data = {'train': 0, 'val': 0}
+        total_num_data = {'train': 0, 'val': 0}  # For counting total number of data in each epoch.
 
     for epoch in range(1, args_conf.epochs + 1):
         for phase in ['train', 'val']:
@@ -88,12 +78,7 @@ def train(
             split_dataloader = dataloaders[phase]
 
             if isDistributed:
-                # In distributed mode, calling the set_epoch() method
-                # at the beginning of each epoch before creating
-                # the DataLoader iterator is necessary
-                # to make shuffling work properly across multiple epochs.
-                # Otherwise, the same ordering will be always used.
-                split_dataloader.sampler.set_epoch(epoch)
+                split_dataloader.sampler.set_epoch(epoch)  # shuffle
 
             if isMaster:
                 total_num_data[phase] = 0
@@ -101,17 +86,6 @@ def train(
             for i, data in enumerate(split_dataloader):
                 optimizer.zero_grad()
                 in_data, labels = model.set_data(data, device)
-
-                ##### Check if the data is distributed for each rank. #####
-                #count_label
-                label_name = args_conf.label_list[0]
-                _cnt0 = torch.where(labels['labels'][label_name] == 0)[0].shape[0]
-                _cnt1 = torch.where(labels['labels'][label_name] == 1)[0].shape[0]
-                count_label['0'] += _cnt0
-                count_label['1'] += _cnt1
-                #print(f"rank: {rank}, phase: {phase}, i: {i}, labels: {labels}")
-
-                ################################################################
 
                 with torch.set_grad_enabled(phase == 'train'):
                     outputs = model(in_data)
@@ -132,20 +106,7 @@ def train(
                     # Each process handles the same number of data.
                     total_num_data[phase] = total_num_data[phase] + (batch_size * world_size)
 
-
-            ################
-            dist.barrier()
-            if phase == 'train':
-                #total = count_label['0'] + count_label['1']
-                #print('rank', rank, 'epoch', epoch, 'phase', phase, 'count_label', count_label, 'total', total)
-                #print(rank, ',', epoch, ',' ,count_label['0'], ',', count_label['1'])
-                logger.info(f"rank:{rank}, epoch:{epoch}, 0:{count_label['0']}, 1:{count_label['1']}")
-            count_label = {'0': 0, '1': 0}
-            ################
-
-
         if isMaster:
-            #print('epoch', epoch, 'total_num_data', total_num_data)
             loss_store.cal_epoch_loss(total_num_data, at_epoch=epoch)
             loss_store.print_epoch_loss(at_epoch=epoch)
 
@@ -176,9 +137,12 @@ def main(args):
     args_save = args['args_save']
     print_parameter(args_print)
 
-    ####################################################################################
-    world_size = 4  #! set_world_size(args_conf.gpu_ids)
-    ####################################################################################
+    on_distributed = (len(args_conf.gpu_ids) >= 1)
+    world_size = set_world_size(args_conf.gpu_ids)
+
+    #! This is only for test on CPU.
+    #on_distributed = True
+    #world_size = 4
 
     mp.spawn(
             train,
@@ -186,7 +150,8 @@ def main(args):
                 world_size,
                 args_model,
                 args_dataloader,
-                args_conf
+                args_conf,
+                on_distributed
                 ),
             nprocs=world_size,
             join=True

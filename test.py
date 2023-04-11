@@ -6,9 +6,10 @@ import torch
 import torch.nn as nn
 from lib import (
         set_options,
-        create_model,
         print_parameter,
         create_dataloader,
+        set_device,
+        create_model,
         BaseLogger
         )
 from lib.component import set_likelihood
@@ -29,7 +30,7 @@ def main(
     gpu_ids = args_conf.gpu_ids
     test_splits = args_conf.test_splits
     save_datetime_dir = args_conf.save_datetime_dir
-    device = torch.device(f"cuda:{gpu_ids[0]}") if gpu_ids != [] else torch.device('cpu')
+    device = set_device(gpu_ids=gpu_ids)
 
     dataloaders = {split: create_dataloader(args_dataloader, split=split) for split in test_splits}
     model = create_model(args_model)

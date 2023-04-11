@@ -534,7 +534,6 @@ def set_sampler(
                                             shuffle=shuffle,
                                             drop_last=drop_last
                                             )
-
             return _sampler
 
     raise ValueError(f"Invalid sampler: {sampler}.")

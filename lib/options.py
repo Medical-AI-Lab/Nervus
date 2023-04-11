@@ -706,13 +706,11 @@ def set_world_size(gpu_ids: List[int]) -> int:
         int: world_size
 
     Note:
-        1CPU/N-Process, or N-GPU/N-Process, where N > 0
+        1-CPU/1-Process, 1-GPU/1-Process
     """
-    if len(gpu_ids) == 0:
-        # When using CPU, 1CPU/1-Process
+    if gpu_ids == []:
         return 1
     else:
-        # When using GPU, N-GPU/N-Process
         return len(gpu_ids)
 
 
@@ -721,19 +719,16 @@ def setenv() -> None:
     Set environment variables.
     """
 
-    # Ubuntu: 'lo', mac: 'lo0'(or 'en0')
     import platform
     _system = platform.system()
 
-    # When using CPU
+    # GLOO_SOCKET_IFNAME is required when using CPU, or backend='gloo'.
     if _system == 'Darwin':
-        os.environ['GLOO_SOCKET_IFNAME'] = 'lo0'
+        os.environ['GLOO_SOCKET_IFNAME'] = 'lo0'  # 'en0'
     elif _system == 'Linux':
         os.environ['GLOO_SOCKET_IFNAME'] = 'lo'
     else:
         raise ValueError(f'Not supported system: {_system}')
 
-
-    # os.environ['GLOO_SOCKET_IFNAME'] = 'lo0'
     os.environ['MASTER_ADDR'] = 'localhost'
     os.environ['MASTER_PORT'] = '29500'
