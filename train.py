@@ -12,12 +12,12 @@ from lib import (
         save_parameter,
         set_world_size,
         setenv,
+        get_elapsed_time,
         create_dataloader,
         setup,
         set_device,
         create_model,
         BaseLogger
-
         )
 from lib.component import (
             set_criterion,
@@ -41,27 +41,30 @@ def train(
     # initialize the process group
     setup(rank=rank, world_size=world_size, on_gpu=(len(args_conf.gpu_ids) >= 1))
 
-    device = set_device(rank=rank, gpu_ids=args_conf.gpu_ids)
     isDistributed = on_distributed
     isMaster = (rank == 0)  # rank 0 is the master process
-
     if isMaster:
         isMLP = args_model.mlp is not None
         save_weight_policy = args_conf.save_weight_policy
         save_datetime_dir = args_conf.save_datetime_dir
 
     dataloaders = {split: create_dataloader(args_dataloader, split=split) for split in ['train', 'val']}
+
+    device = set_device(rank=rank, gpu_ids=args_conf.gpu_ids)
     model = create_model(args_model)
     model.network.to(device)
     if isDistributed:
-        # device_ids should be None.
+        # When device_ids = None of DDP,
+        # both the input data for the forward pass and the actual module
+        # must be placed on the correct device.
         model.network = DDP(model.network, device_ids=None)
 
     criterion = set_criterion(args_conf.criterion, device)
     optimizer = set_optimizer(args_conf.optimizer, model.network, args_conf.lr)
     if isMaster:
-        loss_store = set_loss_store(args_conf.label_list, args_conf.epochs)
-        total_num_data = {'train': 0, 'val': 0}  # For counting total number of data in each epoch.
+        loss_store = set_loss_store(label_list=args_conf.label_list,
+                                    num_epochs=args_conf.epochs,
+                                    world_size=world_size)
 
     for epoch in range(1, args_conf.epochs + 1):
         for phase in ['train', 'val']:
@@ -76,12 +79,8 @@ def train(
                 raise ValueError(f"Invalid phase: {phase}.")
 
             split_dataloader = dataloaders[phase]
-
             if isDistributed:
                 split_dataloader.sampler.set_epoch(epoch)  # shuffle
-
-            if isMaster:
-                total_num_data[phase] = 0
 
             for i, data in enumerate(split_dataloader):
                 optimizer.zero_grad()
@@ -103,13 +102,10 @@ def train(
                 if isMaster:
                     batch_size=len(data['imgpath'])
                     loss_store.store(phase, losses, batch_size=batch_size)
-                    # Each process handles the same number of data.
-                    total_num_data[phase] = total_num_data[phase] + (batch_size * world_size)
 
         if isMaster:
-            loss_store.cal_epoch_loss(total_num_data, at_epoch=epoch)
+            loss_store.cal_epoch_loss(at_epoch=epoch)
             loss_store.print_epoch_loss(at_epoch=epoch)
-
             if loss_store.is_val_loss_updated():
                 model.store_weight(at_epoch=loss_store.get_best_epoch())
                 if (epoch > 1) and (save_weight_policy == 'each'):
@@ -137,12 +133,12 @@ def main(args):
     args_save = args['args_save']
     print_parameter(args_print)
 
-    on_distributed = (len(args_conf.gpu_ids) >= 1)
-    world_size = set_world_size(args_conf.gpu_ids)
+    #on_distributed = (len(args_conf.gpu_ids) >= 1)
+    #world_size = set_world_size(args_conf.gpu_ids)
 
     #! This is only for test on CPU.
-    #on_distributed = True
-    #world_size = 4
+    on_distributed = True
+    world_size = 4
 
     mp.spawn(
             train,
@@ -163,17 +159,24 @@ def main(args):
 
 if __name__ == '__main__':
     try:
-        datetime_name = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
-        logger.info(f"\nTraining started at {datetime_name}.\n")
+        start_datetime = datetime.datetime.now()
+        start_datetime_name = start_datetime.strftime('%Y-%m-%d-%H-%M-%S')
+        logger.info(f"\nTraining started at {start_datetime_name}.\n")
 
         setenv()
 
-        args = set_options(datetime_name=datetime_name, phase='train')
+        args = set_options(datetime_name=start_datetime_name, phase='train')
         main(args)
 
     except Exception as e:
         logger.error(e, exc_info=True)
 
     else:
-        logger.info(datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S'))
-        logger.info('\nTraining finished.\n')
+        end_datetime = datetime.datetime.now()
+
+        dd, HH, MM, SS = get_elapsed_time(start_datetime, end_datetime)
+        logger.info(f"\nElapsed time: {dd} days, {HH:02}:{MM:02}:{SS:02}.")
+
+        end_datetime_name = end_datetime.strftime('%Y-%m-%d-%H-%M-%S')
+        logger.info(f"Training finished at {end_datetime_name}.\n")
+
