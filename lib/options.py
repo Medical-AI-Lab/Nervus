@@ -531,7 +531,7 @@ def _check_if_valid_sampler(sampler: str, gpu_ids: List[int]) -> None:
                 f"Invalid sampler: {sampler}, Specify distributed or distweight when using GPU."
     else:
         assert (sampler in _no_dist_sampler), \
-            f"Invalid sampler: {sampler}, No need of sampler for distributed learning when using CPU."
+                f"Invalid sampler: {sampler}, No need of sampler for distributed learning when using CPU."
 
 
 def _check_if_valid_criterion(criterion: str, task: str) -> None:
@@ -563,10 +563,9 @@ def _train_parse(args: argparse.Namespace) -> Dict[str, ParamSet]:
     """
     args.gpu_ids = _parse_gpu_ids(args.gpu_ids)
 
-
-    print('Now, Distributed learning on CPU is supposed to be OK.\n')
+    #print('Now, Distributed learning on CPU is supposed to be OK.\n')
     # Check validity of sampler
-    #_check_if_valid_sampler(args.sampler, args.gpu_ids)
+    _check_if_valid_sampler(args.sampler, args.gpu_ids)
 
     # Check validity of criterion
     _check_if_valid_criterion(args.criterion, args.task)
@@ -725,20 +724,21 @@ def setenv() -> None:
 def get_elapsed_time(
                     start_datetime: datetime.datetime,
                     end_datetime: datetime.datetime
-                    ) -> Tuple[int, int, int, int]:
+                    ) -> str:
     """
-    Get elapsed time
+    Return elapsed time
 
     Args:
         start_datetime (datetime.datetime): start datetime
         end_datetime (datetime.datetime): end datetime
 
     Returns:
-        Tuple: elapsed time
+        str: elapsed time
     """
     _elapsed_datetime = (end_datetime - start_datetime)
-    days = _elapsed_datetime.days
-    hours = _elapsed_datetime.seconds // 3600
-    minutes = ((_elapsed_datetime.seconds) // 60) % 60
-    seconds = _elapsed_datetime.seconds % 60
-    return (days, hours, minutes, seconds)
+    _days = _elapsed_datetime.days
+    _hours = _elapsed_datetime.seconds // 3600
+    _minutes = (_elapsed_datetime.seconds // 60) % 60
+    _seconds = _elapsed_datetime.seconds % 60
+    elapsed_datetime_name = f"{_days} days, {_hours:02}:{_minutes:02}:{_seconds:02}"
+    return elapsed_datetime_name

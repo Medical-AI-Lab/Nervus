@@ -1,12 +1,14 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import datetime
 from pathlib import Path
 import torch
 import torch.nn as nn
 from lib import (
         set_options,
         print_parameter,
+        get_elapsed_time,
         create_dataloader,
         set_device,
         create_model,
@@ -69,7 +71,9 @@ def main(
 
 if __name__ == '__main__':
     try:
-        logger.info('\nTest started.\n')
+        start_datetime = datetime.datetime.now()
+        start_datetime_name = start_datetime.strftime('%Y-%m-%d-%H-%M-%S')
+        logger.info(f"\nTest started at {start_datetime_name}.\n")
 
         args = set_options(phase='test')
         main(**args)
@@ -78,4 +82,9 @@ if __name__ == '__main__':
         logger.error(e, exc_info=True)
 
     else:
-        logger.info('\nTest finished.\n')
+        end_datetime = datetime.datetime.now()
+        end_datetime_name = end_datetime.strftime('%Y-%m-%d-%H-%M-%S')
+        elapsed_datetime_name = get_elapsed_time(start_datetime, end_datetime)
+
+        logger.info(f"Test finished at {end_datetime_name}.")
+        logger.info(f"Elapsed time: {elapsed_datetime_name}.\n")

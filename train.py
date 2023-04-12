@@ -133,12 +133,12 @@ def main(args):
     args_save = args['args_save']
     print_parameter(args_print)
 
-    #on_distributed = (len(args_conf.gpu_ids) >= 1)
-    #world_size = set_world_size(args_conf.gpu_ids)
+    on_distributed = (len(args_conf.gpu_ids) >= 1)
+    world_size = set_world_size(args_conf.gpu_ids)
 
     #! This is only for test on CPU.
-    on_distributed = True
-    world_size = 4
+    #on_distributed = True
+    #world_size = 4
 
     mp.spawn(
             train,
@@ -173,10 +173,8 @@ if __name__ == '__main__':
 
     else:
         end_datetime = datetime.datetime.now()
-
-        dd, HH, MM, SS = get_elapsed_time(start_datetime, end_datetime)
-        logger.info(f"\nElapsed time: {dd} days, {HH:02}:{MM:02}:{SS:02}.")
-
         end_datetime_name = end_datetime.strftime('%Y-%m-%d-%H-%M-%S')
-        logger.info(f"Training finished at {end_datetime_name}.\n")
+        elapsed_datetime_name = get_elapsed_time(start_datetime, end_datetime)
 
+        logger.info(f"\nTraining finished at {end_datetime_name}.")
+        logger.info(f"Elapsed time: {elapsed_datetime_name}.\n")
