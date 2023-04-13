@@ -1,15 +1,15 @@
 # Submitting articles using this library
-This model is used in [article: XXX] published in [journal: YYY] (These will be replaced once publication is finalized).
-In this article, a regression model with ConvNext was applied.
-The best performing model was obtained with a loss function of RMSE.
+This model is used in [article: XXX] published in [journal: YYY] (These will be replaced once publication is finalized).  
+In this article, a regression model with ConvNext was applied.  
+The best performing model was obtained with a loss function of RMSE.  
 Detailed model descriptions are provided in the article and the actual usage of the library is provided below.
 
 # Nervus: Useful library for creating AIs
 This is an AI model library used for single/multi-label and/or single/multi-class tasks with image and/or tabular data.
 Although this has a possibility to apply wide range of fields, we intended to use this model for medical imaging classification task.
 
-Additionally, we merged DeepSurv model [https://doi.org/10.1186/s12874-018-0482-1] into this model, which is a model that merges Cox proportional hazard model with deep learning.
-It is a useful model for prognosis estimation by dealing with binary variables such as decease or not, and the period until the event.
+Additionally, we merged DeepSurv model [https://doi.org/10.1186/s12874-018-0482-1] into this model, which is a model that merges Cox proportional hazard model with deep learning. 
+It is a useful model for prognosis estimation by dealing with binary variables such as decease or not, and the period until the event. 
 The original DeepSurv model could only handle tabular data, but we have added images to it.
 
 Nervus can handle the following task:
@@ -20,11 +20,11 @@ Nervus can handle the following task:
 # Dataset preparation
 ## Directory tree
 Set dataset directories as follows.
-
-datasets (Any names are available)
-　　└imgs (Any names are available. This repository has image files for CNN.)
-　　└docs (Any names are available. This repository contains a csv)
-　　　└trial.csv (Any names are available. This is the key csv for Nervus)
+  
+datasets (Any names are available)  
+　　└imgs (Any names are available. This repository has image files for CNN.)  
+　　└docs (Any names are available. This repository contains a csv)  
+　　　└trial.csv (Any names are available. This is the key csv for Nervus)  
 
 ## Key csv
 This is the csv which we show as trial.csv in the brief usage section.
@@ -80,8 +80,8 @@ For training and internal validation(tuning),
 - sampler: samples elements randomly, distributedly, or not.
   - example:
     - when using CPU: no, weighted
-    - when using GPUs: distributed, distweight
-  Note that　weighted and distweight only work for two-class classification task for now.
+    - when using GPUs: distributed, distweight  
+  Note that this only works for two-class classification task for now.
 - augmentation: increase the amount of data by slightly modified copies or created synthetic.
   - example: trivialaugwide, randaug, and no.
 - pretrained: specify True if pretrained model of CNN or ViT is used, otherwise False.
