@@ -38,19 +38,22 @@ class InputDataMixin:
     """
     Class to normalizes input data.
     """
-    def _make_scaler(self) -> MinMaxScaler:
+    def _make_scaler(self, input_list: List[str], df_train: pd.DataFrame) -> MinMaxScaler:
         """
         Make scaler to normalize input data by min-max normalization with train data.
+
+        Args:
+            input_list (List[str]): list of input data labels
+            df_train (pd.DataFrame): training data
 
         Returns:
             MinMaxScaler: scaler
 
         Note:
-        # Input data should be normalized with min and max of training data
+        # Input data should be normalized with min and max of training data.
         """
         scaler = MinMaxScaler()
-        _df_train = self.df_source[self.df_source['split'] == 'train']
-        _ = scaler.fit(_df_train[self.input_list])  # fit only
+        _ = scaler.fit(df_train[input_list])  # fit only
         return scaler
 
     def save_scaler(self, save_path :str) -> None:
@@ -253,21 +256,23 @@ class LoadDataSet(Dataset, DataSetWidget):
         """
         self.params = params
         self.split = split
+        self.df_source = self.params.df_source
         self.input_list = self.params.input_list
         self.label_list = self.params.label_list
 
         if self.params.task == 'deepsurv':
             self.period_name = self.params.period_name
 
-        _df_source = self.params.df_source
-        self.df_split = _df_source[_df_source['split'] == self.split]
+        self.df_split = self.df_source[self.df_source['split'] == self.split]
         self.col_index_dict = {col_name: self.df_split.columns.get_loc(col_name) for col_name in self.df_split.columns}
 
         # For input data
         if self.params.mlp is not None:
             assert (self.input_list != []), f"input list is empty."
             if params.isTrain:
-                self.scaler = self._make_scaler()
+                # Input data should be normalized with min and max of training data.
+                _df_train = self.df_source[self.df_source['split'] == 'train']
+                self.scaler = self._make_scaler(self.input_list, _df_train)
             else:
                 # load scaler used at training.
                 self.scaler = self.load_scaler(self.params.scaler_path)
