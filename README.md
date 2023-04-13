@@ -81,7 +81,7 @@ For training and internal validation(tuning),
   - example:
     - when using CPU: no, weighted
     - when using GPUs: distributed, distweight  
-      Note that weighted and distweight only work for two-class classification task for now.
+    Note that weighted and distweight only work for two-class classification task for now.
 - augmentation: increase the amount of data by slightly modified copies or created synthetic.
   - example: trivialaugwide, randaug, and no.
 - pretrained: specify True if pretrained model of CNN or ViT is used, otherwise False.
