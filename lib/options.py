@@ -54,7 +54,7 @@ class Options:
             self.parser.add_argument('--normalize_image',    type=str,                choices=['yes', 'no'], default='yes', help='image normalization: yes, no (Default: yes)')
 
             # Sampler
-            self.parser.add_argument('--sampler',            type=str,  default='no',  choices=['distributed', 'weighted', 'distweight', 'no'], help='kind of sampler')
+            self.parser.add_argument('--sampler',            type=str,  default='no',  choices=['weighted', 'distributed', 'distweight', 'no'], help='kind of sampler')
 
             # Input channel
             self.parser.add_argument('--in_channel',         type=int,  required=True, choices=[1, 3], help='channel of input image')
@@ -523,14 +523,14 @@ def _check_if_valid_sampler(sampler: str, gpu_ids: List[int]) -> None:
         sampler (str): sampler
         gpu_ids (List[str]): list og GPU ids, where [] means CPU.
     """
-    _dist_sampler = ['distributed', 'distweight']
-    _no_dist_sampler = ['weighted', 'no']
-    _isDistributed = (len(gpu_ids) >= 1)
-    if _isDistributed:
-        assert (sampler in _dist_sampler), \
+    dist_sampler = ['distributed', 'distweight']
+    no_dist_sampler = ['weighted', 'no']
+    isDistributed = (len(gpu_ids) >= 1)
+    if isDistributed:
+        assert (sampler in dist_sampler), \
                 f"Invalid sampler: {sampler}, Specify distributed or distweight when using GPU."
     else:
-        assert (sampler in _no_dist_sampler), \
+        assert (sampler in no_dist_sampler), \
                 f"Invalid sampler: {sampler}, No need of sampler for distributed learning when using CPU."
 
 
