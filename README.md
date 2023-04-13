@@ -1,9 +1,3 @@
-# Submitting articles using this library
-This model is used in [article: XXX] published in [journal: YYY] (These will be replaced once publication is finalized).  
-In this article, a regression model with ConvNext was applied.  
-The best performing model was obtained with a loss function of RMSE.  
-Detailed model descriptions are provided in the article and the actual usage of the library is provided below.
-
 # Nervus: Useful library for creating AIs
 This is an AI model library used for single/multi-label and/or single/multi-class tasks with image and/or tabular data.
 Although this has a possibility to apply wide range of fields, we intended to use this model for medical imaging classification task.
