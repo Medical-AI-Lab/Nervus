@@ -69,7 +69,7 @@ class BaseModel(ABC):
 
         _network = copy.deepcopy(self.network)
         if hasattr(_network, 'module'):
-            # When using DDP, pass weight to CPU.
+            # When using DDP at training, pass weight to CPU.
             self.acting_best_weight = copy.deepcopy(_network.module.to(torch.device('cpu')).state_dict())
         else:
             self.acting_best_weight = copy.deepcopy(_network.state_dict())
@@ -163,7 +163,7 @@ class MLPModel(BaseModel):
                 Dict[str, Union[LabelDict, torch.IntTensor, nn.Module]]
                 ]: input of model and data for calculating loss.
         eg.
-        ([inputs], [labels]), or ([inputs], [labels, periods, network]) when deepsurv
+        ({inputs}, {labels}), or ({inputs}, {labels, periods, network}) when deepsurv
         """
         in_data = {'inputs': data['inputs'].to(device)}
         labels = {'labels': {label_name: label.to(device) for label_name, label in data['labels'].items()}}
@@ -226,7 +226,7 @@ class CVModel(BaseModel):
                 Dict[str, Union[LabelDict, torch.IntTensor, nn.Module]]
                 ]: input of model and data for calculating loss.
         eg.
-        ([image], [labels]), or ([image], [labels, periods, network]) when deepsurv
+        ({image}, {labels}), or ({image}, {labels, periods, network}) when deepsurv
         """
         in_data = {'image': data['image'].to(device)}
         labels = {'labels': {label_name: label.to(device) for label_name, label in data['labels'].items()}}
@@ -290,7 +290,7 @@ class FusionModel(BaseModel):
                 Dict[str, Union[LabelDict, torch.IntTensor, nn.Module]]
                 ]: input of model and data for calculating loss.
         eg.
-        ([inputs, image], [labels]), or ([inputs, image], [labels, periods, network]) when deepsurv
+        ({inputs, image}, {labels}), or ({inputs, image}, {labels, periods, network}) when deepsurv
         """
         in_data = {
                 'inputs': data['inputs'].to(device),

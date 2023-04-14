@@ -3,9 +3,9 @@
 
 from .options import (
     ParamSet,
-    set_options,
-    print_parameter,
     save_parameter,
+    print_parameter,
+    set_options,
     set_world_size,
     setenv,
     get_elapsed_time
@@ -21,9 +21,9 @@ from .logger import BaseLogger
 
 __all__ = [
             'ParamSet',
-            'set_options',
-            'print_parameter',
             'save_parameter',
+            'print_parameter',
+            'set_options',
             'set_world_size',
             'setenv',
             'get_elapsed_time',

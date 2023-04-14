@@ -20,7 +20,6 @@ class LabelLoss:
         self.train_batch_loss = 0.0
         self.val_batch_loss = 0.0
 
-        # epoch_loss = batch_loss / dataset_size
         self.train_epoch_loss = []       # List[float]
         self.val_epoch_loss = []         # List[float]
 

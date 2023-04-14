@@ -32,6 +32,7 @@ TRAIN_GPU_IDS := cpu
 TEST_BATCH_SIZE := $(BATCH_SIZE)
 TEST_GPU_IDS := $(TRAIN_GPU_IDS)
 
+
 TRAIN_OPT := \
 --task $(TASK) \
 --csvpath $(CSVPATH) \
@@ -47,11 +48,11 @@ TRAIN_OPT := \
 --save_weight_policy $(SAVE_WEIGHT_POLICY) \
 --gpu_ids $(TRAIN_GPU_IDS)
 
-
 TEST_OPT := \
 --csvpath $(CSVPATH) \
 --test_batch_size $(TEST_BATCH_SIZE) \
 --gpu_ids $(TEST_GPU_IDS)
+
 
 PYTHON := python
 TRAIN_CODE := train.py

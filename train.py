@@ -7,16 +7,16 @@ import torch.distributed as dist
 import torch.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel as DDP
 from lib import (
-        set_options,
-        print_parameter,
         save_parameter,
+        print_parameter,
+        set_options,
         set_world_size,
         setenv,
         get_elapsed_time,
         create_dataloader,
-        setup,
-        set_device,
         create_model,
+        set_device,
+        setup,
         BaseLogger
         )
 from lib.component import (
@@ -38,11 +38,11 @@ def train(
         on_distributed = None
         ):
 
-    # initialize the process group
+    # Initialize the process group
     setup(rank=rank, world_size=world_size, on_gpu=(len(args_conf.gpu_ids) >= 1))
 
     isDistributed = on_distributed
-    isMaster = (rank == 0)  # rank 0 is the master process
+    isMaster = (rank == 0)  # rank 0 is the master process.
     if isMaster:
         isMLP = args_model.mlp is not None
         save_weight_policy = args_conf.save_weight_policy
@@ -135,10 +135,6 @@ def main(args):
 
     on_distributed = (len(args_conf.gpu_ids) >= 1)
     world_size = set_world_size(args_conf.gpu_ids)
-
-    #! This is only for test on CPU.
-    #on_distributed = True
-    #world_size = 4
 
     mp.spawn(
             train,

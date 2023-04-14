@@ -2,14 +2,15 @@
 # -*- coding: utf-8 -*-
 
 import os
-import argparse
-from distutils.util import strtobool
-import json
-from pathlib import Path
-import pandas as pd
 import datetime
+import argparse
+from pathlib import Path
+import json
+import pandas as pd
+from distutils.util import strtobool
 from .logger import BaseLogger
 from typing import List, Dict, Tuple, Union
+
 
 logger = BaseLogger.get_logger(__name__)
 
@@ -61,7 +62,8 @@ class Options:
             self.parser.add_argument('--vit_image_size',     type=int,  default=0,                     help='input image size for ViT. Set 0 if not used ViT (Default: 0)')
 
             # Weight saving strategy
-            self.parser.add_argument('--save_weight_policy', type=str,  choices=['best', 'each'], default='best', help='Save weight policy: best, or each(ie. save each time loss decreases when multi-label output) (Default: best)')
+            self.parser.add_argument('--save_weight_policy', type=str,  choices=['best', 'each'], default='best',
+                                                            help='Save weight policy: best, or each(ie. save each time loss decreases when multi-label output) (Default: best)')
 
         else:
             # Directory of weight at training
@@ -695,7 +697,7 @@ def set_world_size(gpu_ids: List[int]) -> int:
         1-GPU/1-Process
     """
     if gpu_ids == []:
-        # When using CPU, world_size is always 1.
+        # When using CPU, world_size is set as 1.
         return 1
     else:
         return len(gpu_ids)
@@ -704,14 +706,16 @@ def set_world_size(gpu_ids: List[int]) -> int:
 def setenv() -> None:
     """
     Set environment variables.
+
+    Note:
+        GLOO_SOCKET_IFNAME is required when using CPU for setting backend='gloo'.
     """
 
     import platform
     _system = platform.system()
 
-    # GLOO_SOCKET_IFNAME is required when using CPU, or backend='gloo'.
     if _system == 'Darwin':
-        os.environ['GLOO_SOCKET_IFNAME'] = 'lo0'  # 'en0'
+        os.environ['GLOO_SOCKET_IFNAME'] = 'lo0'
     elif _system == 'Linux':
         os.environ['GLOO_SOCKET_IFNAME'] = 'lo'
     else:
@@ -726,7 +730,7 @@ def get_elapsed_time(
                     end_datetime: datetime.datetime
                     ) -> str:
     """
-    Return elapsed time
+    Return elapsed time.
 
     Args:
         start_datetime (datetime.datetime): start datetime
