@@ -1,15 +1,17 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+from abc import ABC, abstractmethod
 from pathlib import Path
 import copy
-from abc import ABC, abstractmethod
 import torch
 import torch.nn as nn
+import torch.distributed as dist
 from .component import create_net
 from .logger import BaseLogger
 from lib import ParamSet
 from typing import List, Dict, Tuple, Union
+
 
 # Alias of typing
 # eg. {'labels': {'label_A: torch.Tensor([0, 1, ...]), ...}}
@@ -31,7 +33,6 @@ class BaseModel(ABC):
             param (ParamSet): parameters
         """
         self.params = params
-        self.device = self.params.device
 
         self.network = create_net(
                                 mlp=self.params.mlp,
@@ -42,23 +43,10 @@ class BaseModel(ABC):
                                 vit_image_size=self.params.vit_image_size,
                                 pretrained=self.params.pretrained
                                 )
-        self.network.to(self.device)
 
         # variables to keep temporary best_weight and best_epoch
         self.acting_best_weight = None
         self.acting_best_epoch = None
-
-    def train(self) -> None:
-        """
-        Make network training mode.
-        """
-        self.network.train()
-
-    def eval(self) -> None:
-        """
-        Make network evaluation mode.
-        """
-        self.network.eval()
 
     @abstractmethod
     def set_data(
@@ -81,7 +69,7 @@ class BaseModel(ABC):
 
         _network = copy.deepcopy(self.network)
         if hasattr(_network, 'module'):
-            # When DataParallel used, move weight to CPU.
+            # When using DDP at training, pass weight to CPU.
             self.acting_best_weight = copy.deepcopy(_network.module.to(torch.device('cpu')).state_dict())
         else:
             self.acting_best_weight = copy.deepcopy(_network.state_dict())
@@ -112,34 +100,22 @@ class BaseModel(ABC):
             save_name = 'weight_epoch-' + str(self.acting_best_epoch).zfill(3) + '.pt'
             torch.save(self.acting_best_weight, save_path)
 
-    def load_weight(self, weight_path: Path) -> None:
+    def load_weight(self, weight_path: Path, on_device: torch.device = None) -> None:
         """
         Load wight from weight_path.
 
         Args:
             weight_path (Path): path to weight
+            on_device (torch.device) : the location where all tensors should be loaded.
         """
         logger.info(f"Load weight: {weight_path}.\n")
-        weight = torch.load(weight_path)
+        weight = torch.load(weight_path, map_location=on_device)
         self.network.load_state_dict(weight)
-
-
-class ModelMixin:
-    def to_gpu(self, gpu_ids: List[int]) -> None:
-        """
-        Make model compute on the GPU.
-
-        Args:
-            gpu_ids (List[int]): GPU ids
-        """
-        if gpu_ids != []:
-            assert torch.cuda.is_available(), 'No available GPU on this machine.'
-            self.network = nn.DataParallel(self.network, device_ids=gpu_ids)
 
     def init_network(self) -> None:
         """
         Initialize network.
-        This method is used at test to reset the current weight by redefining network.
+        This method is used at test in order to reset the current weight by redefining network.
         """
         self.network = create_net(
                                 mlp=self.params.mlp,
@@ -150,16 +126,9 @@ class ModelMixin:
                                 vit_image_size=self.params.vit_image_size,
                                 pretrained=self.params.pretrained
                                 )
-        self.network.to(self.device)
-
-class ModelWidget(BaseModel, ModelMixin):
-    """
-    Class for a widget to inherit multiple classes simultaneously
-    """
-    pass
 
 
-class MLPModel(ModelWidget):
+class MLPModel(BaseModel):
     """
     Class for MLP model
     """
@@ -173,7 +142,8 @@ class MLPModel(ModelWidget):
 
     def set_data(
                 self,
-                data: Dict
+                data: Dict,
+                device: torch.device
                 ) -> Tuple[
                         Dict[str, torch.FloatTensor],
                         Dict[str, Union[LabelDict, torch.IntTensor, nn.Module]]
@@ -185,6 +155,7 @@ class MLPModel(ModelWidget):
 
         Args:
             data (Dict): dictionary of data
+            device (torch.device): device
 
         Returns:
             Tuple[
@@ -192,10 +163,10 @@ class MLPModel(ModelWidget):
                 Dict[str, Union[LabelDict, torch.IntTensor, nn.Module]]
                 ]: input of model and data for calculating loss.
         eg.
-        ([inputs], [labels]), or ([inputs], [labels, periods, network]) when deepsurv
+        ({inputs}, {labels}), or ({inputs}, {labels, periods, network}) when deepsurv
         """
-        in_data = {'inputs': data['inputs'].to(self.device)}
-        labels = {'labels': {label_name: label.to(self.device) for label_name, label in data['labels'].items()}}
+        in_data = {'inputs': data['inputs'].to(device)}
+        labels = {'labels': {label_name: label.to(device) for label_name, label in data['labels'].items()}}
 
         if not any(data['periods']):
             return in_data, labels
@@ -203,7 +174,7 @@ class MLPModel(ModelWidget):
         # When deepsurv
         labels = {
                   **labels,
-                  **{'periods': data['periods'].to(self.device), 'network': self.network.to(self.device)}
+                  **{'periods': data['periods'].to(device), 'network': self.network.to(device)}
                 }
         return in_data, labels
 
@@ -222,7 +193,7 @@ class MLPModel(ModelWidget):
         return output
 
 
-class CVModel(ModelWidget):
+class CVModel(BaseModel):
     """
     Class for CNN or ViT model
     """
@@ -235,7 +206,8 @@ class CVModel(ModelWidget):
 
     def set_data(
                 self,
-                data: Dict
+                data: Dict,
+                device: torch.device
                 ) -> Tuple[
                         Dict[str, torch.FloatTensor],
                         Dict[str, Union[LabelDict, torch.IntTensor, nn.Module]]
@@ -246,6 +218,7 @@ class CVModel(ModelWidget):
 
         Args:
             data (Dict): dictionary of data
+            device (torch.device): device
 
         Returns:
             Tuple[
@@ -253,10 +226,10 @@ class CVModel(ModelWidget):
                 Dict[str, Union[LabelDict, torch.IntTensor, nn.Module]]
                 ]: input of model and data for calculating loss.
         eg.
-        ([image], [labels]), or ([image], [labels, periods, network]) when deepsurv
+        ({image}, {labels}), or ({image}, {labels, periods, network}) when deepsurv
         """
-        in_data = {'image': data['image'].to(self.device)}
-        labels = {'labels': {label_name: label.to(self.device) for label_name, label in data['labels'].items()}}
+        in_data = {'image': data['image'].to(device)}
+        labels = {'labels': {label_name: label.to(device) for label_name, label in data['labels'].items()}}
 
         if not any(data['periods']):
             return in_data, labels
@@ -264,7 +237,7 @@ class CVModel(ModelWidget):
         # When deepsurv
         labels = {
                   **labels,
-                  **{'periods': data['periods'].to(self.device), 'network': self.network.to(self.device)}
+                  **{'periods': data['periods'].to(device), 'network': self.network.to(device)}
                 }
         return in_data, labels
 
@@ -283,7 +256,7 @@ class CVModel(ModelWidget):
         return output
 
 
-class FusionModel(ModelWidget):
+class FusionModel(BaseModel):
     """
     Class for MLP+CNN or MLP+ViT model.
     """
@@ -296,7 +269,8 @@ class FusionModel(ModelWidget):
 
     def set_data(
                 self,
-                data: Dict
+                data: Dict,
+                device: torch.device
                 ) -> Tuple[
                         Dict[str, torch.FloatTensor],
                         Dict[str, Union[LabelDict, torch.IntTensor, nn.Module]]
@@ -308,6 +282,7 @@ class FusionModel(ModelWidget):
 
         Args:
             data (Dict): dictionary of data
+            device (torch.device): device
 
         Returns:
             Tuple[
@@ -315,13 +290,13 @@ class FusionModel(ModelWidget):
                 Dict[str, Union[LabelDict, torch.IntTensor, nn.Module]]
                 ]: input of model and data for calculating loss.
         eg.
-        ([inputs, image], [labels]), or ([inputs, image], [labels, periods, network]) when deepsurv
+        ({inputs, image}, {labels}), or ({inputs, image}, {labels, periods, network}) when deepsurv
         """
         in_data = {
-                'inputs': data['inputs'].to(self.device),
-                'image': data['image'].to(self.device)
+                'inputs': data['inputs'].to(device),
+                'image': data['image'].to(device)
                 }
-        labels = {'labels': {label_name: label.to(self.device) for label_name, label in data['labels'].items()}}
+        labels = {'labels': {label_name: label.to(device) for label_name, label in data['labels'].items()}}
 
         if not any(data['periods']):
             return in_data, labels
@@ -329,7 +304,7 @@ class FusionModel(ModelWidget):
         # When deepsurv
         labels = {
                   **labels,
-                  **{'periods': data['periods'].to(self.device), 'network': self.network.to(self.device)}
+                  **{'periods': data['periods'].to(device), 'network': self.network.to(device)}
                 }
         return in_data, labels
 
@@ -371,3 +346,44 @@ def create_model(params: ParamSet) -> nn.Module:
         return FusionModel(params)
     else:
         raise ValueError(f"Invalid model type: mlp={params.mlp}, net={params.net}.")
+
+
+def set_device(rank: int = 0, gpu_ids: List[int] = None) -> torch.device:
+    """
+    Define device depending on gou_ids and rank.
+    The first element of gpu_ids is used as master.
+
+    Args:
+        rank (int): rank, or process id, Default: 0(=master)
+        gpu_ids (List[int]): GPU ids
+
+    Returns:
+        torch.device :device
+
+    Note:
+        When using GPU, device is defined by rank-th on gpu_ids.
+        eg.
+        gpu_ids = [1, 2, 0],
+        rank=0 -> gpu_id=gpu_ids[rank]=1
+    """
+    if gpu_ids == []:
+        return torch.device('cpu')
+    else:
+        assert torch.cuda.is_available(), 'No available GPU on this machine.'
+        return torch.device(f"cuda:{gpu_ids[rank]}")
+
+
+def setup(rank: int = None, world_size: int = None, on_gpu: bool = None) -> None:
+    """
+    Initialize the process group.
+
+    Args:
+        rank (int): rank, or process id
+        world_size (int): the total number of process
+        on_gpu (bool]): whether to use GPU or not.
+    """
+    if on_gpu:
+        backend = 'nccl'  # For GPU
+    else:
+        backend = 'gloo'  # For CPU
+    dist.init_process_group(backend=backend, rank=rank, world_size=world_size)

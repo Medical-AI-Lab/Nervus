@@ -1,9 +1,3 @@
-# Submitting articles using this library
-This model is used in [article: XXX] published in [journal: YYY] (These will be replaced once publication is finalized).  
-In this article, a regression model with ConvNext was applied.  
-The best performing model was obtained with a loss function of RMSE.  
-Detailed model descriptions are provided in the article and the actual usage of the library is provided below.
-
 # Nervus: Useful library for creating AIs
 This is an AI model library used for single/multi-label and/or single/multi-class tasks with image and/or tabular data.
 Although this has a possibility to apply wide range of fields, we intended to use this model for medical imaging classification task.
@@ -56,7 +50,7 @@ Note:
 ## Model development
 For training and internal validation(tuning),
 
-`python train.py --task classification --csvpath datasets/docs/trial.csv --model ResNet18 --criterion CEL --optimizer Adam --epochs 50 --batch_size 32 --sampler no --augmentation randaug --pretrained True --in_channel 1 --save_weight_policy best --gpu_ids 0-1-2-3`
+`python train.py --task classification --csvpath datasets/docs/trial.csv --model ResNet18 --criterion CEL --optimizer Adam --epochs 50 --batch_size 32 --sampler distributed --augmentation randaug --pretrained True --in_channel 1 --save_weight_policy best --gpu_ids 0-1-2-3`
 
 ### Arguments
 - task: task name
@@ -77,9 +71,11 @@ For training and internal validation(tuning),
   - example: SGD, Adadelta, Adam, RMSprop
 - epochs: number of training with entire dataset
 - bach_size: number of training data in each batch
-- sampler: samples elements randomly or not.
-  - example: yes, no
-  Note that this only works for two-class classification task for now.
+- sampler: samples elements randomly, distributedly, or not.
+  - example:
+    - when using CPU: no, weighted
+    - when using GPUs: distributed, distweight  
+Note that weighted and distweight only work for two-class classification task for now.
 - augmentation: increase the amount of data by slightly modified copies or created synthetic.
   - example: trivialaugwide, randaug, and no.
 - pretrained: specify True if pretrained model of CNN or ViT is used, otherwise False.
@@ -102,7 +98,7 @@ For training and internal validation(tuning),
 ## Model test
 For test trained model,
 
-`python test.py --csvpath datasets/docs/trial.csv --weight_dir results/trial/trials/YYYY-MM-DD-HH-mm-ss/weights`
+`python test.py --csvpath datasets/docs/trial.csv --weight_dir results/trial/trials/YYYY-MM-DD-HH-mm-ss/weights --gpu_ids 0-1-2-3`
 
 ### Arguments
 - csvpath: csv filepath name contains test data.

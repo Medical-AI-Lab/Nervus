@@ -1,18 +1,21 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import math
 import numpy as np
+import pandas as pd
+from PIL import Image
+from sklearn.preprocessing import MinMaxScaler
+import pickle
 import torch
 import torchvision.transforms as transforms
 from torch.utils.data.dataset import Dataset
 from torch.utils.data.dataloader import DataLoader
+import torch.distributed as dist
 from torch.utils.data.sampler import WeightedRandomSampler
-from PIL import Image
-from sklearn.preprocessing import MinMaxScaler
-import pickle
+from torch.utils.data.distributed import DistributedSampler
 from .logger import BaseLogger
-from typing import List, Dict, Union
-import pandas as pd
+from typing import List, Dict, Union, Optional, Iterator
 
 
 logger = BaseLogger.get_logger(__name__)
@@ -35,16 +38,22 @@ class InputDataMixin:
     """
     Class to normalizes input data.
     """
-    def _make_scaler(self) -> MinMaxScaler:
+    def _make_scaler(self, input_list: List[str], df_train: pd.DataFrame) -> MinMaxScaler:
         """
         Make scaler to normalize input data by min-max normalization with train data.
 
+        Args:
+            input_list (List[str]): list of input data labels
+            df_train (pd.DataFrame): training data
+
         Returns:
             MinMaxScaler: scaler
+
+        Note:
+        # Input data should be normalized with min and max of training data.
         """
         scaler = MinMaxScaler()
-        _df_train = self.df_source[self.df_source['split'] == 'train']  # should be normalized with min and max of training data
-        _ = scaler.fit(_df_train[self.input_list])                      # fit only
+        _ = scaler.fit(df_train[input_list])  # fit only
         return scaler
 
     def save_scaler(self, save_path :str) -> None:
@@ -54,7 +63,6 @@ class InputDataMixin:
         Args:
             save_path (str): path for saving scaler.
         """
-        #save_scaler_path = Path(save_datetime_dir, 'scaler.pkl')
         with open(save_path, 'wb') as f:
             pickle.dump(self.scaler, f)
 
@@ -125,7 +133,7 @@ class ImageMixin:
         _augmentation = []
         if (self.params.isTrain) and (self.split == 'train'):
             if self.params.augmentation == 'xrayaug':
-                _augmentation = PrivateAugment.xray_augs_list
+                _augmentation.extend(PrivateAugment.xray_augs_list)
             elif self.params.augmentation == 'trivialaugwide':
                 _augmentation.append(transforms.TrivialAugmentWide())
             elif self.params.augmentation == 'randaug':
@@ -247,9 +255,8 @@ class LoadDataSet(Dataset, DataSetWidget):
             split (str): split
         """
         self.params = params
-        self.df_source = self.params.df_source
         self.split = split
-
+        self.df_source = self.params.df_source
         self.input_list = self.params.input_list
         self.label_list = self.params.label_list
 
@@ -263,7 +270,9 @@ class LoadDataSet(Dataset, DataSetWidget):
         if self.params.mlp is not None:
             assert (self.input_list != []), f"input list is empty."
             if params.isTrain:
-                self.scaler = self._make_scaler()
+                # Input data should be normalized with min and max of training data.
+                _df_train = self.df_source[self.df_source['split'] == 'train']
+                self.scaler = self._make_scaler(self.input_list, _df_train)
             else:
                 # load scaler used at training.
                 self.scaler = self.load_scaler(self.params.scaler_path)
@@ -337,25 +346,202 @@ class LoadDataSet(Dataset, DataSetWidget):
         return _data
 
 
-def _make_sampler(split_data: LoadDataSet) -> WeightedRandomSampler:
+class DistributedWeightedSampler:
+    def __init__(
+                self,
+                weights: torch.tensor,
+                split_data: LoadDataSet,
+                num_replicas:Optional[int] = None,
+                rank: Optional[int] = None,
+                replacement: bool = True,
+                shuffle: bool = True,
+                drop_last: bool = False
+                ) -> None:
+        """
+        Distributed Weighted Sampler.
+        This is used when distributed training is performed with imbalanced dataset.
+
+        Args:
+            weights (torch.tensor): weights for each label in split_data
+            split_data (LoadDataSet): dataset
+            num_replicas (Optional[int]): number of replicas
+            rank (Optional[int]): rank of the current process within num_replicas.
+                                By default, rank is retrieved from the current distributed group.
+            replacement (bool): if True, samples are drawn with replacement.
+                                If not, they are drawn without replacement,
+                                which means that when a sample index is drawn for a row,
+                                it cannot be drawn again for that row.
+            shuffle (bool): if True, sampler will shuffle the indices.
+            drop_last (bool): if True, the sampler will drop the last batch
+        """
+        if num_replicas is None:
+            if not dist.is_available():
+                raise RuntimeError("Requires distributed package to be available")
+            num_replicas = dist.get_world_size()
+
+        if rank is None:
+            if not dist.is_available():
+                raise RuntimeError("Requires distributed package to be available")
+            rank = dist.get_rank()
+
+        self.weights = weights
+        self.split_data = split_data
+        self.num_replicas = num_replicas
+        self.rank = rank
+        self.epoch = 0
+        self.replacement = replacement
+        self.drop_last = drop_last
+        # If the dataset length is evenly divisible by the number of replicas, then
+        # there is no need to drop any data, since the dataset will be split equally.
+        if self.drop_last and len(self.split_data) % self.num_replicas != 0:
+            # Split to nearest available length that is evenly divisible.
+            # This is to ensure each rank receives the same amount of data when
+            # using this Sampler.
+            self.num_samples = math.ceil(
+                                    (len(self.split_data) - self.num_replicas) / self.num_replicas
+                                )
+        else:
+            self.num_samples = math.ceil(len(self.split_data) / self.num_replicas)
+
+        self.total_size = self.num_samples * self.num_replicas
+        self.shuffle = shuffle
+
+    def __iter__(self) -> Iterator[int]:
+        """
+        Return the iterator of the indices.
+
+        Returns:
+            Iterator[int]: the balanced indices depending on weights
+        """
+        if self.shuffle:
+            # Deterministically shuffle based on epoch
+            g = torch.Generator()
+            g.manual_seed(self.epoch)
+            indices = torch.randperm(len(self.split_data), generator=g).tolist()  # all indices
+        else:
+            indices = list(range(len(self.split_data)))
+
+        if not self.drop_last:
+            # Add extra samples to make it evenly divisible
+            padding_size = self.total_size - len(indices)
+            if padding_size <= len(indices):
+                indices += indices[:padding_size]
+            else:
+                indices += (indices * math.ceil(padding_size / len(indices)))[:padding_size]
+        else:
+            # Remove tail of data to make it evenly divisible.
+            indices = indices[:self.total_size]
+        assert len(indices) == self.total_size
+
+        # subsample indices
+        indices = indices[self.rank:self.total_size:self.num_replicas]
+        assert len(indices) == self.num_samples
+
+        # Select only the wanted weights for this subsample
+        _weights = self.weights[indices]
+
+        # Do the weighted sampling
+        # Randomly sample this subset, producing balanced classes
+        subsample_balanced_indices = torch.multinomial(_weights, self.num_samples, self.replacement)
+
+        # Subsample the balanced indices
+        # Now, map these subsample_balanced_indices back to the original dataset index
+        subsample_balanced_indices = torch.tensor(indices)[subsample_balanced_indices]
+        return iter(subsample_balanced_indices.tolist())
+
+    def __len__(self) -> int:
+        return self.num_samples
+
+    def set_epoch(self, epoch: int) -> None:
+        """
+        Sets the epoch for this sampler. When :attr:`shuffle=True`, this ensures all replicas
+        use a different random ordering for each epoch. Otherwise, the next iteration of this
+        sampler will yield the same ordering.
+
+        Args:
+            epoch (int): epoch number
+        """
+        self.epoch = epoch
+
+
+def calculate_weights(targets: List[int]) -> torch.tensor:
     """
-    Make sampler.
+    Calculate weights for each element.
 
     Args:
+        targets (List[int]): elements to be calculated weight
+
+    Returns:
+        torch.tensor: weights for each element
+    """
+    targets = torch.tensor(targets)
+    class_sample_count = torch.tensor(
+                                [(targets == t).sum() for t in torch.unique(targets, sorted=True)]
+                            )
+    weight = 1. / class_sample_count.double()
+    samples_weight = torch.tensor([weight[t] for t in targets])
+    return samples_weight
+
+
+def set_sampler(
+                task: str = None,
+                label_list: List[str] = None,
+                sampler: str = None,
+                split_data: LoadDataSet = None
+                ) -> Union[DistributedSampler, WeightedRandomSampler, DistributedWeightedSampler]:
+    """
+    Set sampler.
+
+    Args:
+        task (str): task
+        label_list (List[str]): label list
+        sampler (str): sampler
         split_data (LoadDataSet): dataset
 
     Returns:
-        WeightedRandomSampler: sampler
-    """
-    _target = []
-    for _, data in enumerate(split_data):
-        _target.append(list(data['labels'].values())[0])
+        Union[DistributedSampler, WeightedRandomSampler, DistributedWeightedSampler]: sampler
 
-    class_sample_count = np.array([len(np.where(_target == t)[0]) for t in np.unique(_target)])
-    weight = 1. / class_sample_count
-    samples_weight = np.array([weight[t] for t in _target])
-    sampler = WeightedRandomSampler(samples_weight, len(samples_weight))
-    return sampler
+    Note:
+        Samplers are used only at training.
+    """
+    shuffle = True
+    drop_last = False
+
+    if sampler == 'distributed':
+        _sampler = DistributedSampler(
+                                    split_data,
+                                    shuffle=shuffle,
+                                    drop_last=drop_last
+                                    )
+        return _sampler
+
+    if sampler in ['weighted', 'distweight']:
+        assert (task == 'classification') or (task == 'deepsurv'), 'Cannot make sampler based on weight in regression.'
+        assert (len(label_list) == 1), 'Cannot make sampler for multi-label.'
+
+        # Calculate weights on the whole targets
+        _target_label = label_list[0]
+        _targets = split_data.df_split[_target_label].tolist()
+        weights = calculate_weights(_targets)
+
+        if sampler == 'weighted':
+            # WeightedRandomSampler does shuffle automatically.
+            _sampler = WeightedRandomSampler(
+                                            weights,
+                                            len(weights)
+                                            )
+            return _sampler
+
+        if sampler == 'distweight':
+            _sampler = DistributedWeightedSampler(
+                                            weights,
+                                            split_data,
+                                            shuffle=shuffle,
+                                            drop_last=drop_last
+                                            )
+            return _sampler
+
+    raise ValueError(f"Invalid sampler: {sampler}.")
 
 
 def create_dataloader(
@@ -363,38 +549,60 @@ def create_dataloader(
                     split: str = None
                     ) -> DataLoader:
     """
-    Create data loader ofr split.
+    Create data loader for split.
 
     Args:
         params (ParamSet): parameter for dataloader
-        split (str): split. Defaults to None.
+        split (str): split.
 
     Returns:
         DataLoader: data loader
     """
     split_data = LoadDataSet(params, split)
 
-    if params.isTrain:
-        batch_size = params.batch_size
-        shuffle = True
+    # sampler
+    if (params.isTrain) and (params.sampler != 'no'):
+        _sampler = set_sampler(
+                            task=params.task,
+                            label_list=params.label_list,
+                            sampler=params.sampler,
+                            split_data=split_data
+                            )
     else:
-        batch_size = params.test_batch_size
+        # No shuffle at test.
+        _sampler = None
+
+    # shuffle
+    if params.isTrain:
+        if _sampler is None:
+            shuffle = True
+        else:
+            # When using sampler at training,
+            # whether shuffle or not is defined by sampler.
+            shuffle = False
+    else:
+        # No shuffle at test.
         shuffle = False
 
-    if params.sampler == 'yes':
-        assert ((params.task == 'classification') or (params.task == 'deepsurv')), 'Cannot make sampler in regression.'
-        assert (len(params.label_list) == 1), 'Cannot make sampler for multi-label.'
-        shuffle = False
-        sampler = _make_sampler(split_data)
+    # batch size
+    if params.isTrain:
+        batch_size = params.batch_size
     else:
-        # When params.sampler == 'no'
-        sampler = None
+        batch_size = params.test_batch_size
+
+    if len(params.gpu_ids) >= 1:
+        num_workers = 1
+        pin_memory = True
+    else:
+        num_workers = 0
+        pin_memory = False
 
     split_loader = DataLoader(
                             dataset=split_data,
                             batch_size=batch_size,
+                            sampler=_sampler,
                             shuffle=shuffle,
-                            num_workers=0,
-                            sampler=sampler
+                            num_workers=num_workers,
+                            pin_memory=pin_memory
                             )
     return split_loader

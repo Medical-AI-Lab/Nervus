@@ -1,12 +1,12 @@
 # ----- Define variables -----
 # TASK = classification | regression | deepsurv
 # CSVPATH = materials/docs/trial.csv
-# MODEL = MLP | [CNN or ViT name] | MLP+[CNN or ViT name]
+# MODEL = MLP | [CNN or ViT] | MLP+[CNN or ViT]
 # CRITERION = CEL | MSE | RMSE | MAE | NLL
 # OPTIMIZER = SGD | Adadelta | RMSprop | Adam | RAdam
-# EPOCHS  = 50
+# EPOCHS = 50
 # BATCH_SIZE = 64
-# SAMPLER = yes | no   # should be no when regression or multi-label
+# SAMPLER = weighted | distributed | distweight | no
 # AUGMENTATION = xrayaug | trivialaugwide | randaug | no
 # IN_CHANNEL = 1 | 3
 # PRETRAINED = True | False
@@ -48,11 +48,11 @@ TRAIN_OPT := \
 --save_weight_policy $(SAVE_WEIGHT_POLICY) \
 --gpu_ids $(TRAIN_GPU_IDS)
 
-
 TEST_OPT := \
 --csvpath $(CSVPATH) \
 --test_batch_size $(TEST_BATCH_SIZE) \
 --gpu_ids $(TEST_GPU_IDS)
+
 
 PYTHON := python
 TRAIN_CODE := train.py

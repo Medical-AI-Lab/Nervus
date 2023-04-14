@@ -1,12 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import os
+import datetime
 import argparse
-from distutils.util import strtobool
 from pathlib import Path
-import pandas as pd
 import json
-import torch
+import pandas as pd
+from distutils.util import strtobool
 from .logger import BaseLogger
 from typing import List, Dict, Tuple, Union
 
@@ -54,14 +55,15 @@ class Options:
             self.parser.add_argument('--normalize_image',    type=str,                choices=['yes', 'no'], default='yes', help='image normalization: yes, no (Default: yes)')
 
             # Sampler
-            self.parser.add_argument('--sampler',            type=str,  default='no',  choices=['yes', 'no'], help='sample data in training or not, yes or no')
+            self.parser.add_argument('--sampler',            type=str,  default='no',  choices=['weighted', 'distributed', 'distweight', 'no'], help='kind of sampler')
 
             # Input channel
             self.parser.add_argument('--in_channel',         type=int,  required=True, choices=[1, 3], help='channel of input image')
             self.parser.add_argument('--vit_image_size',     type=int,  default=0,                     help='input image size for ViT. Set 0 if not used ViT (Default: 0)')
 
             # Weight saving strategy
-            self.parser.add_argument('--save_weight_policy', type=str,  choices=['best', 'each'], default='best', help='Save weight policy: best, or each(ie. save each time loss decreases when multi-label output) (Default: best)')
+            self.parser.add_argument('--save_weight_policy', type=str,  choices=['best', 'each'], default='best',
+                                                            help='Save weight policy: best, or each(ie. save each time loss decreases when multi-label output) (Default: best)')
 
         else:
             # Directory of weight at training
@@ -112,7 +114,7 @@ class CSVParser:
         self.label_list = list(_df_source.columns[_df_source.columns.str.startswith('label')])
         if self.task == 'deepsurv':
             _period_name_list = list(_df_source.columns[_df_source.columns.str.startswith('period')])
-            assert (len(_period_name_list) == 1), f"One column of period should be contained in {self.csvpath} when deepsurv."
+            assert (len(_period_name_list) == 1), f"Only one column on period should be included in {self.csvpath} when deepsurv."
             self.period_name = _period_name_list[0]
 
         _df_source = self._cast(_df_source, self.task)
@@ -212,7 +214,9 @@ def _parse_model(model_name: str) -> Tuple[Union[str, None], Union[str, None]]:
 def _parse_gpu_ids(gpu_ids: str) -> List[int]:
     """
     Parse GPU ids concatenated with '-' to list of integers of GPU ids.
-    eg. '0-1-2' -> [0, 1, 2], '-1' -> []
+    eg.:
+        '0-1-2' -> [0, 1, 2],
+        '-1' -> []
 
     Args:
         gpu_ids (str): GPU Ids
@@ -224,6 +228,7 @@ def _parse_gpu_ids(gpu_ids: str) -> List[int]:
         str_ids = []
     else:
         str_ids = gpu_ids.split('-')
+
     _gpu_ids = []
     for str_id in str_ids:
         id = int(str_id)
@@ -332,9 +337,8 @@ class ParamTable:
                 'scaler_path': [dl, tsp],
                 'save_datetime_dir': [trc, tsc, trp, tsp],
 
-                'gpu_ids': [trc, tsc, sa, trp, tsp],
-                'device': [mo, trc, tsc],
-                'dataset_info': [trc, sa, trp, tsp]
+                'gpu_ids': [dl, trc, tsc, sa, trp, tsp],
+                'dataset_info': [sa, trp, tsp]
                 }
 
         self.table = self._make_table()
@@ -512,23 +516,41 @@ def _arg2str(param: str, arg: Union[str, int, float]) -> str:
             return str_arg
 
 
-def _check_if_valid_criterion(task: str = None, criterion: str = None) -> None:
+def _check_if_valid_sampler(sampler: str, gpu_ids: List[int]) -> None:
     """
-    Check if criterion is valid.
+    Check if sampler is valid for the number of GPU, or
+    depending on distributed learning or not.
 
     Args:
-        task (str): task
+        sampler (str): sampler
+        gpu_ids (List[str]): list og GPU ids, where [] means CPU.
+    """
+    dist_sampler = ['distributed', 'distweight']
+    no_dist_sampler = ['weighted', 'no']
+    isDistributed = (len(gpu_ids) >= 1)
+    if isDistributed:
+        assert (sampler in dist_sampler), \
+                f"Invalid sampler: {sampler}, Specify distributed or distweight when using GPU."
+    else:
+        assert (sampler in no_dist_sampler), \
+                f"Invalid sampler: {sampler}, No need of sampler for distributed learning when using CPU."
+
+
+def _check_if_valid_criterion(criterion: str, task: str) -> None:
+    """
+    Check if criterion is valid for task at training.
+
+    Args:
         criterion (str): criterion
+        task (str): task
     """
     valid_criterion = {
         'classification': ['CEL'],
         'regression': ['MSE', 'RMSE', 'MAE'],
         'deepsurv': ['NLL']
     }
-    if criterion in valid_criterion[task]:
-        pass
-    else:
-        raise ValueError(f"Invalid criterion for task: task={task}, criterion={criterion}.")
+    assert criterion in valid_criterion[task], \
+            f"Invalid criterion for task: task={task}, criterion={criterion}. Specify any of {valid_criterion[task]}."
 
 
 def _train_parse(args: argparse.Namespace) -> Dict[str, ParamSet]:
@@ -541,12 +563,16 @@ def _train_parse(args: argparse.Namespace) -> Dict[str, ParamSet]:
     Returns:
         Dict[str, ParamSet]: parameters dispatched by group
     """
-    # Check if criterion is valid.
-    _check_if_valid_criterion(task=args.task, criterion=args.criterion)
+    args.gpu_ids = _parse_gpu_ids(args.gpu_ids)
+
+    #print('Now, Distributed learning on CPU is supposed to be OK.\n')
+    # Check validity of sampler
+    _check_if_valid_sampler(args.sampler, args.gpu_ids)
+
+    # Check validity of criterion
+    _check_if_valid_criterion(args.criterion, args.task)
 
     args.project = Path(args.csvpath).stem
-    args.gpu_ids = _parse_gpu_ids(args.gpu_ids)
-    args.device = torch.device(f"cuda:{args.gpu_ids[0]}") if args.gpu_ids != [] else torch.device('cpu')
     args.mlp, args.net = _parse_model(args.model)
     args.pretrained = bool(args.pretrained)  # strtobool('False') = 0 (== False)
     args.save_datetime_dir = str(Path('results', args.project, 'trials', args.datetime))
@@ -584,7 +610,6 @@ def _test_parse(args: argparse.Namespace) -> Dict[str, ParamSet]:
     """
     args.project = Path(args.csvpath).stem
     args.gpu_ids = _parse_gpu_ids(args.gpu_ids)
-    args.device = torch.device(f"cuda:{args.gpu_ids[0]}") if args.gpu_ids != [] else torch.device('cpu')
 
     # Collect weight paths
     if args.weight_dir is None:
@@ -632,6 +657,7 @@ def _test_parse(args: argparse.Namespace) -> Dict[str, ParamSet]:
             'args_print': _dispatch_by_group(args, 'test_print')
             }
 
+
 def set_options(datetime_name: str = None, phase: str = None) -> argparse.Namespace:
     """
     Parse options for training or test.
@@ -653,3 +679,70 @@ def set_options(datetime_name: str = None, phase: str = None) -> argparse.Namesp
         _args = opt.get_args()
         args = _test_parse(_args)
         return args
+
+
+def set_world_size(gpu_ids: List[int]) -> int:
+    """
+    Set world_size, ie, total number of processes.
+
+    Args:
+        gpu_ids (List[int]): GPU ids
+        is_dist_on_cpu (bool): True when distributed learning 1CPU/N-Process (N>1) on CPU.
+
+    Returns:
+        int: world_size
+
+    Note:
+        1-CPU/1-Process: Even if using CPU, run 1 process, but DistributedDataParallel is not used.
+        1-GPU/1-Process
+    """
+    if gpu_ids == []:
+        # When using CPU, world_size is set as 1.
+        return 1
+    else:
+        return len(gpu_ids)
+
+
+def setenv() -> None:
+    """
+    Set environment variables.
+
+    Note:
+        GLOO_SOCKET_IFNAME is required when using CPU for setting backend='gloo'.
+    """
+
+    import platform
+    _system = platform.system()
+
+    if _system == 'Darwin':
+        os.environ['GLOO_SOCKET_IFNAME'] = 'lo0'
+    elif _system == 'Linux':
+        os.environ['GLOO_SOCKET_IFNAME'] = 'lo'
+    else:
+        raise ValueError(f'Not supported system: {_system}')
+
+    os.environ['MASTER_ADDR'] = 'localhost'
+    os.environ['MASTER_PORT'] = '29500'
+
+
+def get_elapsed_time(
+                    start_datetime: datetime.datetime,
+                    end_datetime: datetime.datetime
+                    ) -> str:
+    """
+    Return elapsed time.
+
+    Args:
+        start_datetime (datetime.datetime): start datetime
+        end_datetime (datetime.datetime): end datetime
+
+    Returns:
+        str: elapsed time
+    """
+    _elapsed_datetime = (end_datetime - start_datetime)
+    _days = _elapsed_datetime.days
+    _hours = _elapsed_datetime.seconds // 3600
+    _minutes = (_elapsed_datetime.seconds // 60) % 60
+    _seconds = _elapsed_datetime.seconds % 60
+    elapsed_datetime_name = f"{_days} days, {_hours:02}:{_minutes:02}:{_seconds:02}"
+    return elapsed_datetime_name
