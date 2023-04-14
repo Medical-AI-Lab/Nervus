@@ -166,24 +166,41 @@ class ImageMixin:
         _transforms = transforms.Compose(_transforms)
         return _transforms
 
-    def _open_image_in_channel(self, imgpath: str, in_channel: int) -> Image:
+    def _open_image_in_channel(
+                            self,
+                            imgpath: str,
+                            bit_depth: int = None,
+                            in_channel: int = None
+                            ) -> Image:
         """
         Open image in channel.
 
         Args:
             imgpath (str): path to image
+            bit_depth (int): bit depth, or 8 or 16
             in_channel (int): channel, or 1 or 3
 
         Returns:
             Image: PIL image
+
+        Note:
+            PIL doesn't support multi-channel 16-bit/channel images.
+
+        #self.params.bit_depth, self.params.in_channel
         """
+        image = Image.open(imgpath)
+
         if in_channel == 1:
-            image = Image.open(imgpath).convert('L')    # eg. np.array(image).shape = (64, 64)
+            # eg. np.array(image).shape = (64, 64)
+            image = image.convert('L')
             return image
         else:
             # ie. self.params.in_channel == 3
-            image = Image.open(imgpath).convert('RGB')  # eg. np.array(image).shape = (64, 64, 3)
+            # eg. np.array(image).shape = (64, 64, 3)
+            # If it was originally RGB, convert('RGB') does nothing.
+            image = image.convert('RGB')
             return image
+
 
     def _load_image_if_cnn(self, idx: int) -> Union[torch.Tensor, str]:
         """
@@ -201,7 +218,7 @@ class ImageMixin:
             return image
 
         imgpath = self.df_split.iat[idx, self.col_index_dict['imgpath']]
-        image = self._open_image_in_channel(imgpath, self.params.in_channel)
+        image = self._open_image_in_channel(imgpath, self.params.bit_depth, self.params.in_channel)
         image = self.augmentation(image)
         image = self.transform(image)
         return image

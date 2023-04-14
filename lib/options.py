@@ -55,11 +55,12 @@ class Options:
             self.parser.add_argument('--normalize_image',    type=str,                choices=['yes', 'no'], default='yes', help='image normalization: yes, no (Default: yes)')
 
             # Sampler
-            self.parser.add_argument('--sampler',            type=str,  default='no',  choices=['weighted', 'distributed', 'distweight', 'no'], help='kind of sampler')
+            self.parser.add_argument('--sampler',            type=str,  required=True, choices=['weighted', 'distributed', 'distweight', 'no'], help='kind of sampler')
 
-            # Input channel
-            self.parser.add_argument('--in_channel',         type=int,  required=True, choices=[1, 3], help='channel of input image')
-            self.parser.add_argument('--vit_image_size',     type=int,  default=0,                     help='input image size for ViT. Set 0 if not used ViT (Default: 0)')
+            # Image
+            self.parser.add_argument('--in_channel',      type=int, required=True, choices=[1, 3],  help='channel of input image')
+            self.parser.add_argument('--bit_depth',       type=int, required=True, choices=[8, 16], help='bit depth of input image')
+            self.parser.add_argument('--vit_image_size',  type=int, default=0,                      help='input image size for ViT. Set 0 if not used ViT (Default: 0)')
 
             # Weight saving strategy
             self.parser.add_argument('--save_weight_policy', type=str,  choices=['best', 'each'], default='best',
@@ -322,6 +323,9 @@ class ParamTable:
                 'test_splits': [tsc, tsp],
 
                 'in_channel': [mo, dl, sa, lo, trp, tsp],
+
+                'bit_depth': [dl, sa, lo, trp, tsp],        #! bit_depth
+
                 'normalize_image': [dl, sa, lo, trp, tsp],
                 'augmentation': [dl, sa, trp],
                 'sampler': [dl, sa, trp],
