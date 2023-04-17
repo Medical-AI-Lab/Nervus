@@ -8,6 +8,7 @@ from PIL import Image
 from sklearn.preprocessing import MinMaxScaler
 import pickle
 import torch
+from torch import Tensor
 import torchvision.transforms as transforms
 from torch.utils.data.dataset import Dataset
 from torch.utils.data.dataloader import DataLoader
@@ -119,53 +120,41 @@ class InputDataMixin:
         return inputs_value
 
 
+
+class ToTensor16:
+    def __init__(self):
+        self.default_float_dtype = torch.get_default_dtype()
+        self.mode_to_nptype = np.int32
+        self.in_channel = 1
+
+    def __call__(self, pil_img):
+        if isinstance(pil_img, np.ndarray):
+            raise TypeError('Image should be PIL image. Got numpy.ndarray instead.')
+
+        # PIL -> Numpy
+        img = torch.from_numpy(np.array(pil_img, self.mode_to_nptype, copy=True))
+
+        #!print('Before', img.max(), img.min())
+
+        # Add Channel
+        img = img.view(pil_img.size[1], pil_img.size[0], self.in_channel)  #! Now, 1ch only
+
+        # Put it from HWC to CHW format
+        img = img.permute((2, 0, 1)).contiguous()
+
+        # backward compatibility
+        if isinstance(img, torch.IntTensor):
+            img = img.to(dtype=self.default_float_dtype).div(65535)
+            #!print('After', img.max(), img.min())
+            return img
+        else:
+            raise TypeError("Input image should be 16-bit integer.")
+
+
 class ImageMixin:
     """
     Class to normalize and transform image.
     """
-    def _make_augmentations(self) -> List:
-        """
-        Define which augmentation is applied.
-
-        When training, augmentation is needed for train data only.
-        When test, no need of augmentation.
-        """
-        _augmentation = []
-        if (self.params.isTrain) and (self.split == 'train'):
-            if self.params.augmentation == 'xrayaug':
-                _augmentation.extend(PrivateAugment.xray_augs_list)
-            elif self.params.augmentation == 'trivialaugwide':
-                _augmentation.append(transforms.TrivialAugmentWide())
-            elif self.params.augmentation == 'randaug':
-                _augmentation.append(transforms.RandAugment())
-            else:
-                # ie. self.params.augmentation == 'no':
-                pass
-
-        _augmentation = transforms.Compose(_augmentation)
-        return _augmentation
-
-    def _make_transforms(self) -> List:
-        """
-        Make list of transforms.
-
-        Returns:
-            list of transforms: image normalization
-        """
-        _transforms = []
-        _transforms.append(transforms.ToTensor())
-
-        if self.params.normalize_image == 'yes':
-            # transforms.Normalize accepts only Tensor.
-            if self.params.in_channel == 1:
-                _transforms.append(transforms.Normalize(mean=(0.5, ), std=(0.5, )))
-            else:
-                # ie. self.params.in_channel == 3
-                _transforms.append(transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]))
-
-        _transforms = transforms.Compose(_transforms)
-        return _transforms
-
     def _open_image_in_channel(
                             self,
                             imgpath: str,
@@ -185,21 +174,85 @@ class ImageMixin:
 
         Note:
             PIL doesn't support multi-channel 16-bit/channel images.
-
-        #self.params.bit_depth, self.params.in_channel
         """
         image = Image.open(imgpath)
 
-        if in_channel == 1:
-            # eg. np.array(image).shape = (64, 64)
-            image = image.convert('L')
-            return image
+        # Check bit_depth and in_channel
+        if bit_depth == 8:
+            if in_channel == 1:
+                assert image.mode == 'L', f"Not 8-bit grayscale image: {imgpath}."
+                return image
+            if in_channel == 3:
+                assert image.mode == 'RGB', f"Not 8-bit RGB image: {imgpath}."
+                return image
+        if bit_depth == 16:
+            if in_channel == 1:
+                assert image.mode == 'I', f"Not 16-bit grayscale image: {imgpath}."
+                return image
+            if in_channel == 3:
+                raise ValueError(f"Not supported bit_depth and in_channel: bit_depth={bit_depth}, in_channel={in_channel}.")
+
+
+    def _make_augmentations(self) -> List:
+        """
+        Define which augmentation is applied.
+
+        When training, augmentation is needed for train data only.
+        When test, no need of augmentation.
+        """
+        _augmentation = []
+
+        if (self.params.isTrain) and (self.split == 'train'):
+            if self.params.augmentation == 'xrayaug':
+                _augmentation.extend(PrivateAugment.xray_augs_list)
+            elif self.params.augmentation == 'trivialaugwide':
+                _augmentation.append(transforms.TrivialAugmentWide())
+            elif self.params.augmentation == 'randaug':
+                _augmentation.append(transforms.RandAugment())
+            else:
+                # ie. self.params.augmentation == 'no':
+                pass
+
+        _augmentation = transforms.Compose(_augmentation)
+        return _augmentation
+
+
+
+    def _set_to_tensor(self, bit_depth=None):
+        if bit_depth == 8:
+            print('ToTensor8')
+            return transforms.ToTensor()
+        elif  bit_depth == 16:
+            print('ToTensor16')
+            return ToTensor16()
         else:
-            # ie. self.params.in_channel == 3
-            # eg. np.array(image).shape = (64, 64, 3)
-            # If it was originally RGB, convert('RGB') does nothing.
-            image = image.convert('RGB')
-            return image
+            raise ValueError(f"Bit_depth should be 8 or 16: bit_depth={bit_depth}")
+
+
+
+    def _make_transforms(self) -> List:
+        """
+        Make list of transforms.
+
+        Returns:
+            list of transforms: image normalization
+        """
+        _transforms = []
+
+        #_transforms.append(transforms.ToTensor())
+        _to_tensor = self._set_to_tensor(bit_depth=self.bit_depth)
+        _transforms.append(_to_tensor)
+
+        if self.params.normalize_image == 'yes':
+            # transforms.Normalize accepts only Tensor.
+            if self.params.in_channel == 1:
+                _transforms.append(transforms.Normalize(mean=(0.5, ), std=(0.5, )))
+            else:
+                # ie. self.params.in_channel == 3
+                _transforms.append(transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]))
+
+        _transforms = transforms.Compose(_transforms)
+        return _transforms
 
 
     def _load_image_if_cnn(self, idx: int) -> Union[torch.Tensor, str]:
@@ -219,8 +272,13 @@ class ImageMixin:
 
         imgpath = self.df_split.iat[idx, self.col_index_dict['imgpath']]
         image = self._open_image_in_channel(imgpath, self.params.bit_depth, self.params.in_channel)
-        image = self.augmentation(image)
+
         image = self.transform(image)
+
+        image = self.augmentation(image)
+
+        print(image.max(), image.min())
+
         return image
 
 
@@ -276,6 +334,11 @@ class LoadDataSet(Dataset, DataSetWidget):
         self.df_source = self.params.df_source
         self.input_list = self.params.input_list
         self.label_list = self.params.label_list
+
+
+        self.bit_depth = self.params.bit_depth
+        self.in_channels = self.params.in_channel
+
 
         if self.params.task == 'deepsurv':
             self.period_name = self.params.period_name

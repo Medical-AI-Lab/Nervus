@@ -322,9 +322,8 @@ class ParamTable:
                 'test_batch_size': [dl, tsp],
                 'test_splits': [tsc, tsp],
 
-                'in_channel': [mo, dl, sa, lo, trp, tsp],
-
                 'bit_depth': [dl, sa, lo, trp, tsp],        #! bit_depth
+                'in_channel': [mo, dl, sa, lo, trp, tsp],
 
                 'normalize_image': [dl, sa, lo, trp, tsp],
                 'augmentation': [dl, sa, trp],
