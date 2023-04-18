@@ -8,7 +8,6 @@ from PIL import Image
 from sklearn.preprocessing import MinMaxScaler
 import pickle
 import torch
-from torch import Tensor
 import torchvision.transforms as transforms
 from torch.utils.data.dataset import Dataset
 from torch.utils.data.dataloader import DataLoader
@@ -120,7 +119,6 @@ class InputDataMixin:
         return inputs_value
 
 
-
 class ToTensor16:
     def __init__(self):
         self.default_float_dtype = torch.get_default_dtype()
@@ -134,10 +132,8 @@ class ToTensor16:
         # PIL -> Numpy
         img = torch.from_numpy(np.array(pil_img, self.mode_to_nptype, copy=True))
 
-        #!print('Before', img.max(), img.min())
-
         # Add Channel
-        img = img.view(pil_img.size[1], pil_img.size[0], self.in_channel)  #! Now, 1ch only
+        img = img.view(pil_img.size[1], pil_img.size[0], self.in_channel)
 
         # Put it from HWC to CHW format
         img = img.permute((2, 0, 1)).contiguous()
@@ -145,7 +141,6 @@ class ToTensor16:
         # backward compatibility
         if isinstance(img, torch.IntTensor):
             img = img.to(dtype=self.default_float_dtype).div(65535)
-            #!print('After', img.max(), img.min())
             return img
         else:
             raise TypeError("Input image should be 16-bit integer.")
@@ -203,19 +198,22 @@ class ImageMixin:
         _augmentation = []
 
         if (self.params.isTrain) and (self.split == 'train'):
+
             if self.params.augmentation == 'xrayaug':
                 _augmentation.extend(PrivateAugment.xray_augs_list)
+
             elif self.params.augmentation == 'trivialaugwide':
                 _augmentation.append(transforms.TrivialAugmentWide())
+
             elif self.params.augmentation == 'randaug':
                 _augmentation.append(transforms.RandAugment())
+
             else:
                 # ie. self.params.augmentation == 'no':
                 pass
 
         _augmentation = transforms.Compose(_augmentation)
         return _augmentation
-
 
 
     def _set_to_tensor(self, bit_depth=None):
@@ -227,7 +225,6 @@ class ImageMixin:
             return ToTensor16()
         else:
             raise ValueError(f"Bit_depth should be 8 or 16: bit_depth={bit_depth}")
-
 
 
     def _make_transforms(self) -> List:
@@ -273,12 +270,13 @@ class ImageMixin:
         imgpath = self.df_split.iat[idx, self.col_index_dict['imgpath']]
         image = self._open_image_in_channel(imgpath, self.params.bit_depth, self.params.in_channel)
 
+        # Original order
+        image = self.augmentation(image)
         image = self.transform(image)
 
-        image = self.augmentation(image)
-
-        print(image.max(), image.min())
-
+        #! Error before transform when xrayaug
+        #image = self.transform(image)
+        #image = self.augmentation(image)
         return image
 
 
