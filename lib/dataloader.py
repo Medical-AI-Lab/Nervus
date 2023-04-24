@@ -8,6 +8,7 @@ from PIL import Image
 from sklearn.preprocessing import MinMaxScaler
 import pickle
 import torch
+from torch import Tensor
 import torchvision.transforms as transforms
 from torch.utils.data.dataset import Dataset
 from torch.utils.data.dataloader import DataLoader
@@ -15,23 +16,10 @@ import torch.distributed as dist
 from torch.utils.data.sampler import WeightedRandomSampler
 from torch.utils.data.distributed import DistributedSampler
 from .logger import BaseLogger
-from typing import List, Dict, Union, Optional, Iterator
+from typing import List, Dict, Union, Tuple, Optional, Iterator
 
 
 logger = BaseLogger.get_logger(__name__)
-
-
-class PrivateAugment(torch.nn.Module):
-    """
-    Augmentation defined privately.
-    Variety of augmentation can be written in this class if necessary.
-    """
-    # For X-ray photo.
-    xray_augs_list = [
-                    transforms.RandomAffine(degrees=(-3, 3), translate=(0.02, 0.02)),
-                    transforms.RandomAdjustSharpness(sharpness_factor=2),
-                    transforms.RandomAutocontrast()
-                    ]
 
 
 class InputDataMixin:
@@ -119,7 +107,94 @@ class InputDataMixin:
         return inputs_value
 
 
-class ToTensor16:
+class XrayAugment:
+    """
+    Note:
+        This is for 16bit, 1ch images.
+    """
+    def __init__(self):
+        self._trans = [
+                        transforms.RandomAffine(degrees=(-3, 3), translate=(0.02, 0.02)),
+                        transforms.RandomAdjustSharpness(sharpness_factor=2),
+                        transforms.RandomAutocontrast()
+                    ]
+        self.transform = transforms.Compose(self._trans)
+
+    def __call__(self, img: Tensor) -> Tensor:
+        return self.transform(img)
+
+    def __repr__(self) -> str:
+        return f"{self.transform.__repr__()}"
+
+
+class AffineXrayAugment:
+    """
+    Xrayaug with affine transformation only
+
+    Note:
+        Extracted only affine transformations from XrayAugment.
+        This is for 16bit, 1ch images.
+    """
+    def __init__(self):
+        self.affine_xrayaug = [
+                                transforms.RandomAffine(degrees=(-3, 3), translate=(0.02, 0.02))
+                            ]
+        self.transform = transforms.Compose(self.affine_xrayaug)
+
+    def __call__(self, img: Tensor) -> Tensor:
+        return self.transform(img)
+
+    def __repr__(self) -> str:
+        return f"{self.transform.__repr__()}"
+
+
+class AffineRandAugment(transforms.RandAugment):
+    """
+    RandAugment with affine transformation only
+
+    Note:
+        Extracted only affine transformations from RandAugmentWide.
+        This is for 16bit, 1ch images.
+    """
+    def __init__(self):
+        super().__init__()
+
+    def _augmentation_space(self, num_bins: int, image_size: Tuple[int, int]) -> Dict[str, Tuple[Tensor, bool]]:
+        return {
+                # op_name: (magnitudes, signed)
+                "Identity": (torch.tensor(0.0), False),
+                "ShearX": (torch.linspace(0.0, 0.3, num_bins), True),
+                "ShearY": (torch.linspace(0.0, 0.3, num_bins), True),
+                "TranslateX": (torch.linspace(0.0, 150.0 / 331.0 * image_size[1], num_bins), True),
+                "TranslateY": (torch.linspace(0.0, 150.0 / 331.0 * image_size[0], num_bins), True),
+                "Rotate": (torch.linspace(0.0, 30.0, num_bins), True),
+                }
+
+
+class AffineTrivialAugmentWide(transforms.TrivialAugmentWide):
+    """
+    TrivialAugmentWide with affine transformation only
+
+    Note:
+        Extracted only affine transformations from TrivialAugmentWide.
+        This is for 16bit, 1ch images.
+    """
+    def __init__(self):
+        super().__init__()
+
+    def _augmentation_space(self, num_bins: int) -> Dict[str, Tuple[Tensor, bool]]:
+        return {
+            # op_name: (magnitudes, signed)
+            "Identity": (torch.tensor(0.0), False),
+            "ShearX": (torch.linspace(0.0, 0.99, num_bins), True),
+            "ShearY": (torch.linspace(0.0, 0.99, num_bins), True),
+            "TranslateX": (torch.linspace(0.0, 32.0, num_bins), True),
+            "TranslateY": (torch.linspace(0.0, 32.0, num_bins), True),
+            "Rotate": (torch.linspace(0.0, 135.0, num_bins), True)
+            }
+
+
+class ToTensor16bit:
     def __init__(self):
         self.default_float_dtype = torch.get_default_dtype()
         self.mode_to_nptype = np.int32
@@ -180,6 +255,7 @@ class ImageMixin:
             if in_channel == 3:
                 assert image.mode == 'RGB', f"Not 8-bit RGB image: {imgpath}."
                 return image
+
         if bit_depth == 16:
             if in_channel == 1:
                 assert image.mode == 'I', f"Not 16-bit grayscale image: {imgpath}."
@@ -188,32 +264,39 @@ class ImageMixin:
                 raise ValueError(f"Not supported bit_depth and in_channel: bit_depth={bit_depth}, in_channel={in_channel}.")
 
 
-    def _make_augmentations(self) -> List:
+    def _set_augmentations(self, augmentation, bit_depth, in_channel) -> List:
         """
         Define which augmentation is applied.
 
         When training, augmentation is needed for train data only.
         When test, no need of augmentation.
         """
+        if bit_depth == 16:
+            assert (in_channel == 1), f"Not supported bit_depth and in_channel: bit_depth={bit_depth}, in_channel={in_channel}."
+
         _augmentation = []
 
+        if augmentation == 'no':
+            return _augmentation
+
         if (self.params.isTrain) and (self.split == 'train'):
+            if augmentation == 'xrayaug':
+                if bit_depth == 8:
+                    return [XrayAugment()]
+                if bit_depth == 16:
+                    return [AffineXrayAugment()]
 
-            if self.params.augmentation == 'xrayaug':
-                _augmentation.extend(PrivateAugment.xray_augs_list)
+            if augmentation == 'trivialaugwide':
+                if bit_depth == 8:
+                    return [transforms.TrivialAugmentWide()]
+                if bit_depth == 16:
+                    return [AffineTrivialAugmentWide()]
 
-            elif self.params.augmentation == 'trivialaugwide':
-                _augmentation.append(transforms.TrivialAugmentWide())
-
-            elif self.params.augmentation == 'randaug':
-                _augmentation.append(transforms.RandAugment())
-
-            else:
-                # ie. self.params.augmentation == 'no':
-                pass
-
-        _augmentation = transforms.Compose(_augmentation)
-        return _augmentation
+            if augmentation == 'randaug':
+                if bit_depth == 8:
+                    return [transforms.RandAugment()]
+                if bit_depth == 16:
+                    return [AffineRandAugment()]
 
 
     def _set_to_tensor(self, bit_depth=None):
@@ -222,32 +305,31 @@ class ImageMixin:
             return transforms.ToTensor()
         elif  bit_depth == 16:
             print('ToTensor16')
-            return ToTensor16()
+            return ToTensor16bit()
         else:
             raise ValueError(f"Bit_depth should be 8 or 16: bit_depth={bit_depth}")
 
 
-    def _make_transforms(self) -> List:
+    def _set_normalize(self, in_channel):
+        if self.params.normalize_image == 'yes':
+            # transforms.Normalize accepts only Tensor.
+            if in_channel == 1:
+                return transforms.Normalize(mean=(0.5, ), std=(0.5, ))
+            if in_channel == 3:
+                return transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+
+
+    def _set_transforms(self, augmentation, bit_depth, in_channel) -> List:
         """
         Make list of transforms.
 
         Returns:
             list of transforms: image normalization
         """
-        _transforms = []
-
-        #_transforms.append(transforms.ToTensor())
+        _augmentation = self._set_augmentations(augmentation, bit_depth, in_channel)
         _to_tensor = self._set_to_tensor(bit_depth=self.bit_depth)
-        _transforms.append(_to_tensor)
-
-        if self.params.normalize_image == 'yes':
-            # transforms.Normalize accepts only Tensor.
-            if self.params.in_channel == 1:
-                _transforms.append(transforms.Normalize(mean=(0.5, ), std=(0.5, )))
-            else:
-                # ie. self.params.in_channel == 3
-                _transforms.append(transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]))
-
+        _normalize = self._set_normalize(in_channel)
+        _transforms = _augmentation +  [_to_tensor, _normalize]
         _transforms = transforms.Compose(_transforms)
         return _transforms
 
@@ -270,14 +352,10 @@ class ImageMixin:
         imgpath = self.df_split.iat[idx, self.col_index_dict['imgpath']]
         image = self._open_image_in_channel(imgpath, self.params.bit_depth, self.params.in_channel)
 
-        # Original order
-        image = self.augmentation(image)
+        self.transform = self._set_transform(augmentation, bit_depth, in_channel)
         image = self.transform(image)
-
-        #! Error before transform when xrayaug
-        #image = self.transform(image)
-        #image = self.augmentation(image)
         return image
+
 
 
 class DeepSurvMixin:
@@ -335,7 +413,7 @@ class LoadDataSet(Dataset, DataSetWidget):
 
 
         self.bit_depth = self.params.bit_depth
-        self.in_channels = self.params.in_channel
+        self.in_channel = self.params.in_channel
 
 
         if self.params.task == 'deepsurv':
@@ -357,8 +435,10 @@ class LoadDataSet(Dataset, DataSetWidget):
 
         # For image
         if self.params.net is not None:
-            self.augmentation = self._make_augmentations()
-            self.transform = self._make_transforms()
+            #self.augmentation = self._make_augmentations()
+            self.transform = self._make_transforms(bit_depth=self.bit_depth, in_channel=self.in_channel)
+
+
 
     def __len__(self) -> int:
         """
