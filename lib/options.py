@@ -51,11 +51,11 @@ class Options:
             self.parser.add_argument('--batch_size', type=int,  required=True, metavar='N', help='batch size in training')
 
             # Preprocess for image
-            self.parser.add_argument('--augmentation',       type=str,  default='no', choices=['xrayaug', 'trivialaugwide', 'randaug', 'no'], help='kind of augmentation')
-            self.parser.add_argument('--normalize_image',    type=str,                choices=['yes', 'no'], default='yes', help='image normalization: yes, no (Default: yes)')
+            self.parser.add_argument('--augmentation',    type=str,  default='no', choices=['xrayaug', 'trivialaugwide', 'randaug', 'no'], help='kind of augmentation')
+            self.parser.add_argument('--normalize_image', type=str,                choices=['yes', 'no'], default='yes', help='image normalization: yes, no (Default: yes)')
 
             # Sampler
-            self.parser.add_argument('--sampler',            type=str,  required=True, choices=['weighted', 'distributed', 'distweight', 'no'], help='kind of sampler')
+            self.parser.add_argument('--sampler',         type=str,  default='no', choices=['weighted', 'distributed', 'distweight', 'no'], help='kind of sampler')
 
             # Image
             self.parser.add_argument('--in_channel',      type=int, required=True, choices=[1, 3],  help='channel of input image')
@@ -68,13 +68,13 @@ class Options:
 
         else:
             # Directory of weight at training
-            self.parser.add_argument('--weight_dir',         type=str,  default=None, help='directory of weight to be used when test. If None, the latest one is selected')
+            self.parser.add_argument('--weight_dir',      type=str,  default=None, help='directory of weight to be used when test. If None, the latest one is selected')
 
             # Test bash size
-            self.parser.add_argument('--test_batch_size',    type=int,  default=1, metavar='N', help='batch size for test (Default: 1)')
+            self.parser.add_argument('--test_batch_size', type=int,  default=1, metavar='N', help='batch size for test (Default: 1)')
 
             # Splits for test
-            self.parser.add_argument('--test_splits',        type=str, default='train-val-test', help='splits for test: e.g. test, val-test, train-val-test. (Default: train-val-test)')
+            self.parser.add_argument('--test_splits',     type=str, default='train-val-test', help='splits for test: e.g. test, val-test, train-val-test. (Default: train-val-test)')
 
         self.args = self.parser.parse_args()
 
