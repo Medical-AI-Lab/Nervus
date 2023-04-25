@@ -138,6 +138,7 @@ materials/
 results/
 logs/
 tmp/
+work_all.sh
 parameter.csv
 Makefile
 
