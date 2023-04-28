@@ -107,9 +107,14 @@ class InputDataMixin:
         return inputs_value
 
 
+
 class XrayAugmentMultiBit:
     """
     Augmentation for Xray photos with different bit depth.
+
+    Note:
+    When 16bit images are used, only affine transformation are applied,
+    because non-affine transformations are not available for 16bit images.
     """
     def __init__(self, bit_depth : int = None) -> None:
         """
@@ -130,9 +135,7 @@ class XrayAugmentMultiBit:
             _trans_list = self.affine_trans + self.non_affine_trans
         else:
             # bit_depth == 16:
-            # Only for 16bit, 1ch images
-            # Only affine transformation, because non-affine transformations are not available for 16bit images.
-            _trans_list =  self.affine_space
+            _trans_list =  self.affine_trans
 
         self.trans = [self.augmentation_space[op] for op in _trans_list]
         self.transform = transforms.Compose(self.trans)
@@ -144,37 +147,53 @@ class XrayAugmentMultiBit:
         return f"{self.transform.__repr__()}"
 
 
+
 class TrivialAugmentWideMultiBit(transforms.TrivialAugmentWide):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, bit_depth : int = None) -> None:
+        super().__init__(self)
+
+        self.bit_depth = bit_depth
+        self.affine_trans = [
+                            'Identity',
+                            'ShearX',
+                            'ShearY',
+                            'TranslateX',
+                            'TranslateY',
+                            'Rotate'
+                            ]
 
     def _augmentation_space(self, num_bins: int) -> Dict[str, Tuple[Tensor, bool]]:
-        return {
-            # op_name: (magnitudes, signed)
-            "Identity": (torch.tensor(0.0), False),
-            "ShearX": (torch.linspace(0.0, 0.99, num_bins), True),
-            "ShearY": (torch.linspace(0.0, 0.99, num_bins), True),
-            "TranslateX": (torch.linspace(0.0, 32.0, num_bins), True),
-            "TranslateY": (torch.linspace(0.0, 32.0, num_bins), True),
-            "Rotate": (torch.linspace(0.0, 135.0, num_bins), True)
-            }
+        _aug_space = super()._augmentation_space(num_bins)
+
+        if self.bit_depth == 8:
+            return _aug_space
+
+        if self.bit_depth == 16:
+            return {op: _aug_space[op] for op in _aug_space.keys() if op in self.affine_trans}
 
 
 class RandAugmentMultiBit(transforms.RandAugment):
-    def __init__(self):
+    def __init__(self, bit_depth : int = None) -> None:
         super().__init__()
 
+        self.bit_depth = bit_depth
+        self.affine_trans = [
+                            'Identity',
+                            'ShearX',
+                            'ShearY',
+                            'TranslateX',
+                            'TranslateY',
+                            'Rotate'
+                            ]
 
     def _augmentation_space(self, num_bins: int, image_size: Tuple[int, int]) -> Dict[str, Tuple[Tensor, bool]]:
-        return {
-                # op_name: (magnitudes, signed)
-                "Identity": (torch.tensor(0.0), False),
-                "ShearX": (torch.linspace(0.0, 0.3, num_bins), True),
-                "ShearY": (torch.linspace(0.0, 0.3, num_bins), True),
-                "TranslateX": (torch.linspace(0.0, 150.0 / 331.0 * image_size[1], num_bins), True),
-                "TranslateY": (torch.linspace(0.0, 150.0 / 331.0 * image_size[0], num_bins), True),
-                "Rotate": (torch.linspace(0.0, 30.0, num_bins), True),
-                }
+        _aug_space = super()._augmentation_space(num_bins, image_size)
+
+        if self.bit_depth == 8:
+            return _aug_space
+
+        if self.bit_depth == 16:
+            return {op: _aug_space[op] for op in _aug_space.keys() if op in self.affine_trans}
 
 
 class ToTensorMultiBit:
@@ -184,43 +203,7 @@ class ToTensorMultiBit:
     def __init__(self, bit_depth: int = None) -> None:
         self.bit_depth = bit_depth
         self.default_float_dtype = torch.get_default_dtype()  # torch.float32
-        self.to_tensor = transforms.ToTensor()  # Not support for 16bit images
-
-        if self.bit_depth == 8:
-            self.to_tensor_multi_bit = self._to_tensor_8bit
-        else:
-            # self.bit_depth == 16
-            self.to_tensor_multi_bit = self._to_tensor_16bit
-
-    def _to_tensor_8bit(self, img: Union[Tensor, np.ndarray]) -> Tensor:
-        """
-        Convert PIL image to tensor with bit depth 8.
-
-        Args:
-            img (Union[Tensor, np.ndarray]): image
-
-        Returns:
-            Tensor: tensor image
-        """
-        # If img is 8bit, ToTensor() returns tensor with dtype=torch.float32 divided by 255.
-        tensor_img = self.to_tensor(img)  # torch.uint8 -> torch.float32
-        assert (tensor_img.dtype == self.default_float_dtype), f"Not supported dtype of image: {tensor_img.dtype}, bit depth: {self.bit_depth}."
-        return self.to_tensor(img)
-
-    def _to_tensor_16bit(self, img) -> Tensor:
-        """
-        Convert PIL image to tensor with bit depth 16.
-
-        Args:
-            img (Union[Tensor, np.ndarray]): image
-
-        Returns:
-            Tensor: tensor image
-        """
-        # If img is 16bit, ToTensor() returns tensor with dtype=torch.int32, but never divided by 65535.
-        tensor_img = self.to_tensor(img)
-        assert (tensor_img.dtype == torch.int32), f"Not supported dtype of image: {tensor_img.dtype}, bit depth: {self.bit_depth}."
-        return tensor_img.to(dtype=self.default_float_dtype).div(65535)  # torch.int32 -> torch.float32
+        self.to_tensor = transforms.ToTensor()
 
     def __call__(self, img):
         """
@@ -232,7 +215,17 @@ class ToTensorMultiBit:
         Returns:
             Tensor: tensor image
         """
-        return self.to_tensor_multi_bit(img)
+        tensor_img = self.to_tensor(img)
+
+        if  self.bit_depth == 8:
+            # If img is 8bit, ToTensor() returns tensor with dtype=torch.float32 divided by 255.
+            assert (tensor_img.dtype == self.default_float_dtype), f"tensor_img.dtype should be {self.default_float_dtype}, but {tensor_img.dtype}."
+            return tensor_img
+
+        if self.bit_depth == 16:
+            # If img is 16bit, ToTensor() returns tensor with dtype=torch.int32, but never divided by 65535.
+            assert (tensor_img.dtype == torch.int32), f"tensor_img.dtype should be torch.int32 , but {tensor_img.dtype}."
+            return tensor_img.to(dtype=self.default_float_dtype).div(65535)  # torch.int32 -> torch.float32
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}()"
@@ -305,7 +298,16 @@ class ImageMixin:
                 return _augmentation.append(RandAugmentMultiBit(bit_depth=bit_depth))
 
 
-    def _set_normalize(self, in_channel):
+    def _set_normalize(self, in_channel: int)-> List[transforms.Normalize]:
+        """
+        Define which normalization is applied.
+
+        Args:
+            in_channel (int): in channel, or 1 or 3
+
+        Returns:
+            List[transforms.Normalize]: image normalization
+        """
         _transform = []
         if self.params.normalize_image == 'no':
             return _transform
@@ -317,10 +319,14 @@ class ImageMixin:
             if in_channel == 3:
                 return _transform.append(transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]))
 
-
-    def _set_transforms(self, augmentation, bit_depth, in_channel) -> List:
+    def _set_transforms(self, augmentation: str, bit_depth: int, in_channel: int) -> transforms.Compose:
         """
         Make list of transforms.
+
+        Args:
+            augmentation (str): augmentation method
+            bit_depth (int): bit depth, or 8 or 16
+            in_channel (int): channel, or 1 or 3
 
         Returns:
             list of transforms: image normalization
@@ -331,7 +337,6 @@ class ImageMixin:
         _transforms = _augmentation + _to_tensor  + _normalize
         _transforms = transforms.Compose(_transforms)
         return _transforms
-
 
     def _load_image_if_cnn(self, idx: int) -> Union[torch.Tensor, str]:
         """
@@ -353,7 +358,6 @@ class ImageMixin:
 
         #! -> LoadDataSet !
         self.transform = self._set_transforms(self.params.augmentation, self.params.bit_depth, self.params.in_channel)
-
 
         image = self.transform(image)
         return image
