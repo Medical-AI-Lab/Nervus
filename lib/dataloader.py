@@ -127,7 +127,7 @@ class XrayAugmentMultiBit:
 
 class TrivialAugmentWideMultiBit(transforms.TrivialAugmentWide):
     def __init__(self, bit_depth : int) -> None:
-        super().__init__(self)
+        super().__init__()
 
         self.bit_depth = bit_depth
         self.affine_ops = [
@@ -275,8 +275,10 @@ class ImageMixin:
         if self.isTrain and (self.split == 'train'):
             if augmentation == 'xrayaug':
                 _augmentations.append(XrayAugmentMultiBit(bit_depth))
+
             elif augmentation == 'trivialaugwide':
                 _augmentations.append(TrivialAugmentWideMultiBit(bit_depth))
+
             elif augmentation == 'randaug':
                 _augmentations.append(RandAugmentMultiBit(bit_depth))
 
@@ -742,8 +744,9 @@ def create_dataloader(
         shuffle = False if _sampler is not None else True
         batch_size = params.batch_size
     else:
-        # No shuffle during testing
-        shuffle = False
+        assert (params.sampler == 'no'), 'Cannot use sampler during testing.'
+        _sampler = None
+        shuffle = False  # No shuffle during testing
         batch_size = params.test_batch_size
 
     if len(params.gpu_ids) >= 1:
