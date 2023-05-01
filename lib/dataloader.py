@@ -65,11 +65,12 @@ class InputDataMixin:
             scaler = pickle.load(f)
         return scaler
 
-    def _normalize_inputs(self, df_inputs: pd.DataFrame) -> torch.FloatTensor:
+    def _normalize_inputs(self, scaler: MinMaxScaler, df_inputs: pd.DataFrame) -> torch.FloatTensor:
         """
         Normalize inputs.
 
         Args:
+            scaler (MinMaxScaler): scaler
             df_inputs (pd.DataFrame): DataFrame of inputs
 
         Returns:
@@ -81,31 +82,10 @@ class InputDataMixin:
         However, after normalizing, the shape of inputs_value is (1, N), where N is the number of input values.
         Since the shape (1, N) is not acceptable when forwarding, convert (1, N) -> (N,) is needed.
         """
-        inputs_value = self.scaler.transform(df_inputs).reshape(-1)  #    np.float64
-        inputs_value = np.array(inputs_value, dtype=np.float32)      # -> np.float32
-        inputs_value = torch.from_numpy(inputs_value).clone()        # -> torch.float32
+        inputs_value = scaler.transform(df_inputs).reshape(-1)   #    np.float64
+        inputs_value = np.array(inputs_value, dtype=np.float32)  # -> np.float32
+        inputs_value = torch.from_numpy(inputs_value).clone()    # -> torch.float32
         return inputs_value
-
-    def _load_input_value_if_mlp(self, idx: int) -> Union[torch.FloatTensor, str]:
-        """
-        Load input values after converting them into tensor if MLP is used.
-
-        Args:
-            idx (int): index
-
-        Returns:
-            Union[torch.Tensor[float], str]: tensor of input values, or empty string
-        """
-        inputs_value = ''
-
-        if self.params.mlp is None:
-            return inputs_value
-
-        index_input_list = [self.col_index_dict[input] for input in self.input_list]
-        _df_inputs = self.df_split.iloc[[idx], index_input_list]
-        inputs_value = self._normalize_inputs( _df_inputs)
-        return inputs_value
-
 
 
 class XrayAugmentMultiBit:
@@ -116,29 +96,27 @@ class XrayAugmentMultiBit:
     When 16bit images are used, only affine transformation are applied,
     because non-affine transformations are not available for 16bit images.
     """
-    def __init__(self, bit_depth : int = None) -> None:
+    def __init__(self, bit_depth : int) -> None:
         """
         Args:
             bit_depth (int): bit depth
         """
         self.bit_depth = bit_depth
-        self.augmentation_space = {
-                                    'RandomAffine': transforms.RandomAffine(degrees=(-3, 3), translate=(0.02, 0.02)),
-                                    'RandomAdjustSharpness': transforms.RandomAdjustSharpness(sharpness_factor=2),
-                                    'RandomAutocontrast': transforms.RandomAutocontrast()
-                                }
+        self.all_augmentation_space = {
+                                        'Affine': transforms.RandomAffine(degrees=(-3, 3), translate=(0.02, 0.02)),
+                                        'Sharpness': transforms.RandomAdjustSharpness(sharpness_factor=2),
+                                        'Contrast': transforms.RandomAutocontrast()
+                                    }
+        self.affine_ops = ['Affine']
 
-        self.affine_trans = ['RandomAffine']
-        self.non_affine_trans = ['RandomAdjustSharpness', 'RandomAutocontrast']
-
-        if bit_depth == 8:
-            _trans_list = self.affine_trans + self.non_affine_trans
+        if self.bit_depth == 8:
+            _trans = list(self.all_augmentation_space.values())
+            self.transform = transforms.Compose(_trans)
+        elif self.bit_depth == 16:
+            _trans = [self.all_augmentation_space[op] for op in self.affine_ops]
+            self.transform = transforms.Compose(_trans)
         else:
-            # bit_depth == 16:
-            _trans_list =  self.affine_trans
-
-        self.trans = [self.augmentation_space[op] for op in _trans_list]
-        self.transform = transforms.Compose(self.trans)
+            raise ValueError(f"bit_depth should be 8 or 16, but {bit_depth} is given.")
 
     def __call__(self, img: Tensor) -> Tensor:
         return self.transform(img)
@@ -147,13 +125,12 @@ class XrayAugmentMultiBit:
         return f"{self.transform.__repr__()}"
 
 
-
 class TrivialAugmentWideMultiBit(transforms.TrivialAugmentWide):
-    def __init__(self, bit_depth : int = None) -> None:
+    def __init__(self, bit_depth : int) -> None:
         super().__init__(self)
 
         self.bit_depth = bit_depth
-        self.affine_trans = [
+        self.affine_ops = [
                             'Identity',
                             'ShearX',
                             'ShearY',
@@ -169,15 +146,15 @@ class TrivialAugmentWideMultiBit(transforms.TrivialAugmentWide):
             return _aug_space
 
         if self.bit_depth == 16:
-            return {op: _aug_space[op] for op in _aug_space.keys() if op in self.affine_trans}
+            return {op: _aug_space[op] for op in self.affine_ops}
 
 
 class RandAugmentMultiBit(transforms.RandAugment):
-    def __init__(self, bit_depth : int = None) -> None:
+    def __init__(self, bit_depth : int) -> None:
         super().__init__()
 
         self.bit_depth = bit_depth
-        self.affine_trans = [
+        self.affine_ops = [
                             'Identity',
                             'ShearX',
                             'ShearY',
@@ -193,14 +170,14 @@ class RandAugmentMultiBit(transforms.RandAugment):
             return _aug_space
 
         if self.bit_depth == 16:
-            return {op: _aug_space[op] for op in _aug_space.keys() if op in self.affine_trans}
+            return {op: _aug_space[op] for op in self.affine_ops}
 
 
 class ToTensorMultiBit:
     """
     Convert PIL image to tensor with bit depth.
     """
-    def __init__(self, bit_depth: int = None) -> None:
+    def __init__(self, bit_depth: int) -> None:
         self.bit_depth = bit_depth
         self.default_float_dtype = torch.get_default_dtype()  # torch.float32
         self.to_tensor = transforms.ToTensor()
@@ -224,7 +201,7 @@ class ToTensorMultiBit:
 
         if self.bit_depth == 16:
             # If img is 16bit, ToTensor() returns tensor with dtype=torch.int32, but never divided by 65535.
-            assert (tensor_img.dtype == torch.int32), f"tensor_img.dtype should be torch.int32 , but {tensor_img.dtype}."
+            assert (tensor_img.dtype == torch.int32), f"tensor_img.dtype should be torch.int32, but {tensor_img.dtype}."
             return tensor_img.to(dtype=self.default_float_dtype).div(65535)  # torch.int32 -> torch.float32
 
     def __repr__(self) -> str:
@@ -235,19 +212,19 @@ class ImageMixin:
     """
     Class to normalize and transform image.
     """
-    def _open_image_in_channel(
-                            self,
-                            imgpath: str,
-                            bit_depth: int = None,
-                            in_channel: int = None
-                            ) -> Image:
+    def _open_image(
+                    self,
+                    imgpath: str,
+                    bit_depth: int,
+                    in_channel: int
+                    ) -> Image:
         """
-        Open image in channel.
+        Open image.
 
         Args:
             imgpath (str): path to image
-            bit_depth (int): bit depth, or 8 or 16
-            in_channel (int): channel, or 1 or 3
+            bit_depth (int): bit depth
+            in_channel (int): number of channels
 
         Returns:
             Image: PIL image
@@ -259,44 +236,51 @@ class ImageMixin:
 
         # Check bit_depth and in_channel
         if bit_depth == 8:
-            if in_channel == 1:
-                assert image.mode == 'L', f"Not 8-bit grayscale image: {imgpath}."
-                return image
-            if in_channel == 3:
-                assert image.mode == 'RGB', f"Not 8-bit RGB image: {imgpath}."
-                return image
+            if in_channel == 1 and image.mode != 'L':
+                raise ValueError(f"Not 8-bit grayscale image: {imgpath}.")
+            elif in_channel == 3 and image.mode != 'RGB':
+                raise ValueError(f"Not 8-bit RGB image: {imgpath}.")
+            return image  # When bit_depth == 8, image.mode is 'L' or 'RGB'.
 
-        if bit_depth == 16:
-            if in_channel == 1:
-                assert image.mode == 'I', f"Not 16-bit grayscale image: {imgpath}."
-                return image
-            if in_channel == 3:
+        elif bit_depth == 16:
+            if in_channel == 1 and image.mode != 'I':
+                raise ValueError(f"Not 16-bit grayscale image: {imgpath}.")
+            elif in_channel == 3:
                 raise ValueError(f"Not supported bit_depth and in_channel: bit_depth={bit_depth}, in_channel={in_channel}.")
+            return image  # When bit_depth == 16 and image.mode == 'I', image is 16-bit grayscale image.
 
-    def _set_augmentations(self, augmentation, bit_depth, in_channel) -> List:
+        else:
+            raise ValueError(f"Not supported bit_depth: {bit_depth}.")
+
+    def _set_augmentations(self, bit_depth: int, in_channel: int, augmentation: str) -> List:
         """
         Define which augmentation is applied.
+
+        Args:
+            bit_depth (int): bit depth
+            in_channel (int): number of channels
+            augmentation (str): augmentation method
 
         When training, augmentation is needed for train data only.
         When test, no need of augmentation.
         """
-        if bit_depth == 16:
-            assert (in_channel == 1), f"Not supported bit_depth and in_channel: bit_depth={bit_depth}, in_channel={in_channel}."
+        if (bit_depth == 16) and (in_channel != 1):
+            raise ValueError(f"Not supported bit_depth and in_channel: bit_depth={bit_depth}, in_channel={in_channel}.")
 
-        _augmentation = []
+        _augmentations = []
+
         if augmentation == 'no':
-            return _augmentation
+            return _augmentations
 
-        if (self.params.isTrain) and (self.split == 'train'):
+        if self.isTrain and (self.split == 'train'):
             if augmentation == 'xrayaug':
-                return _augmentation.append(XrayAugmentMultiBit(bit_depth=bit_depth))
+                _augmentations.append(XrayAugmentMultiBit(bit_depth))
+            elif augmentation == 'trivialaugwide':
+                _augmentations.append(TrivialAugmentWideMultiBit(bit_depth))
+            elif augmentation == 'randaug':
+                _augmentations.append(RandAugmentMultiBit(bit_depth))
 
-            if augmentation == 'trivialaugwide':
-                return _augmentation.append(TrivialAugmentWideMultiBit(bit_depth=bit_depth))
-
-            if augmentation == 'randaug':
-                return _augmentation.append(RandAugmentMultiBit(bit_depth=bit_depth))
-
+        return _augmentations
 
     def _set_normalize(self, in_channel: int)-> List[transforms.Normalize]:
         """
@@ -309,17 +293,20 @@ class ImageMixin:
             List[transforms.Normalize]: image normalization
         """
         _transform = []
-        if self.params.normalize_image == 'no':
+
+        if self.normalize_image == 'no':
             return _transform
 
-        if self.params.normalize_image == 'yes':
+        if self.normalize_image == 'yes':
             # transforms.Normalize accepts only Tensor.
             if in_channel == 1:
-                return _transform.append(transforms.Normalize(mean=(0.5, ), std=(0.5, )))
-            if in_channel == 3:
-                return _transform.append(transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]))
+                _transform.append(transforms.Normalize(mean=(0.5, ), std=(0.5, )))
+            elif in_channel == 3:
+                _transform.append(transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]))
 
-    def _set_transforms(self, augmentation: str, bit_depth: int, in_channel: int) -> transforms.Compose:
+        return _transform
+
+    def _set_transforms(self, bit_depth: int, in_channel: int, augmentation: str) -> transforms.Compose:
         """
         Make list of transforms.
 
@@ -331,37 +318,12 @@ class ImageMixin:
         Returns:
             list of transforms: image normalization
         """
-        _augmentation = self._set_augmentations(augmentation, bit_depth, in_channel)  # -> List
-        _to_tensor = [ToTensorMultiBit(bit_depth=bit_depth)]
-        _normalize = self._set_normalize(in_channel)  # -> List
-        _transforms = _augmentation + _to_tensor  + _normalize
+        _augmentations = self._set_augmentations(bit_depth, in_channel, augmentation)
+        _totensor = [ToTensorMultiBit(bit_depth)]
+        _normalize = self._set_normalize(in_channel)
+        _transforms = _augmentations + _totensor  + _normalize
         _transforms = transforms.Compose(_transforms)
         return _transforms
-
-    def _load_image_if_cnn(self, idx: int) -> Union[torch.Tensor, str]:
-        """
-        Load image and convert it to tensor if any of CNN or ViT is used.
-
-        Args:
-            idx (int): index
-
-        Returns:
-            Union[torch.Tensor[float], str]: tensor converted from image, or empty string
-        """
-        image = ''
-
-        if self.params.net is None:
-            return image
-
-        imgpath = self.df_split.iat[idx, self.col_index_dict['imgpath']]
-        image = self._open_image_in_channel(imgpath, self.params.bit_depth, self.params.in_channel)
-
-        #! -> LoadDataSet !
-        self.transform = self._set_transforms(self.params.augmentation, self.params.bit_depth, self.params.in_channel)
-
-        image = self.transform(image)
-        return image
-
 
 
 class DeepSurvMixin:
@@ -380,10 +342,10 @@ class DeepSurvMixin:
         """
         periods = ''
 
-        if self.params.task != 'deepsurv':
+        if self.task != 'deepsurv':
             return periods
 
-        assert (self.params.task == 'deepsurv') and (len(self.label_list) == 1), 'Deepsurv cannot work in multi-label.'
+        assert (self.task == 'deepsurv') and (len(self.label_list) == 1), 'Deepsurv cannot work in multi-label.'
         periods = self.df_split.iat[idx, self.col_index_dict[self.period_name]]  #    int64
         periods = np.array(periods, dtype=np.float32)                            # -> np.float32
         periods = torch.from_numpy(periods).clone()                              # -> torch.float32
@@ -413,35 +375,39 @@ class LoadDataSet(Dataset, DataSetWidget):
         """
         self.params = params
         self.split = split
+
+        self.task = self.params.task
+        self.isTrain = self.params.isTrain
+        self.mlp = self.params.mlp
+        self.net = self.params.net
+        self.bit_depth = self.params.bit_depth
+        self.in_channel = self.params.in_channel
+        self.augmentation = self.params.augmentation
+        self.normalize_image = self.params.normalize_image
+        if self.task == 'deepsurv':
+            self.period_name = self.params.period_name
+
         self.df_source = self.params.df_source
         self.input_list = self.params.input_list
         self.label_list = self.params.label_list
-
-
-        self.bit_depth = self.params.bit_depth
-        self.in_channel = self.params.in_channel
-
-
-        if self.params.task == 'deepsurv':
-            self.period_name = self.params.period_name
-
         self.df_split = self.df_source[self.df_source['split'] == self.split]
         self.col_index_dict = {col_name: self.df_split.columns.get_loc(col_name) for col_name in self.df_split.columns}
 
         # For input data
-        if self.params.mlp is not None:
+        if self.mlp is not None:
             assert (self.input_list != []), f"input list is empty."
-            if params.isTrain:
+            if self.isTrain:
                 # Input data should be normalized with min and max of training data.
-                _df_train = self.df_source[self.df_source['split'] == 'train']
-                self.scaler = self._make_scaler(self.input_list, _df_train)
+                df_train = self.df_source[self.df_source['split'] == 'train']
+                self.scaler = self._make_scaler(self.input_list, df_train)
             else:
                 # load scaler used at training.
+                assert hasattr(self.params, 'scaler_path'), f"scaler path is not defined."
                 self.scaler = self.load_scaler(self.params.scaler_path)
 
         # For image
-        if self.params.net is not None:
-            self.transform = self._set_transforms(bit_depth=self.bit_depth, in_channel=self.in_channel)
+        if self.net is not None:
+            self.transform = self._set_transforms(self.bit_depth, self.in_channel, self.augmentation)
 
     def __len__(self) -> int:
         """
@@ -451,6 +417,46 @@ class LoadDataSet(Dataset, DataSetWidget):
             int: length of DataFrame
         """
         return len(self.df_split)
+
+    def _load_input_value_if_mlp(self, idx: int) -> Union[torch.FloatTensor, str]:
+        """
+        Load input values after converting them into tensor if MLP is used.
+
+        Args:
+            idx (int): index
+
+        Returns:
+            Union[torch.Tensor[float], str]: tensor of input values, or empty string
+        """
+        inputs_value = ''
+
+        if self.mlp is None:
+            return inputs_value
+
+        index_input_list = [self.col_index_dict[input] for input in self.input_list]
+        df_inputs = self.df_split.iloc[[idx], index_input_list]
+        inputs_value = self._normalize_inputs(self.scaler, df_inputs)
+        return inputs_value
+
+    def _load_image_if_cnn(self, idx: int) -> Union[torch.Tensor, str]:
+        """
+        Load image and convert it to tensor if any of CNN or ViT is used.
+
+        Args:
+            idx (int): index
+
+        Returns:
+            Union[torch.Tensor[float], str]: tensor converted from image, or empty string
+        """
+        image = ''
+
+        if self.net is None:
+            return image
+
+        imgpath = self.df_split.iat[idx, self.col_index_dict['imgpath']]
+        image = self._open_image(imgpath, self.bit_depth, self.in_channel)
+        image = self.transform(image)
+        return image
 
     def _load_label(self, idx: int) -> Dict[str, Union[int, float]]:
         """
@@ -489,11 +495,11 @@ class LoadDataSet(Dataset, DataSetWidget):
         group = self.df_split.iat[idx, self.col_index_dict['group']]
         imgpath = self.df_split.iat[idx, self.col_index_dict['imgpath']]
         split = self.df_split.iat[idx, self.col_index_dict['split']]
+
         inputs_value = self._load_input_value_if_mlp(idx)
         image = self._load_image_if_cnn(idx)
         label_dict = self._load_label(idx)
         periods = self._load_periods_if_deepsurv(idx)
-
         _data = {
                 'uniqID': uniqID,
                 'group': group,
@@ -667,8 +673,12 @@ def set_sampler(
     """
     shuffle = True
     drop_last = False
+    _sampler = None
 
-    if sampler == 'distributed':
+    if sampler == 'no':
+        return _sampler
+
+    elif sampler == 'distributed':
         _sampler = DistributedSampler(
                                     split_data,
                                     shuffle=shuffle,
@@ -676,7 +686,7 @@ def set_sampler(
                                     )
         return _sampler
 
-    if sampler in ['weighted', 'distweight']:
+    elif sampler in ['weighted', 'distweight']:
         assert (task == 'classification') or (task == 'deepsurv'), 'Cannot make sampler based on weight in regression.'
         assert (len(label_list) == 1), 'Cannot make sampler for multi-label.'
 
@@ -701,8 +711,8 @@ def set_sampler(
                                             drop_last=drop_last
                                             )
             return _sampler
-
-    raise ValueError(f"Invalid sampler: {sampler}.")
+    else:
+        raise ValueError(f"Invalid sampler: {sampler}.")
 
 
 def create_dataloader(
@@ -721,34 +731,19 @@ def create_dataloader(
     """
     split_data = LoadDataSet(params, split)
 
-    # sampler
-    if (params.isTrain) and (params.sampler != 'no'):
+    if params.isTrain:
         _sampler = set_sampler(
                             task=params.task,
                             label_list=params.label_list,
                             sampler=params.sampler,
                             split_data=split_data
                             )
-    else:
-        # No shuffle at test.
-        _sampler = None
-
-    # shuffle
-    if params.isTrain:
-        if _sampler is None:
-            shuffle = True
-        else:
-            # When using sampler at training,
-            # whether shuffle or not is defined by sampler.
-            shuffle = False
-    else:
-        # No shuffle at test.
-        shuffle = False
-
-    # batch size
-    if params.isTrain:
+        # Shuffle during training
+        shuffle = False if _sampler is not None else True
         batch_size = params.batch_size
     else:
+        # No shuffle during testing
+        shuffle = False
         batch_size = params.test_batch_size
 
     if len(params.gpu_ids) >= 1:
