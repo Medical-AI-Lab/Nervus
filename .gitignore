@@ -134,7 +134,7 @@ dmypy.json
 
 # Additional
 __pycache__/
-materials/
+materials
 results/
 logs/
 tmp/
@@ -143,4 +143,3 @@ parameter.csv
 Makefile
 
 .DS_Store
-
