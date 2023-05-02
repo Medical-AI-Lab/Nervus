@@ -26,22 +26,21 @@ class InputDataMixin:
     """
     Class to normalizes input data.
     """
-    def _make_scaler(self, input_list: List[str], df_train: pd.DataFrame) -> MinMaxScaler:
+    def _make_scaler(self, df_train_input: pd.DataFrame) -> MinMaxScaler:
         """
         Make scaler to normalize input data by min-max normalization with train data.
 
         Args:
-            input_list (List[str]): list of input data labels
-            df_train (pd.DataFrame): training data
+            df_train_input (pd.DataFrame): training data
 
         Returns:
             MinMaxScaler: scaler
 
         Note:
-        # Input data should be normalized with min and max of training data.
+            Input data should be normalized with min and max of training data.
         """
         scaler = MinMaxScaler()
-        _ = scaler.fit(df_train[input_list])  # fit only
+        _ = scaler.fit(df_train_input)  # fit only
         return scaler
 
     def save_scaler(self, save_path :str) -> None:
@@ -77,10 +76,10 @@ class InputDataMixin:
             torch.FloatTensor: normalized inputs
 
         Note:
-        After iloc[[idx], index_input_list], pd.DataFrame is obtained.
-        DataFrame fits the input type of self.scaler.transform.
-        However, after normalizing, the shape of inputs_value is (1, N), where N is the number of input values.
-        Since the shape (1, N) is not acceptable when forwarding, convert (1, N) -> (N,) is needed.
+            After iloc[[idx], index_input_list], pd.DataFrame is obtained.
+            DataFrame fits the input type of self.scaler.transform.
+            However, after normalizing, the shape of inputs_value is (1, N), where N is the number of input values.
+            Since the shape (1, N) is not acceptable when forwarding, convert (1, N) -> (N,) is needed.
         """
         inputs_value = scaler.transform(df_inputs).reshape(-1)   #    np.float64
         inputs_value = np.array(inputs_value, dtype=np.float32)  # -> np.float32
@@ -93,40 +92,50 @@ class XrayAugmentMultiBit:
     Augmentation for Xray photos with different bit depth.
 
     Note:
-    When 16bit images are used, only affine transformation are applied,
-    because non-affine transformations are not available for 16bit images.
+        When 16bit images are used, only affine transformation are applied,
+        because non-affine transformations are not available for 16bit images.
     """
-    def __init__(self, bit_depth : int) -> None:
+    def __init__(self, bit_depth : int = None) -> None:
         """
         Args:
             bit_depth (int): bit depth
         """
         self.bit_depth = bit_depth
-        self.all_augmentation_space = {
-                                        'Affine': transforms.RandomAffine(degrees=(-3, 3), translate=(0.02, 0.02)),
-                                        'Sharpness': transforms.RandomAdjustSharpness(sharpness_factor=2),
-                                        'Contrast': transforms.RandomAutocontrast()
-                                    }
+        self.augmentation_space = {
+                                    'Affine': transforms.RandomAffine(degrees=(-3, 3), translate=(0.02, 0.02)),
+                                    'Sharpness': transforms.RandomAdjustSharpness(sharpness_factor=2),
+                                    'Contrast': transforms.RandomAutocontrast()
+                                }
         self.affine_ops = ['Affine']
 
         if self.bit_depth == 8:
-            _trans = list(self.all_augmentation_space.values())
-            self.transform = transforms.Compose(_trans)
+            aug_trans = list(self.augmentation_space.values())
         elif self.bit_depth == 16:
-            _trans = [self.all_augmentation_space[op] for op in self.affine_ops]
-            self.transform = transforms.Compose(_trans)
+            aug_trans = [self.augmentation_space[op] for op in self.affine_ops]
         else:
             raise ValueError(f"bit_depth should be 8 or 16, but {bit_depth} is given.")
+        self.transform = transforms.Compose(aug_trans)
 
     def __call__(self, img: Tensor) -> Tensor:
         return self.transform(img)
 
     def __repr__(self) -> str:
-        return f"{self.transform.__repr__()}"
+        return self.__class__.__name__ + f"(bit_depth={self.bit_depth})"
 
 
 class TrivialAugmentWideMultiBit(transforms.TrivialAugmentWide):
-    def __init__(self, bit_depth : int) -> None:
+    """
+    TrivialAugmentWide with different bit depth.
+
+    Note:
+        When 16bit images are used, only affine transformation are applied,
+        because non-affine transformations are not available for 16bit images.
+    """
+    def __init__(self, bit_depth : int = None) -> None:
+        """
+        Args:
+            bit_depth (int): bit depth
+        """
         super().__init__()
 
         self.bit_depth = bit_depth
@@ -140,17 +149,41 @@ class TrivialAugmentWideMultiBit(transforms.TrivialAugmentWide):
                             ]
 
     def _augmentation_space(self, num_bins: int) -> Dict[str, Tuple[Tensor, bool]]:
+        """
+        Augmentation space with different bit depth.
+
+        Args:
+            num_bins (int): number of bins
+
+        Returns:
+            Dict[str, Tuple[Tensor, bool]]: augmentation space
+        """
         _aug_space = super()._augmentation_space(num_bins)
 
         if self.bit_depth == 8:
             return _aug_space
-
-        if self.bit_depth == 16:
+        elif self.bit_depth == 16:
             return {op: _aug_space[op] for op in self.affine_ops}
+        else:
+            raise ValueError(f"bit_depth should be 8 or 16, but {self.bit_depth} is given.")
+
+    def __repr__(self) -> str:
+        return self.__class__.__name__ + f"(bit_depth={self.bit_depth})"
 
 
 class RandAugmentMultiBit(transforms.RandAugment):
-    def __init__(self, bit_depth : int) -> None:
+    """
+    RandAugment with different bit depth.
+
+    Note:
+        When 16bit images are used, only affine transformation are applied,
+        because non-affine transformations are not available for 16bit images.
+    """
+    def __init__(self, bit_depth : int = None) -> None:
+        """
+        Args:
+            bit_depth (int): bit depth
+        """
         super().__init__()
 
         self.bit_depth = bit_depth
@@ -164,23 +197,41 @@ class RandAugmentMultiBit(transforms.RandAugment):
                             ]
 
     def _augmentation_space(self, num_bins: int, image_size: Tuple[int, int]) -> Dict[str, Tuple[Tensor, bool]]:
+        """
+        Augmentation space with different bit depth.
+
+        Args:
+            num_bins (int): number of bins
+            image_size (Tuple[int, int]): image size
+
+        Returns:
+            Dict[str, Tuple[Tensor, bool]]: augmentation space
+        """
         _aug_space = super()._augmentation_space(num_bins, image_size)
 
         if self.bit_depth == 8:
             return _aug_space
-
-        if self.bit_depth == 16:
+        elif self.bit_depth == 16:
             return {op: _aug_space[op] for op in self.affine_ops}
+        else:
+            raise ValueError(f"bit_depth should be 8 or 16, but {self.bit_depth} is given.")
+
+    def __repr__(self) -> str:
+        return self.__class__.__name__ + f"(bit_depth={self.bit_depth})"
 
 
 class ToTensorMultiBit:
     """
     Convert PIL image to tensor with bit depth.
     """
-    def __init__(self, bit_depth: int) -> None:
+    def __init__(self, bit_depth: int = None) -> None:
+        """
+        Args:
+            bit_depth (int): bit depth
+        """
         self.bit_depth = bit_depth
         self.default_float_dtype = torch.get_default_dtype()  # torch.float32
-        self.to_tensor = transforms.ToTensor()
+        self.totensor = transforms.ToTensor()
 
     def __call__(self, img):
         """
@@ -192,39 +243,66 @@ class ToTensorMultiBit:
         Returns:
             Tensor: tensor image
         """
-        tensor_img = self.to_tensor(img)
+        tensor_img = self.totensor(img)
 
         if  self.bit_depth == 8:
             # If img is 8bit, ToTensor() returns tensor with dtype=torch.float32 divided by 255.
-            assert (tensor_img.dtype == self.default_float_dtype), f"tensor_img.dtype should be {self.default_float_dtype}, but {tensor_img.dtype}."
+            assert tensor_img.dtype == self.default_float_dtype, f"tensor_img.dtype should be {self.default_float_dtype}, but {tensor_img.dtype}."
             return tensor_img
-
-        if self.bit_depth == 16:
+        elif self.bit_depth == 16:
             # If img is 16bit, ToTensor() returns tensor with dtype=torch.int32, but never divided by 65535.
-            assert (tensor_img.dtype == torch.int32), f"tensor_img.dtype should be torch.int32, but {tensor_img.dtype}."
+            assert tensor_img.dtype == torch.int32, f"tensor_img.dtype should be torch.int32, but {tensor_img.dtype}."
             return tensor_img.to(dtype=self.default_float_dtype).div(65535)  # torch.int32 -> torch.float32
+        else:
+            raise ValueError(f"bit_depth should be 8 or 16, but {self.bit_depth} is given.")
 
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}()"
+        return self.__class__.__name__ + f"(bit_depth={self.bit_depth})"
 
 
 class ImageMixin:
     """
     Class to normalize and transform image.
     """
-    def _open_image(
-                    self,
-                    imgpath: str,
-                    bit_depth: int,
-                    in_channel: int
-                    ) -> Image:
+    def _set_expected_mode(
+                            self,
+                            bit_depth: int,
+                            in_channel: int
+                            ) -> str:
+        """
+        Set expected mode.
+
+        Args:
+            bit_depth (int): bit depth
+            in_channel (int): number of channels
+
+        Returns:
+            str: expected mode
+        """
+        if bit_depth == 8:
+            if in_channel == 1:
+                expected_mode = 'L'
+            elif in_channel == 3:
+                expected_mode = 'RGB'
+            else:
+                raise ValueError(f"Not supported in_channel value: {in_channel}.")
+
+        elif bit_depth == 16:
+            if in_channel != 1:
+                raise ValueError(f"Not supported in_channel value: {in_channel}.")
+            expected_mode = 'I'
+
+        else:
+            raise ValueError(f"Not supported bit_depth value: {bit_depth}.")
+
+        return expected_mode
+
+    def _open_image(self, imgpath: str) -> Image:
         """
         Open image.
 
         Args:
             imgpath (str): path to image
-            bit_depth (int): bit depth
-            in_channel (int): number of channels
 
         Returns:
             Image: PIL image
@@ -233,24 +311,9 @@ class ImageMixin:
             PIL doesn't support multi-channel 16-bit/channel images.
         """
         image = Image.open(imgpath)
-
-        # Check bit_depth and in_channel
-        if bit_depth == 8:
-            if in_channel == 1 and image.mode != 'L':
-                raise ValueError(f"Not 8-bit grayscale image: {imgpath}.")
-            elif in_channel == 3 and image.mode != 'RGB':
-                raise ValueError(f"Not 8-bit RGB image: {imgpath}.")
-            return image  # When bit_depth == 8, image.mode is 'L' or 'RGB'.
-
-        elif bit_depth == 16:
-            if in_channel == 1 and image.mode != 'I':
-                raise ValueError(f"Not 16-bit grayscale image: {imgpath}.")
-            elif in_channel == 3:
-                raise ValueError(f"Not supported bit_depth and in_channel: bit_depth={bit_depth}, in_channel={in_channel}.")
-            return image  # When bit_depth == 16 and image.mode == 'I', image is 16-bit grayscale image.
-
-        else:
-            raise ValueError(f"Not supported bit_depth: {bit_depth}.")
+        if image.mode != self.expected_mode:
+            raise ValueError(f"image.mode should be {self.expected_mode}, but {image.mode}.")
+        return image
 
     def _set_augmentations(self, bit_depth: int, in_channel: int, augmentation: str) -> List:
         """
@@ -274,13 +337,16 @@ class ImageMixin:
 
         if self.isTrain and (self.split == 'train'):
             if augmentation == 'xrayaug':
-                _augmentations.append(XrayAugmentMultiBit(bit_depth))
+                _augmentations.append(XrayAugmentMultiBit(bit_depth=bit_depth))
 
             elif augmentation == 'trivialaugwide':
-                _augmentations.append(TrivialAugmentWideMultiBit(bit_depth))
+                _augmentations.append(TrivialAugmentWideMultiBit(bit_depth=bit_depth))
 
             elif augmentation == 'randaug':
-                _augmentations.append(RandAugmentMultiBit(bit_depth))
+                _augmentations.append(RandAugmentMultiBit(bit_depth=bit_depth))
+
+            else:
+                raise ValueError(f"Unknown augmentation method: {augmentation}")
 
         return _augmentations
 
@@ -303,8 +369,12 @@ class ImageMixin:
             # transforms.Normalize accepts only Tensor.
             if in_channel == 1:
                 _transform.append(transforms.Normalize(mean=(0.5, ), std=(0.5, )))
+
             elif in_channel == 3:
                 _transform.append(transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]))
+
+            else:
+                raise ValueError(f"Not supported in_channel value: {in_channel}.")
 
         return _transform
 
@@ -320,12 +390,12 @@ class ImageMixin:
         Returns:
             list of transforms: image normalization
         """
-        _augmentations = self._set_augmentations(bit_depth, in_channel, augmentation)
-        _totensor = [ToTensorMultiBit(bit_depth)]
-        _normalize = self._set_normalize(in_channel)
-        _transforms = _augmentations + _totensor  + _normalize
-        _transforms = transforms.Compose(_transforms)
-        return _transforms
+        augmentations = self._set_augmentations(bit_depth, in_channel, augmentation)
+        totensor = [ToTensorMultiBit(bit_depth=bit_depth)]
+        normalize = self._set_normalize(in_channel)
+        transforms_list = augmentations + totensor  + normalize
+        composed_transforms = transforms.Compose(transforms_list)
+        return composed_transforms
 
 
 class DeepSurvMixin:
@@ -401,7 +471,7 @@ class LoadDataSet(Dataset, DataSetWidget):
             if self.isTrain:
                 # Input data should be normalized with min and max of training data.
                 df_train = self.df_source[self.df_source['split'] == 'train']
-                self.scaler = self._make_scaler(self.input_list, df_train)
+                self.scaler = self._make_scaler(df_train[self.input_list])
             else:
                 # load scaler used at training.
                 assert hasattr(self.params, 'scaler_path'), f"scaler path is not defined."
@@ -409,6 +479,7 @@ class LoadDataSet(Dataset, DataSetWidget):
 
         # For image
         if self.net is not None:
+            self.expected_mode = self._set_expected_mode(self.bit_depth, self.in_channel)
             self.transform = self._set_transforms(self.bit_depth, self.in_channel, self.augmentation)
 
     def __len__(self) -> int:
@@ -456,7 +527,7 @@ class LoadDataSet(Dataset, DataSetWidget):
             return image
 
         imgpath = self.df_split.iat[idx, self.col_index_dict['imgpath']]
-        image = self._open_image(imgpath, self.bit_depth, self.in_channel)
+        image = self._open_image(imgpath)
         image = self.transform(image)
         return image
 
@@ -474,13 +545,10 @@ class LoadDataSet(Dataset, DataSetWidget):
         """
         # For checking if columns of labels exist when used csv for external dataset.
         label_list_in_split = list(self.df_split.columns[self.df_split.columns.str.startswith('label')])
-        label_dict = dict()
+        label_dict = {}
         if label_list_in_split != []:
             for label_name in self.label_list:
                 label_dict[label_name] = self.df_split.iat[idx, self.col_index_dict[label_name]]
-        else:
-            # no label
-            pass
         return label_dict
 
     def __getitem__(self, idx: int) -> Dict:
