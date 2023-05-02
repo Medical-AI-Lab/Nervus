@@ -50,7 +50,7 @@ Note:
 ## Model development
 For training and internal validation(tuning),
 
-`python train.py --task classification --csvpath datasets/docs/trial.csv --model ResNet18 --criterion CEL --optimizer Adam --epochs 50 --batch_size 32 --sampler distributed --augmentation randaug --pretrained True --in_channel 1 --save_weight_policy best --gpu_ids 0-1-2-3`
+`python train.py --task classification --csvpath datasets/docs/trial.csv --model ResNet18 --criterion CEL --optimizer Adam --epochs 50 --batch_size 32 --sampler distributed --augmentation randaug --pretrained True --bit_depth 8 --in_channel 1 --save_weight_policy best --gpu_ids 0-1-2-3`
 
 ### Arguments
 - task: task name
@@ -79,10 +79,12 @@ Note that weighted and distweight only work for two-class classification task fo
 - augmentation: increase the amount of data by slightly modified copies or created synthetic.
   - example: trivialaugwide, randaug, and no.
 - pretrained: specify True if pretrained model of CNN or ViT is used, otherwise False.
-- in_channel: specify the channel of when image is handled, or any of 1 channel(grayscale) and 3 channel(RGB).
+- bit_depth: specify bit depth of image, or any of 8 and 16.
+- in_channel: specify the channel when image is handled, or any of 1 channel(grayscale) and 3 channel(RGB).
   - example:
     - 1 channel(grayscale): 1
-    - 3 channel(RGB): 3
+    - 3 channel(RGB): 3  
+Note that 16bit, 1ch image is not supported for now.
 - save_weight_policy: specify when you save weights.
   - example:
     - Save the lowest validation loss: best
