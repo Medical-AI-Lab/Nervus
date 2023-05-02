@@ -84,7 +84,7 @@ Note that weighted and distweight only work for two-class classification task fo
   - example:
     - 1 channel(grayscale): 1
     - 3 channel(RGB): 3  
-Note that 16bit, 1ch image is not supported for now.
+Note that 16bit, 3ch image is not supported for now.
 - save_weight_policy: specify when you save weights.
   - example:
     - Save the lowest validation loss: best
