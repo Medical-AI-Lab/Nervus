@@ -79,7 +79,9 @@ Note that weighted and distweight only work for two-class classification task fo
 - augmentation: increase the amount of data by slightly modified copies or created synthetic.
   - example: trivialaugwide, randaug, and no.
 - pretrained: specify True if pretrained model of CNN or ViT is used, otherwise False.
-- bit_depth: specify bit depth of image, or any of 8 and 16.
+- bit_depth: specify bit depth of image, or any of 8 bit and 16 bit.
+  - 8 bit: 8
+  - 16bit: 16
 - in_channel: specify the channel when image is handled, or any of 1 channel(grayscale) and 3 channel(RGB).
   - example:
     - 1 channel(grayscale): 1
