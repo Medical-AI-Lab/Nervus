@@ -110,6 +110,9 @@ For test trained model,
 - csvpath: csv filepath name contains test data.
 - weight_dir: path to a directory which contains weights
 
+## For many trials
+If you need many trials, use `work_all.sh`. In this case, `parameter.csv` must be prepared. Examples are shown in this repository.
+
 
 # Tutorial
 Tutorial for Nervus library is available on Google Colaboratory.
