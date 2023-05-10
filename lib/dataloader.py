@@ -312,7 +312,7 @@ class ImageMixin:
         """
         image = Image.open(imgpath)
         if image.mode != self.expected_mode:
-            raise ValueError(f"image.mode should be {self.expected_mode}, but {image.mode}.")
+            raise ValueError(f"image.mode should be {self.expected_mode} as specified with bit_depth and in_channel, but {image.mode}.")
         return image
 
     def _set_augmentations(self, bit_depth: int, in_channel: int, augmentation: str) -> List:
