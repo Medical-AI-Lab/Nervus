@@ -35,13 +35,12 @@ def train(
         args_model = None,
         args_dataloader = None,
         args_conf = None,
-        on_distributed = None
+        isDistributed = None
         ):
 
     # Initialize the process group
     setup(rank=rank, world_size=world_size, on_gpu=(len(args_conf.gpu_ids) >= 1))
 
-    isDistributed = on_distributed
     isMaster = (rank == 0)  # rank 0 is the master process.
     if isMaster:
         isMLP = args_model.mlp is not None
@@ -133,7 +132,7 @@ def main(args):
     args_save = args['args_save']
     print_parameter(args_print)
 
-    on_distributed = (len(args_conf.gpu_ids) >= 1)
+    isDistributed = (len(args_conf.gpu_ids) >= 1)
     world_size = set_world_size(args_conf.gpu_ids)
 
     mp.spawn(
@@ -143,7 +142,7 @@ def main(args):
                 args_model,
                 args_dataloader,
                 args_conf,
-                on_distributed
+                isDistributed
                 ),
             nprocs=world_size,
             join=True

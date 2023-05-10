@@ -50,7 +50,7 @@ Note:
 ## Model development
 For training and internal validation(tuning),
 
-`python train.py --task classification --csvpath datasets/docs/trial.csv --model ResNet18 --criterion CEL --optimizer Adam --epochs 50 --batch_size 32 --sampler distributed --augmentation randaug --pretrained True --in_channel 1 --save_weight_policy best --gpu_ids 0-1-2-3`
+`python train.py --task classification --csvpath datasets/docs/trial.csv --model ResNet18 --criterion CEL --optimizer Adam --epochs 50 --batch_size 32 --sampler distributed --augmentation randaug --pretrained True --bit_depth 8 --in_channel 1 --save_weight_policy best --gpu_ids 0-1-2-3`
 
 ### Arguments
 - task: task name
@@ -77,12 +77,18 @@ For training and internal validation(tuning),
     - when using GPUs: distributed, distweight  
 Note that weighted and distweight only work for two-class classification task for now.
 - augmentation: increase the amount of data by slightly modified copies or created synthetic.
-  - example: trivialaugwide, randaug, and no.
+  - example: trivialaugwide, randaug, and no.  
+Note that non-affine transformation is not applied when using 16bit image for now, because such transformation is not available for 16bit image.
 - pretrained: specify True if pretrained model of CNN or ViT is used, otherwise False.
-- in_channel: specify the channel of when image is handled, or any of 1 channel(grayscale) and 3 channel(RGB).
+- bit_depth: specify the bit depth of image, or any of 8 bit and 16 bit.
+  - example
+    - 8 bit: 8
+    - 16 bit: 16
+- in_channel: specify the channel when image is handled, or any of 1 channel(grayscale) and 3 channel(RGB).
   - example:
     - 1 channel(grayscale): 1
-    - 3 channel(RGB): 3
+    - 3 channel(RGB): 3  
+Note that 16bit, 3ch image is not supported for now.
 - save_weight_policy: specify when you save weights.
   - example:
     - Save the lowest validation loss: best
@@ -103,9 +109,6 @@ For test trained model,
 ### Arguments
 - csvpath: csv filepath name contains test data.
 - weight_dir: path to a directory which contains weights
-
-## For many trials
-If you need many trials, use `work_all.sh`. In this case, `parameter.csv` must be prepared. Examples are shown in this repository.
 
 
 # Tutorial
