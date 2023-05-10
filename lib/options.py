@@ -54,7 +54,7 @@ class Options:
             self.parser.add_argument('--bit_depth',       type=int, required=True, choices=[8, 16], help='bit depth of input image')
             self.parser.add_argument('--in_channel',      type=int, required=True, choices=[1, 3],  help='channel of input image')
             self.parser.add_argument('--vit_image_size',  type=int, default=0,                      help='input image size for ViT. Set 0 if not used ViT (Default: 0)')
-            self.parser.add_argument('--augmentation',    type=str,  default='no', choices=['xrayaug', 'trivialaugwide', 'randaug', 'no'], help='kind of augmentation')
+            self.parser.add_argument('--augmentation',    type=str, default='no',  choices=['xrayaug', 'trivialaugwide', 'randaug', 'no'], help='kind of augmentation')
             self.parser.add_argument('--normalize_image', type=str,                choices=['yes', 'no'], default='yes', help='image normalization: yes, no (Default: yes)')
 
             # Sampler
@@ -566,7 +566,6 @@ def _train_parse(args: argparse.Namespace) -> Dict[str, ParamSet]:
     """
     args.gpu_ids = _parse_gpu_ids(args.gpu_ids)
 
-    #print('Now, Distributed learning on CPU is supposed to be OK.\n')
     # Check validity of sampler
     _check_if_valid_sampler(args.sampler, args.gpu_ids)
 
