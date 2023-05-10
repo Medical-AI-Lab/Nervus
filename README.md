@@ -77,11 +77,13 @@ For training and internal validation(tuning),
     - when using GPUs: distributed, distweight  
 Note that weighted and distweight only work for two-class classification task for now.
 - augmentation: increase the amount of data by slightly modified copies or created synthetic.
-  - example: trivialaugwide, randaug, and no.
+  - example: trivialaugwide, randaug, and no.  
+Note that non-affine transformation is not applied when using 16bit image for now, because such transformation is not available for 16bit image.
 - pretrained: specify True if pretrained model of CNN or ViT is used, otherwise False.
-- bit_depth: specify bit depth of image, or any of 8 bit and 16 bit.
-  - 8 bit: 8
-  - 16bit: 16
+- bit_depth: specify the bit depth of image, or any of 8 bit and 16 bit.
+  - example
+    - 8 bit: 8
+    - 16 bit: 16
 - in_channel: specify the channel when image is handled, or any of 1 channel(grayscale) and 3 channel(RGB).
   - example:
     - 1 channel(grayscale): 1
