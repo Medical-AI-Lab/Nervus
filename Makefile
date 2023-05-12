@@ -8,6 +8,7 @@
 # BATCH_SIZE = 64
 # SAMPLER = weighted | distributed | distweight | no
 # AUGMENTATION = xrayaug | trivialaugwide | randaug | no
+# BIT_DEPTH = 8 | 16
 # IN_CHANNEL = 1 | 3
 # PRETRAINED = True | False
 # SAVE_WEIGHT_POLICY = best | each
@@ -16,18 +17,15 @@
 # TEST_GPU_IDS = cpu | 0-1-2
 
 TASK := classification
-
-#CSVPATH := materials/dogcat/docs/tutorial_src_dog.csv
-CSVPATH := materials/covid/docs/cla_single_output_bin_class_128_int.csv
-
-MODEL := ResNet18 #MLP+ResNet18
+CSVPATH := materials/dogcat/docs/tutorial_src_dog.csv
+MODEL := ResNet18
 CRITERION := CEL
 OPTIMIZER := Adam
-EPOCHS := 30 #50
+EPOCHS := 50
 BATCH_SIZE := 64
-SAMPLER := weighted  #no
-AUGMENTATION := no #xrayaug #trivialaugwide #randaug
-BIT_DEPTH := 8 #16 #! Added
+SAMPLER := no
+AUGMENTATION := no
+BIT_DEPTH := 8
 IN_CHANNEL := 1
 PRETRAINED := False
 SAVE_WEIGHT_POLICY := each
