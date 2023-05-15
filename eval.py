@@ -105,7 +105,7 @@ def _eval_parse(args: argparse.Namespace) -> argparse.Namespace:
         args.likelihood_paths = [Path(args.likelihood)]
         _likelihood_dir = str(Path(args.likelihood).parents[0])
     else:
-        raise ValueError(f"Invalid likelihood path: {args.likelihood}")
+        raise ValueError(f"Invalid likelihood path: {args.likelihood}.")
 
     # Get datetime of test
     _datetime = Path(_likelihood_dir).parents[0].name

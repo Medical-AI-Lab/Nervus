@@ -623,7 +623,7 @@ def _test_parse(args: argparse.Namespace) -> Dict[str, ParamSet]:
         args.weight_paths = [args.weight]
         _weight_dir = str(Path(args.weight).parents[0])
     else:
-        raise ValueError(f"Invalid weight path: {args.weight}")
+        raise ValueError(f"Invalid weight path: {args.weight}.")
 
     # Get datetime at training
     _train_datetime_dir = Path(_weight_dir).parents[0]
