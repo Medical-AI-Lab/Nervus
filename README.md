@@ -104,11 +104,11 @@ Note that 16bit, 3ch image is not supported for now.
 ## Model test
 For test trained model,
 
-`python test.py --csvpath datasets/docs/trial.csv --weight_dir results/trial/trials/YYYY-MM-DD-HH-mm-ss/weights --gpu_ids 0-1-2-3`
+`python test.py --csvpath datasets/docs/trial.csv --weight results/trial/trials/YYYY-MM-DD-HH-mm-ss/weights --gpu_ids 0-1-2-3`
 
 ### Arguments
 - csvpath: csv filepath name contains test data.
-- weight_dir: path to a directory which contains weights
+- weight: path to a directory which contains weights, or path to a weight file.
 
 
 # Tutorial
