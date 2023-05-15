@@ -252,19 +252,19 @@ def _get_latest_weight_dir() -> str:
 
 def _collect_weight_paths(weight_dir: str) -> List[str]:
     """
-    Return list of weight paths.
+    Return list of weight paths in weight_dir.
 
     Args:
         weight_dir (str): path to directory of weights
 
     Returns:
-        List[str]: list of weight paths
+        List[str]: list of weight paths in weight_dir
     """
     _weight_paths = list(Path(weight_dir).glob('*.pt'))
     assert _weight_paths != [], f"No weight in {weight_dir}."
     _weight_paths.sort(key=lambda path: path.stat().st_mtime)
-    _weight_paths = [str(weight_path) for weight_path in _weight_paths]
-    return _weight_paths
+    weight_paths = [str(weight_path) for weight_path in _weight_paths]
+    return weight_paths
 
 
 class ParamTable:
