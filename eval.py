@@ -93,7 +93,7 @@ def _eval_parse(args: argparse.Namespace) -> argparse.Namespace:
     Returns:
         argparse.Namespace: parsed arguments
     """
-    # Collect weight paths
+    # Collect likelihood paths
     if args.likelihood is None:
         args.likelihood = _get_latest_likelihood_dir()
         args.likelihood_paths = _collect_likelihood_paths(args.likelihood)
