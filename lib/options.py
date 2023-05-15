@@ -65,7 +65,7 @@ class Options:
                                                             help='Save weight policy: best, or each(ie. save each time loss decreases when multi-label output) (Default: best)')
 
         else:
-            # Directory of weight at training
+            # Weight at training
             self.parser.add_argument('--weight', type=str, default=None, help='path to a directory which contains weights, or path to a weight file. If None, the latest directory is selected automatically (Default: None)')
 
             # Test bash size
