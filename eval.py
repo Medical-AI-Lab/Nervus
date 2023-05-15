@@ -20,53 +20,52 @@ class EvalOptions:
         Options for evaluation.
         """
         self.parser = argparse.ArgumentParser(description='Options for evaluation')
-        self.parser.add_argument('--likelihood_dir', type=str, default=None, help='Directory of likelihoods (Default: None)')
+        self.parser.add_argument('--likelihood', type=str, default=None,
+                                help='path to a directory which contains likelihoods, or path to a likelihood file. If None, the latest directory is selected automatically. (Default: None)')
         self.args = self.parser.parse_args()
 
-
-    def _get_latest_likelihood_dir(self) -> str:
+    def get_args(self) -> argparse.Namespace:
         """
-        Return the latest directory of likelihood.
+        Return arguments.
 
         Returns:
-            str: Directory of likelihood
+            argparse.Namespace: arguments
         """
-        _likelihood_dirs = list(Path('results').glob('*/trials/*/likelihoods'))
-        assert (_likelihood_dirs != []), 'No directory of likelihood.'
-        _likelihood_dir = max(_likelihood_dirs, key=lambda likelihood_dir: Path(likelihood_dir).stat().st_mtime)
-        return str(_likelihood_dir)
-
-    def parse(self) -> None:
-        """
-        Parse options.
-        """
-        if self.args.likelihood_dir is None:
-            _likelihood_dir = self._get_latest_likelihood_dir()
-            setattr(self.args, 'likelihood_dir', _likelihood_dir)
-
-        _datetime = Path(self.args.likelihood_dir).parents[0].name
-        setattr(self.args, 'datetime',  _datetime)
+        return self.args
 
 
-def collect_likelihood(likelihood_dir: str) -> List[Path]:
+def _get_latest_likelihood_dir() -> str:
     """
-    Return list of likelihood paths.
-
-    Args:
-        datetime_dir (str): directory of datetime including likelihood
+    Return path to the latest directory of likelihoods.
 
     Returns:
-        List[Path]: list of likelihood paths
+        str: path to the latest directory of likelihoods
     """
-    likelihood_paths = list(Path(likelihood_dir).glob('*.csv'))
-    assert likelihood_paths != [], f"No likelihood in {likelihood_dir}."
-    likelihood_paths.sort(key=lambda path: path.stat().st_mtime)
-    return likelihood_paths
+    _likelihood_dirs = list(Path('results').glob('*/trials/*/likelihoods'))
+    assert (_likelihood_dirs != []), 'No directory of likelihood.'
+    _likelihood_dir = max(_likelihood_dirs, key=lambda likelihood_dir: Path(likelihood_dir).stat().st_mtime)
+    return str(_likelihood_dir)
 
 
-def check_task(datetime_name: str) -> str:
+def _collect_likelihood_paths(likelihood_dir: str) -> List[Path]:
     """
-    Return task done on datetime_name
+    Return list of paths to likelihoods in likelihood_dir.
+
+    Args:
+        likelihood_dir (str): path to directory of likelihoods
+
+    Returns:
+        List[Path]: list of paths to likelihoods in likelihood_dir
+    """
+    _likelihood_paths = list(Path(likelihood_dir).glob('*.csv'))
+    assert _likelihood_paths != [], f"No likelihood in {likelihood_dir}."
+    _likelihood_paths.sort(key=lambda path: path.stat().st_mtime)
+    return _likelihood_paths
+
+
+def _check_task(datetime_name: str) -> str:
+    """
+    Return task done on datetime_name.
 
     Args:
         datetime_dir (str): directory of datetime at training
@@ -84,28 +83,62 @@ def check_task(datetime_name: str) -> str:
     return task
 
 
-def check_eval_options() -> EvalOptions:
+def _eval_parse(args: argparse.Namespace) -> argparse.Namespace:
     """
-    Parse options for evaluation.
+    Parse parameters required at eval.
+
+    Args:
+        args (argparse.Namespace): arguments
 
     Returns:
-        EvalOptions: options
+        argparse.Namespace: parsed arguments
+    """
+    # Collect weight paths
+    if args.likelihood is None:
+        args.likelihood = _get_latest_likelihood_dir()
+        args.likelihood_paths = _collect_likelihood_paths(args.likelihood)
+        _likelihood_dir = str(args.likelihood)
+    elif Path.is_dir(Path(args.likelihood)):
+        args.likelihood_paths = _collect_likelihood_paths(args.likelihood)
+        _likelihood_dir = str(args.likelihood)
+    elif Path.is_file(Path(args.likelihood)):
+        args.likelihood_paths = [Path(args.likelihood)]
+        _likelihood_dir = str(Path(args.likelihood).parents[0])
+    else:
+        raise ValueError(f"Invalid likelihood path: {args.likelihood}.")
+
+    # Get datetime of test
+    _datetime = Path(_likelihood_dir).parents[0].name
+    args.datetime = _datetime
+
+    # Check task
+    args.task = _check_task(args.datetime)
+
+    return args
+
+
+def set_eval_options() -> argparse.Namespace:
+    """
+    Set options for evaluation.
+
+    Returns:
+        argparse.Namespace: arguments
     """
     opt = EvalOptions()
-    opt.parse()
-    return opt
+    _args = opt.get_args()
+    args = _eval_parse(_args)
+    return args
 
 
-def main(opt):
-    args = opt.args
-    task = check_task(args.datetime)
-    task_eval = set_eval(task)
-    likelihood_paths = collect_likelihood(args.likelihood_dir)
+def main(args):
+    task_eval = set_eval(args.task)
 
-    logger.info(f"Calculating metrics of {task} for {args.likelihood_dir}.\n")
+    logger.info(f"Metrics of {args.task}.\n")
 
-    for likelihood_path in likelihood_paths:
-        logger.info(likelihood_path.name)
+    for likelihood_path in args.likelihood_paths:
+        logger.info(f"Calculating ...")
+        logger.info(f"Load likelihood: {likelihood_path}")
+
         task_eval.make_metrics(likelihood_path)
         logger.info('\n')
 
@@ -116,8 +149,8 @@ if __name__ == '__main__':
     try:
         logger.info('\nEvaluation started.\n')
 
-        opt = check_eval_options()
-        main(opt)
+        args = set_eval_options()
+        main(args)
 
     except Exception as e:
         logger.error(e, exc_info=True)

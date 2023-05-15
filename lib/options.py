@@ -65,11 +65,11 @@ class Options:
                                                             help='Save weight policy: best, or each(ie. save each time loss decreases when multi-label output) (Default: best)')
 
         else:
-            # Directory of weight at training
-            self.parser.add_argument('--weight_dir',      type=str,  default=None, help='directory of weight to be used when test. If None, the latest one is selected')
+            # Weight at training
+            self.parser.add_argument('--weight', type=str, default=None, help='path to a directory which contains weights, or path to a weight file. If None, the latest directory is selected automatically (Default: None)')
 
             # Test bash size
-            self.parser.add_argument('--test_batch_size', type=int,  default=1, metavar='N', help='batch size for test (Default: 1)')
+            self.parser.add_argument('--test_batch_size', type=int, default=1, metavar='N', help='batch size for test (Default: 1)')
 
             # Splits for test
             self.parser.add_argument('--test_splits',     type=str, default='train-val-test', help='splits for test: e.g. test, val-test, train-val-test. (Default: train-val-test)')
@@ -252,19 +252,19 @@ def _get_latest_weight_dir() -> str:
 
 def _collect_weight_paths(weight_dir: str) -> List[str]:
     """
-    Return list of weight paths.
+    Return list of weight paths in weight_dir.
 
     Args:
         weight_dir (str): path to directory of weights
 
     Returns:
-        List[str]: list of weight paths
+        List[str]: list of weight paths in weight_dir
     """
     _weight_paths = list(Path(weight_dir).glob('*.pt'))
     assert _weight_paths != [], f"No weight in {weight_dir}."
     _weight_paths.sort(key=lambda path: path.stat().st_mtime)
-    _weight_paths = [str(weight_path) for weight_path in _weight_paths]
-    return _weight_paths
+    weight_paths = [str(weight_path) for weight_path in _weight_paths]
+    return weight_paths
 
 
 class ParamTable:
@@ -308,7 +308,7 @@ class ParamTable:
                 'mlp': [mo, dl],
                 'net': [mo, dl],
 
-                'weight_dir': [tsc, tsp],
+                'weight': [tsp],
                 'weight_paths': [tsc],
 
                 'criterion': [trc, sa, trp],
@@ -612,12 +612,21 @@ def _test_parse(args: argparse.Namespace) -> Dict[str, ParamSet]:
     args.gpu_ids = _parse_gpu_ids(args.gpu_ids)
 
     # Collect weight paths
-    if args.weight_dir is None:
-        args.weight_dir = _get_latest_weight_dir()
-    args.weight_paths = _collect_weight_paths(args.weight_dir)
+    if args.weight is None:
+        args.weight = _get_latest_weight_dir()
+        args.weight_paths = _collect_weight_paths(args.weight)
+        _weight_dir = args.weight
+    elif Path.is_dir(Path(args.weight)):
+        args.weight_paths = _collect_weight_paths(args.weight)
+        _weight_dir = args.weight
+    elif Path.is_file(Path(args.weight)):
+        args.weight_paths = [args.weight]
+        _weight_dir = str(Path(args.weight).parents[0])
+    else:
+        raise ValueError(f"Invalid weight path: {args.weight}.")
 
     # Get datetime at training
-    _train_datetime_dir = Path(args.weight_dir).parents[0]
+    _train_datetime_dir = Path(_weight_dir).parents[0]
     _train_datetime = _train_datetime_dir.name
 
     args.save_datetime_dir = str(Path('results', args.project, 'trials', _train_datetime))
