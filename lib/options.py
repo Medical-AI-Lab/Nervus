@@ -66,7 +66,7 @@ class Options:
 
         else:
             # Directory of weight at training
-            self.parser.add_argument('--weight', type=str, default=None, help='directory of weights or a weight file used when test. If None, the latest directory is selected automatically (Default: None)')
+            self.parser.add_argument('--weight', type=str, default=None, help='path to a directory which contains weights, or path to a weight file. If None, the latest directory is selected automatically (Default: None)')
 
             # Test bash size
             self.parser.add_argument('--test_batch_size', type=int, default=1, metavar='N', help='batch size for test (Default: 1)')
@@ -308,7 +308,7 @@ class ParamTable:
                 'mlp': [mo, dl],
                 'net': [mo, dl],
 
-                'weight': [tsc, tsp],
+                'weight': [tsp],
                 'weight_paths': [tsc],
 
                 'criterion': [trc, sa, trp],
