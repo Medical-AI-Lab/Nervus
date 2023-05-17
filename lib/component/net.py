@@ -6,7 +6,12 @@ import torch
 import torch.nn as nn
 from torchvision.ops import MLP
 import torchvision.models as models
-from typing import Dict, Optional
+from typing import Dict, Optional, Union
+
+
+# dynamic
+# from importlib import import_module
+# m = getattr(models, 'resnet18')
 
 
 class BaseNet:
@@ -14,28 +19,28 @@ class BaseNet:
     Class to construct network
     """
     cnn = {
-            'ResNet18': models.resnet18,
-            'ResNet': models.resnet50,
-            'DenseNet': models.densenet161,
-            'EfficientNetB0': models.efficientnet_b0,
-            'EfficientNetB2': models.efficientnet_b2,
-            'EfficientNetB4': models.efficientnet_b4,
-            'EfficientNetB6': models.efficientnet_b6,
-            'EfficientNetV2s': models.efficientnet_v2_s,
-            'EfficientNetV2m': models.efficientnet_v2_m,
-            'EfficientNetV2l': models.efficientnet_v2_l,
-            'ConvNeXtTiny': models.convnext_tiny,
-            'ConvNeXtSmall': models.convnext_small,
-            'ConvNeXtBase': models.convnext_base,
-            'ConvNeXtLarge': models.convnext_large
+            'ResNet18': 'resnet18',
+            'ResNet': 'resnet50',
+            'DenseNet': 'densenet161',
+            'EfficientNetB0': 'efficientnet_b0',
+            'EfficientNetB2': 'efficientnet_b2',
+            'EfficientNetB4': 'efficientnet_b4',
+            'EfficientNetB6': 'efficientnet_b6',
+            'EfficientNetV2s': 'efficientnet_v2_s',
+            'EfficientNetV2m': 'efficientnet_v2_m',
+            'EfficientNetV2l': 'efficientnet_v2_l',
+            'ConvNeXtTiny': 'convnext_tiny',
+            'ConvNeXtSmall': 'convnext_small',
+            'ConvNeXtBase': 'convnext_base',
+            'ConvNeXtLarge': 'convnext_large'
             }
 
     vit = {
-            'ViTb16': models.vit_b_16,
-            'ViTb32': models.vit_b_32,
-            'ViTl16': models.vit_l_16,
-            'ViTl32': models.vit_l_32,
-            'ViTH14': models.vit_h_14
+            'ViTb16': 'vit_b_16',
+            'ViTb32': 'vit_b_32',
+            'ViTl16': 'vit_l_16',
+            'ViTl32': 'vit_l_32',
+            'ViTH14': 'vit_h_14'
             }
 
     net = {**cnn, **vit}
@@ -233,8 +238,8 @@ class BaseNet:
         Returns:
             nn.Module: classifier of network
         """
-        net = cls.net[net_name]()
-        classifier = getattr(net, cls.classifier[net_name])
+        _net = getattr(models, cls.net[net_name])
+        classifier = getattr(_net(), cls.classifier[net_name])
         return classifier
 
     @classmethod
@@ -319,27 +324,23 @@ class BaseNet:
         classifier.head.in_features
         """
         if net_name == 'MLP':
-            in_features = cls.mlp_config['hidden_channels'][-1]
+            return cls.mlp_config['hidden_channels'][-1]
 
-        elif net_name.startswith('ResNet') or net_name.startswith('DenseNet'):
-            base_classifier = cls.get_classifier(net_name)
-            in_features = base_classifier.in_features
+        base_classifier = cls.get_classifier(net_name)
 
-        elif net_name.startswith('EfficientNet'):
-            base_classifier = cls.get_classifier(net_name)
-            in_features = base_classifier[1].in_features
+        if net_name.startswith('ResNet') or net_name.startswith('DenseNet'):
+            return base_classifier.in_features
 
-        elif net_name.startswith('ConvNeXt'):
-            base_classifier = cls.get_classifier(net_name)
-            in_features = base_classifier[2].in_features
+        if net_name.startswith('EfficientNet'):
+            return base_classifier[1].in_features
 
-        elif net_name.startswith('ViT'):
-            base_classifier = cls.get_classifier(net_name)
-            in_features = base_classifier.head.in_features
+        if net_name.startswith('ConvNeXt'):
+            return base_classifier[2].in_features
 
-        else:
-            raise ValueError(f"No specified net: {net_name}.")
-        return in_features
+        if net_name.startswith('ViT'):
+            return base_classifier.head.in_features
+
+        raise ValueError(f"No specified net: {net_name}.")
 
     @classmethod
     def construct_aux_module(cls, net_name: str) -> nn.Sequential:
@@ -351,7 +352,7 @@ class BaseNet:
         Needs to align shape of the feature extractor when ConvNeXt
         (classifier):
         Sequential(
-            (0): LayerNorm2d((768,), eps=1e-06, elementwise_affine=True)
+            (0): LayerNorm2d((768,), eps=1e-06, element-wise_affine=True)
             (1): Flatten(start_dim=1, end_dim=-1)
             (2): Linear(in_features=768, out_features=1000, bias=True)
         )
@@ -372,39 +373,6 @@ class BaseNet:
                                 flatten
                                 )
         return aux_module
-
-    @classmethod
-    def get_last_extractor(cls, net: nn.Module = None, mlp: str = None, net_name: str = None) -> nn.Module:
-        """
-        Return the last extractor of network.
-        This is for Grad-CAM.
-        net should be one loaded weight.
-
-        Args:
-            net (nn.Module): network itself
-            mlp (str): 'MLP', otherwise None
-            net_name (str): network name
-
-        Returns:
-            nn.Module: last extractor of network
-        """
-        assert (net_name is not None), f"Network does not contain CNN or ViT: mlp={mlp}, net={net_name}."
-
-        _extractor = net.extractor_net
-
-        if net_name.startswith('ResNet'):
-            last_extractor = _extractor.layer4[-1]
-        elif net_name.startswith('DenseNet'):
-            last_extractor = _extractor.features.denseblock4.denselayer24
-        elif net_name.startswith('EfficientNet'):
-            last_extractor = _extractor.features[-1]
-        elif net_name.startswith('ConvNeXt'):
-            last_extractor = _extractor.features[-1][-1].block
-        elif net_name.startswith('ViT'):
-            last_extractor = _extractor.encoder.layers[-1]
-        else:
-            raise ValueError(f"Cannot get last extractor of net: {net_name}.")
-        return last_extractor
 
 
 class MultiMixin:
@@ -563,6 +531,40 @@ class MultiNetFusion(MultiWidget):
         return output
 
 
+def get_last_extractor(net: Union[MultiNet, MultiNetFusion] = None, net_name: str = None) -> nn.Module:
+    """
+    Return the last extractor of network, or CNN or ViT.
+    net should be one loaded weight.
+    This is for Grad-CAM.
+
+    Args:
+        net (Union[MultiNet, MultiNetFusion]): network itself
+        net_name (str): network name
+
+    Returns:
+        nn.Module: last extractor of network, or CNN or ViT
+    """
+    assert hasattr(net, 'extractor_net'), 'net should have extractor_net.'
+    _extractor = net.extractor_net
+
+    if net_name.startswith('ResNet'):
+        return _extractor.layer4[-1]
+
+    if net_name.startswith('DenseNet'):
+        return _extractor.features.denseblock4.denselayer24
+
+    if net_name.startswith('EfficientNet'):
+        return _extractor.features[-1]
+
+    if net_name.startswith('ConvNeXt'):
+        return _extractor.features[-1][-1].block
+
+    if net_name.startswith('ViT'):
+        return _extractor.encoder.layers[-1]
+
+    raise ValueError(f"Cannot extract last extractor of net: {net_name}.")
+
+
 def create_net(
             mlp: Optional[str] = None,
             net: Optional[str] = None,
@@ -571,7 +573,7 @@ def create_net(
             in_channel: int = None,
             vit_image_size: int = None,
             pretrained: bool = None
-            ) -> nn.Module:
+            ) -> Union[MultiNet, MultiNetFusion]:
     """
     Create network.
 
@@ -585,7 +587,7 @@ def create_net(
         pretrained (bool): True when use pretrained CNN or ViT, otherwise False.
 
     Returns:
-        nn.Module: network
+        Union[MultiNet, MultiNetFusion]: network
     """
     _isMLPModel = (mlp is not None) and (net is None)
     _isCVModel = (mlp is None) and (net is not None)
@@ -598,8 +600,9 @@ def create_net(
                             mlp_num_inputs=mlp_num_inputs,
                             in_channel=in_channel,
                             vit_image_size=vit_image_size,
-                            pretrained=False   # No need of pretrained for MLP
+                            pretrained=False  # No pretrained MLP
                             )
+
     elif _isCVModel:
         multi_net = MultiNet(
                             net_name=net,
@@ -609,6 +612,7 @@ def create_net(
                             vit_image_size=vit_image_size,
                             pretrained=pretrained
                             )
+
     elif _isFusion:
         multi_net = MultiNetFusion(
                                 net_name=net,
