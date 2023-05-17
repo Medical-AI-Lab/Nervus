@@ -9,11 +9,6 @@ import torchvision.models as models
 from typing import Dict, Optional, Union
 
 
-# dynamic
-# from importlib import import_module
-# m = getattr(models, 'resnet18')
-
-
 class BaseNet:
     """
     Class to construct network
@@ -99,42 +94,6 @@ class BaseNet:
         return mlp
 
     @classmethod
-    def align_in_channels_1ch(cls, net_name: str = None, net: nn.Module = None) -> nn.Module:
-        """
-        Modify network to handle gray scale image.
-
-        Args:
-            net_name (str): network name
-            net (nn.Module): network itself
-
-        Returns:
-            nn.Module: network available for gray scale
-        """
-        if net_name.startswith('ResNet'):
-            net.conv1.in_channels = 1
-            net.conv1.weight = nn.Parameter(net.conv1.weight.sum(dim=1).unsqueeze(1))
-
-        elif net_name.startswith('DenseNet'):
-            net.features.conv0.in_channels = 1
-            net.features.conv0.weight = nn.Parameter(net.features.conv0.weight.sum(dim=1).unsqueeze(1))
-
-        elif net_name.startswith('Efficient'):
-            net.features[0][0].in_channels = 1
-            net.features[0][0].weight = nn.Parameter(net.features[0][0].weight.sum(dim=1).unsqueeze(1))
-
-        elif net_name.startswith('ConvNeXt'):
-            net.features[0][0].in_channels = 1
-            net.features[0][0].weight = nn.Parameter(net.features[0][0].weight.sum(dim=1).unsqueeze(1))
-
-        elif net_name.startswith('ViT'):
-            net.conv_proj.in_channels = 1
-            net.conv_proj.weight = nn.Parameter(net.conv_proj.weight.sum(dim=1).unsqueeze(1))
-
-        else:
-            raise ValueError(f"No specified net: {net_name}.")
-        return net
-
-    @classmethod
     def set_net(
                 cls,
                 net_name: str = None,
@@ -156,22 +115,26 @@ class BaseNet:
             nn.Module: modified network
         """
         assert net_name in cls.net, f"No specified net: {net_name}."
+
         if net_name in cls.cnn:
+            _cnn = getattr(models, cls.cnn[net_name])
             if pretrained:
-                net = cls.cnn[net_name](weights='DEFAULT')
+                net = _cnn(weights='DEFAULT')
             else:
-                net = cls.cnn[net_name]()
-        else:
-            # When ViT
-            # always use pretrained
-            net = cls.set_vit(net_name=net_name, vit_image_size=vit_image_size)
+                net = _cnn()
+
+        if net_name in cls.vit:
+            if pretrained:
+                net = cls.align_vit(vit_name=net_name, vit_image_size=vit_image_size)
+            else:
+                raise ValueError(f"When using ViT, always pretrained ViT is supposed to be used. Set pretrained True.")
 
         if in_channel == 1:
             net = cls.align_in_channels_1ch(net_name=net_name, net=net)
         return net
 
     @classmethod
-    def set_vit(cls, net_name: str = None, vit_image_size: int = None) -> nn.Module:
+    def align_vit(cls, vit_name: str = None, vit_image_size: int = None) -> nn.Module:
         """
         Modify ViT depending on vit_image_size.
 
@@ -182,21 +145,71 @@ class BaseNet:
         Returns:
             nn.Module: modified ViT
         """
-        base_vit = cls.vit[net_name]
-        # pretrained_vit = base_vit(weights=cls.vit_weight[net_name])
-        pretrained_vit = base_vit(weights='DEFAULT')
+        _vit = getattr(models, cls.vit[vit_name])
 
-        # Align weight depending on image size
-        weight = pretrained_vit.state_dict()
-        patch_size = int(net_name[-2:])  # 'ViTb16' -> 16
+        # Align the shape of weight to make fit vit_image_size.
+        # In order to do that, only weight is desired.
+        _pretrained_vit = _vit(weights='DEFAULT')
+        weight = _pretrained_vit.state_dict()
+        patch_size = int(vit_name[-2:])  # 'ViTb16' -> 16
         aligned_weight = models.vision_transformer.interpolate_embeddings(
                                                     image_size=vit_image_size,
                                                     patch_size=patch_size,
                                                     model_state=weight
                                                     )
-        aligned_vit = base_vit(image_size=vit_image_size)  # Specify new image size.
-        aligned_vit.load_state_dict(aligned_weight)        # Load weight which can handle the new image size.
+
+        # Set ViT with vit_image_size and aligned_weight
+        aligned_vit = _vit(image_size=vit_image_size)  # Specify image size.
+        aligned_vit.load_state_dict(aligned_weight)    # Load aligned weight which fit the image size.
         return aligned_vit
+
+    @classmethod
+    def align_in_channels_1ch(cls, net_name: str = None, net: nn.Module = None) -> nn.Module:
+        """
+        Modify network to handle grayscale, or 1ch image.
+
+        Args:
+            net_name (str): network name
+            net (nn.Module): network itself
+
+        Returns:
+            nn.Module: network available for grayscale, or 1ch
+        """
+        if net_name.startswith('ResNet'):
+            net.conv1.in_channels = 1
+            net.conv1.weight = nn.Parameter(net.conv1.weight.sum(dim=1).unsqueeze(1))
+
+        elif net_name.startswith('DenseNet') or net_name.startswith('Efficient'):
+            net.features.conv0.in_channels = 1
+            net.features.conv0.weight = nn.Parameter(net.features.conv0.weight.sum(dim=1).unsqueeze(1))
+
+        elif net_name.startswith('ConvNeXt'):
+            net.features[0][0].in_channels = 1
+            net.features[0][0].weight = nn.Parameter(net.features[0][0].weight.sum(dim=1).unsqueeze(1))
+
+        elif net_name.startswith('ViT'):
+            net.conv_proj.in_channels = 1
+            net.conv_proj.weight = nn.Parameter(net.conv_proj.weight.sum(dim=1).unsqueeze(1))
+
+        else:
+            raise ValueError(f"No specified net: {net_name}.")
+
+        """
+        if net_name.startswith('ResNet'):
+            first_layer = net.conv1
+        elif net_name.startswith('DenseNet') or net_name.startswith('Efficient'):
+            first_layer = net.features.conv0
+        elif net_name.startswith('ConvNeXt'):
+            first_layer = net.features[0][0]
+        elif net_name.startswith('ViT'):
+            first_layer = net.conv_proj
+        else:
+            raise ValueError(f"No specified net: {net_name}.")
+
+        first_layer.in_channels = 1
+        first_layer.weight = nn.Parameter(first_layer.weight.sum(dim=1).unsqueeze(1))
+        """
+        return net
 
     @classmethod
     def construct_extractor(
@@ -349,7 +362,7 @@ class BaseNet:
         Actually, only when net_name == 'ConvNeXt'.
         Because ConvNeXt has the process of aligning the dimensions in its classifier.
 
-        Needs to align shape of the feature extractor when ConvNeXt
+        Needs to align shape of the feature extractor only when ConvNeXt
         (classifier):
         Sequential(
             (0): LayerNorm2d((768,), eps=1e-06, element-wise_affine=True)
@@ -363,16 +376,16 @@ class BaseNet:
         Returns:
             nn.Module: layers such that they align the dimension of the output from the extractor like the original ConvNeXt.
         """
-        aux_module = cls.DUMMY
         if net_name.startswith('ConvNeXt'):
             base_classifier = cls.get_classifier(net_name)
             layer_norm = base_classifier[0]
             flatten = base_classifier[1]
-            aux_module = nn.Sequential(
+            return nn.Sequential(
                                 layer_norm,
                                 flatten
                                 )
-        return aux_module
+        else:
+            return cls.DUMMY
 
 
 class MultiMixin:
