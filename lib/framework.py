@@ -13,6 +13,10 @@ from lib import ParamSet
 from typing import List, Dict, Tuple, Union
 
 
+from .component import replace_all_layer_type_recursive_Permute
+
+
+
 # Alias of typing
 # eg. {'labels': {'label_A: torch.Tensor([0, 1, ...]), ...}}
 LabelDict = Dict[str, Dict[str, Union[torch.IntTensor, torch.FloatTensor]]]

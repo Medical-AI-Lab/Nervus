@@ -156,6 +156,12 @@ class BaseNet:
                 net = cls.cnn[net_name](weights='DEFAULT')
             else:
                 net = cls.cnn[net_name]()
+
+            #! ------------------------------------------------------------------------------------------
+            if net_name.startswith('ConvNeXt'):
+                replace_all_layer_type_recursive_Permute(net)
+            #! ------------------------------------------------------------------------------------------
+
         else:
             # When ViT
             # always use pretrained
@@ -234,6 +240,12 @@ class BaseNet:
             nn.Module: classifier of network
         """
         net = cls.net[net_name]()
+
+        #! ------------------------------------------------------------------------------------------
+        if net_name.startswith('ConvNeXt'):
+            replace_all_layer_type_recursive_Permute(net)
+        #! ------------------------------------------------------------------------------------------
+
         classifier = getattr(net, cls.classifier[net_name])
         return classifier
 
@@ -622,3 +634,101 @@ def create_net(
         raise ValueError(f"Invalid model type: mlp={mlp}, net={net}.")
 
     return multi_net
+
+
+
+
+
+from torch.nn import functional as F
+from torchvision.ops.misc import Permute
+from torch import Tensor
+from typing import List
+
+from torchvision.models.convnext import LayerNorm2d
+
+
+"""
+class LayerNorm2d(nn.LayerNorm):
+    def forward(self, x: Tensor) -> Tensor:
+        x = x.permute(0, 2, 3, 1)
+        x = F.layer_norm(x, self.normalized_shape, self.weight, self.bias, self.eps)
+        x = x.permute(0, 3, 1, 2)
+        return x
+"""
+
+
+class LayerNorm2dC(nn.LayerNorm):
+    """
+    def __init__(self, normalized_shape, bias, eps):
+        self.normalized_shape = normalized_shape
+        #self.weight = weight
+        self.bias = bias
+        self.eps = eps
+    """
+    def __init__(self, normalized_shape, eps):
+        super().__init__(normalized_shape, eps)
+        self.normalized_shape = normalized_shape
+        #self.bias = bias
+        self.eps = eps
+        #self.elementwise_affine = elementwise_affine
+
+    def forward(self, x: Tensor) -> Tensor:
+        x = x.permute(0, 2, 3, 1).contiguous()
+        x = F.layer_norm(x, self.normalized_shape, self.weight, self.bias, self.eps)
+        x = x.permute(0, 3, 1, 2).contiguous()
+        return x
+
+
+class PermuteC(torch.nn.Module):
+    def __init__(self, dims: List[int]):
+        super().__init__()
+        self.dims = dims
+
+    def forward(self, x: Tensor) -> Tensor:
+        return torch.permute(x, self.dims).contiguous()
+
+
+"""
+def replace_all_layer_type_recursive(model, old_layer_type, new_layer):
+    for name, layer in model._modules.items():
+        if isinstance(layer, old_layer_type):
+            model._modules[name] = new_layer
+        replace_all_layer_type_recursive(layer, old_layer_type, new_layer)  # recursive call given layer
+"""
+
+
+"""
+def replace_all_layer_type_recursive_Permute(model, old_layer_type, new_layer):
+    for name, layer in model._modules.items():
+        if isinstance(layer, Permute):
+            # Permute
+            model._modules[name] = PermuteC(layer.dims)
+        replace_all_layer_type_recursive_Permute(layer, old_layer_type, new_layer)
+
+>>> m = models.convnext_tiny()
+>>> replace_all_layer_type_recursive_Permute(m, Permute, Permute([0,0,0]))
+>>> m.features[7][2].block[1].dims
+[0, 2, 3, 1]
+>>> m.features[7][2].block[6].dims
+[0, 3, 1, 2]
+>>>
+"""
+
+
+def replace_all_layer_type_recursive_Permute(model):
+    for name, layer in model._modules.items():
+        if isinstance(layer, Permute):
+            dims = layer.dims
+            model._modules[name] = PermuteC(dims)
+
+        if isinstance(layer, LayerNorm2d):
+            normalized_shape = layer.normalized_shape
+            #weight = layer.weight
+            #bias = layer.bias
+            eps = layer.eps
+            model._modules[name] = LayerNorm2dC(normalized_shape, eps)
+
+        replace_all_layer_type_recursive_Permute(layer)
+
+
+#m = models.convnext_tiny()

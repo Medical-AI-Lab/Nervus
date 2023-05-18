@@ -52,6 +52,12 @@ def train(
     device = set_device(rank=rank, gpu_ids=args_conf.gpu_ids)
     model = create_model(args_model)
     model.network.to(device)
+
+    #!---------------------
+    if isMaster:
+        print(model.network)
+    #!---------------------
+
     if isDistributed:
         # When device_ids = None of DDP,
         # both the input data for the forward pass and the actual module
