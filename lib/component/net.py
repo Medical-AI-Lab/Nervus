@@ -673,7 +673,7 @@ class LayerNorm2dC(nn.LayerNorm):
         #self.elementwise_affine = elementwise_affine
 
     def forward(self, x: Tensor) -> Tensor:
-        x = x.permute(0, 2, 3, 1).contiguous()
+        x = x.permute(0, 2, 3, 1).contiguous()  # although it is OK even if not contiguous.
         x = F.layer_norm(x, self.normalized_shape, self.weight, self.bias, self.eps)
         x = x.permute(0, 3, 1, 2).contiguous()
         return x
