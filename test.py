@@ -27,7 +27,7 @@ def main(
         args_print = None
         ):
 
-    print_parameter(args_print)
+    print_parameter(args_print, phase='test')
 
     gpu_ids = args_conf.gpu_ids
     test_splits = args_conf.test_splits

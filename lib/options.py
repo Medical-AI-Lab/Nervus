@@ -300,7 +300,7 @@ class ParamTable:
                 'project': [sa, trp, tsp],
                 'csvpath': [sa, trp, tsp],
                 'task': [dl, tsc, sa, lo, trp, tsp],
-                'isTrain': [dl, trp, tsp],
+                'isTrain': [dl],
 
                 'model': [sa, lo, trp, tsp],
                 'vit_image_size': [mo, sa, lo, trp, tsp],
@@ -342,7 +342,7 @@ class ParamTable:
                 'dataset_info': [sa, trp, tsp]
                 }
 
-        self.table = self._make_table()
+        self.df_table = self._make_table()
 
     def _make_table(self) -> pd.DataFrame:
         """
@@ -370,8 +370,8 @@ class ParamTable:
         Returns:
             List[str]: list of parameters
         """
-        _df_table = self.table
-        _param_names = _df_table[_df_table[group_name] == 'yes']['parameter'].tolist()
+        _df_params = self.df_table[self.df_table[group_name] == 'yes']
+        _param_names = _df_params['parameter'].tolist()
         return _param_names
 
 
@@ -439,22 +439,25 @@ def _retrieve_parameter(parameter_path: str) -> Dict[str, Union[str, int, float]
     return params
 
 
-def print_parameter(params: ParamSet) -> None:
+def print_parameter(params: ParamSet, phase: str = None) -> None:
     """
     Print parameters.
 
     Args:
         params (ParamSet): parameters
+        phase (str): phase, or 'train' or 'test'
     """
 
     LINE_LENGTH = 82
 
-    if params.isTrain:
-        phase = 'Training'
+    if phase == 'train':
+        print_phase = 'Training'
+    elif phase == 'test':
+        print_phase = 'Test'
     else:
-        phase = 'Test'
+        raise ValueError(f"phase must be 'train' or 'test', but got {phase}")
 
-    _header = f" Configuration of {phase} "
+    _header = f" Configuration of {print_phase} "
     _padding = (LINE_LENGTH - len(_header) + 1) // 2  # round up
     _header = ('-' * _padding) + _header + ('-' * _padding) + '\n'
 
@@ -466,7 +469,6 @@ def print_parameter(params: ParamSet) -> None:
     message += _header
 
     _params_dict = vars(params)
-    del _params_dict['isTrain']
     for _param, _arg in _params_dict.items():
         _str_arg = _arg2str(_param, _arg)
         message += f"{_param:>30}: {_str_arg:<40}\n"
