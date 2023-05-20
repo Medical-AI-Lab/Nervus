@@ -721,12 +721,15 @@ def replace_all_layer_type_recursive_Permute(model):
             dims = layer.dims
             model._modules[name] = PermuteC(dims)
 
-        if isinstance(layer, LayerNorm2d):
+        elif isinstance(layer, LayerNorm2d):
             normalized_shape = layer.normalized_shape
             #weight = layer.weight
             #bias = layer.bias
             eps = layer.eps
             model._modules[name] = LayerNorm2dC(normalized_shape, eps)
+
+        else:
+            pass
 
         replace_all_layer_type_recursive_Permute(layer)
 
