@@ -90,7 +90,12 @@ class BaseNet:
             MLP: MLP
         """
         assert isinstance(mlp_num_inputs, int), f"Invalid number of inputs for MLP: {mlp_num_inputs}."
-        mlp = MLP(in_channels=mlp_num_inputs, hidden_channels=cls.mlp_config['hidden_channels'], inplace=inplace, dropout=cls.mlp_config['dropout'])
+        mlp = MLP(
+                in_channels=mlp_num_inputs,
+                hidden_channels=cls.mlp_config['hidden_channels'],
+                inplace=inplace,
+                dropout=cls.mlp_config['dropout']
+                )
         return mlp
 
     @classmethod
@@ -123,34 +128,45 @@ class BaseNet:
             else:
                 net = _cnn()
 
-        if net_name in cls.vit:
+        elif net_name in cls.vit:
+            _vit = getattr(models, cls.vit[net_name])
             if pretrained:
-                net = cls.align_vit(vit_name=net_name, vit_image_size=vit_image_size)
+                net = cls.make_vit_with_aligned_weight(_vit, vit_name=net_name, vit_image_size=vit_image_size)
             else:
-                raise ValueError(f"When using ViT, always pretrained ViT is supposed to be used. Set pretrained True.")
+                net = _vit(image_size=vit_image_size)
 
+        else:
+            raise ValueError(f"No specified net: {net_name}.")
+
+        # Align net depending on input channels.
         if in_channel == 1:
             net = cls.align_in_channels_1ch(net_name=net_name, net=net)
+
         return net
 
     @classmethod
-    def align_vit(cls, vit_name: str = None, vit_image_size: int = None) -> nn.Module:
+    def make_vit_with_aligned_weight(
+                cls,
+                vit: nn.Module,
+                vit_name: str = None,
+                vit_image_size: int = None
+                ) -> nn.Module:
         """
-        Modify ViT depending on vit_image_size.
+        Return pretrained ViT with aligned weight.
 
         Args:
-            net_name (str): ViT name
-            vit_image_size (int): image size which ViT handles if ViT is used.
+            vit (nn.Module): ViT object
+            vit_name (str): ViT name
+            vit_image_size (int): image size which ViT handles
 
         Returns:
-            nn.Module: modified ViT
+            nn.Module: pretrained ViT with aligned weight
         """
-        _vit = getattr(models, cls.vit[vit_name])
+        assert (vit_image_size > 0), \
+                f"vit_image_size must be positive integer, but got {vit_image_size}."
 
-        # Align the shape of weight to make fit vit_image_size.
-        # In order to do that, only weight is desired.
-        _pretrained_vit = _vit(weights='DEFAULT')
-        weight = _pretrained_vit.state_dict()
+        pretrained_vit = vit(weights='DEFAULT')
+        weight = pretrained_vit.state_dict()
         patch_size = int(vit_name[-2:])  # 'ViTb16' -> 16
         aligned_weight = models.vision_transformer.interpolate_embeddings(
                                                     image_size=vit_image_size,
@@ -159,8 +175,8 @@ class BaseNet:
                                                     )
 
         # Set ViT with vit_image_size and aligned_weight
-        aligned_vit = _vit(image_size=vit_image_size)  # Specify image size.
-        aligned_vit.load_state_dict(aligned_weight)    # Load aligned weight which fit the image size.
+        aligned_vit = vit(image_size=vit_image_size)
+        aligned_vit.load_state_dict(aligned_weight)
         return aligned_vit
 
     @classmethod
@@ -236,8 +252,14 @@ class BaseNet:
         if net_name == 'MLP':
             extractor = cls.MLPNet(mlp_num_inputs=mlp_num_inputs)
         else:
-            extractor = cls.set_net(net_name=net_name, in_channel=in_channel, vit_image_size=vit_image_size, pretrained=pretrained)
-            setattr(extractor, cls.classifier[net_name], cls.DUMMY)  # Replace classifier with DUMMY(=nn.Identity()).
+            extractor = cls.set_net(
+                                    net_name=net_name,
+                                    in_channel=in_channel,
+                                    vit_image_size=vit_image_size,
+                                    pretrained=pretrained
+                                    )
+            # Replace classifier with DUMMY(=nn.Identity()).
+            setattr(extractor, cls.classifier[net_name], cls.DUMMY)
         return extractor
 
     @classmethod
@@ -256,7 +278,11 @@ class BaseNet:
         return classifier
 
     @classmethod
-    def construct_multi_classifier(cls, net_name: str = None, num_outputs_for_label: Dict[str, int] = None) -> nn.ModuleDict:
+    def construct_multi_classifier(
+                                    cls,
+                                    net_name: str = None,
+                                    num_outputs_for_label: Dict[str, int] = None
+                                    ) -> nn.ModuleDict:
         """
         Construct classifier for multi-label.
 
