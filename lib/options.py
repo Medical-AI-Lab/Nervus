@@ -313,7 +313,7 @@ class ParamTable:
                 'model': [sa, lo, trp, tsp],
                 'mlp': [mo, dl],
                 'net': [mo, dl],
-                'vit_image_size': [mo, sa, lo],
+                'vit_image_size': [mo, sa, lo, trp, tsp],
                 'pretrained': [mo, sa, trp],
 
                 'weight': [tsp],
@@ -367,20 +367,6 @@ class ParamTable:
         df_table = df_table.reset_index()
         df_table = df_table.rename(columns={'index': 'parameter'})
         return df_table
-
-    def redefine_groups(self, parameter_name: str, added_group_list: List[str] = []) -> None:
-        """
-        Reset group of parameter.
-
-        Args:
-            parameter_name (str): parameter name
-            new_group_list (List[str]): list of group names
-        """
-        # Redefine group
-        self.dispatch[parameter_name].extend(added_group_list)
-
-        # Update table
-        self.df_table = self._make_table()
 
     def _get_by_group(self, group_name: str) -> List[str]:
         """
@@ -612,13 +598,6 @@ def train_parse(args: argparse.Namespace) -> Dict[str, ParamSet]:
     # Make parameter table
     param_table = ParamTable()
 
-    # Print vit_image_size when using ViT
-    if args.net.startswith('ViT'):
-        param_table.redefine_groups(
-                                    'vit_image_size',
-                                    added_group_list = ['train_print']
-                                    )
-
     # Dispatch parameters
     return {
             'args_model': param_table.dispatch_by_group(args, 'model'),
@@ -690,13 +669,6 @@ def test_parse(args: argparse.Namespace) -> Dict[str, ParamSet]:
         args.test_splits = _splits
 
     args.dataset_info = {split: len(args.df_source[args.df_source['split'] == split]) for split in args.test_splits}
-
-    # Print vit_image_size when using ViT
-    if args.net.startswith('ViT'):
-        param_table.redefine_groups(
-                                    'vit_image_size',
-                                    added_group_list = ['test_print']
-                                    )
 
     # Dispatch parameters
     return {
