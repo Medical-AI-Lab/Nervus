@@ -13,8 +13,23 @@ from torch import Tensor
 from typing import List, Dict, Optional, Union
 
 
+class PermuteWithContiguous(nn.Module):
+    """
+    Class to permute tensor.
+    """
+    def __init__(self, dims: List[int]) -> None:
+        super().__init__()
+        self.dims = dims
+
+    def forward(self, x: Tensor) -> Tensor:
+        return torch.permute(x, self.dims).contiguous()
+
+
 class LayerNorm2dWithContiguous(nn.LayerNorm):
-    def __init__(self, normalized_shape, eps):
+    """
+    Class to normalize tensor.
+    """
+    def __init__(self, normalized_shape: Union[int, List] , eps: float) -> None:
         super().__init__(normalized_shape, eps)
         self.normalized_shape = normalized_shape
         self.eps = eps
@@ -26,32 +41,23 @@ class LayerNorm2dWithContiguous(nn.LayerNorm):
         return x
 
 
-class PermuteWithContiguous(nn.Module):
-    """
-    Class to permute tensor.
-    """
-    def __init__(self, dims: List[int]):
-        super().__init__()
-        self.dims = dims
-
-    def forward(self, x: Tensor) -> Tensor:
-        return torch.permute(x, self.dims).contiguous()
-
-
 def replace_all_layer_type_recursive(net: nn.Module) -> None:
+    """
+    Replace all layer type recursively.
+
+    Args:
+        net (nn.Module): network replaced layer type
+    """
     for name, layer in net._modules.items():
         if isinstance(layer, Permute):
             dims = layer.dims
             net._modules[name] = PermuteWithContiguous(dims)
-
         elif isinstance(layer, LayerNorm2d):
             normalized_shape = layer.normalized_shape
             eps = layer.eps
             net._modules[name] = LayerNorm2dWithContiguous(normalized_shape, eps)
-
         else:
             pass
-
         replace_all_layer_type_recursive(layer)
 
 
