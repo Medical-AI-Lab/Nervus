@@ -75,10 +75,13 @@ class BaseNet:
                 'dropout': 0.2
                 }
 
+
+
     DUMMY = nn.Identity()
 
+
     @classmethod
-    def MLPNet(cls, mlp_num_inputs: int = None, inplace: bool = None) -> MLP:
+    def set_mlp(cls, mlp_num_inputs: int = None, inplace: bool = None) -> MLP:
         """
         Construct MLP.
 
@@ -90,13 +93,12 @@ class BaseNet:
             MLP: MLP
         """
         assert isinstance(mlp_num_inputs, int), f"Invalid number of inputs for MLP: {mlp_num_inputs}."
-        mlp = MLP(
+        return MLP(
                 in_channels=mlp_num_inputs,
                 hidden_channels=cls.mlp_config['hidden_channels'],
                 inplace=inplace,
                 dropout=cls.mlp_config['dropout']
                 )
-        return mlp
 
     @classmethod
     def set_net(
@@ -122,6 +124,8 @@ class BaseNet:
         assert net_name in cls.net, f"No specified net: {net_name}."
 
         if net_name in cls.cnn:
+            assert (vit_image_size == 0), \
+                f"vit_image_size should be set 0 except using ViT, but got {vit_image_size}."
             _cnn = getattr(models, cls.cnn[net_name])
             if pretrained:
                 net = _cnn(weights='DEFAULT')
@@ -129,6 +133,8 @@ class BaseNet:
                 net = _cnn()
 
         elif net_name in cls.vit:
+            assert (vit_image_size > 0), \
+                f"vit_image_size must be positive integer, but got {vit_image_size}."
             _vit = getattr(models, cls.vit[net_name])
             if pretrained:
                 net = cls.make_vit_with_aligned_weight(_vit, vit_name=net_name, vit_image_size=vit_image_size)
@@ -162,9 +168,6 @@ class BaseNet:
         Returns:
             nn.Module: pretrained ViT with aligned weight
         """
-        assert (vit_image_size > 0), \
-                f"vit_image_size must be positive integer, but got {vit_image_size}."
-
         pretrained_vit = vit(weights='DEFAULT')
         weight = pretrained_vit.state_dict()
         patch_size = int(vit_name[-2:])  # 'ViTb16' -> 16
@@ -182,7 +185,7 @@ class BaseNet:
     @classmethod
     def align_in_channels_1ch(cls, net_name: str = None, net: nn.Module = None) -> nn.Module:
         """
-        Modify network to handle grayscale, or 1ch image.
+        Align the first layer of network to handle grayscale, or 1ch image.
 
         Args:
             net_name (str): network name
@@ -194,38 +197,24 @@ class BaseNet:
         if net_name.startswith('ResNet'):
             net.conv1.in_channels = 1
             net.conv1.weight = nn.Parameter(net.conv1.weight.sum(dim=1).unsqueeze(1))
+            return net
 
-        elif net_name.startswith('DenseNet') or net_name.startswith('Efficient'):
+        if net_name.startswith('DenseNet') or net_name.startswith('Efficient'):
             net.features.conv0.in_channels = 1
             net.features.conv0.weight = nn.Parameter(net.features.conv0.weight.sum(dim=1).unsqueeze(1))
+            return net
 
-        elif net_name.startswith('ConvNeXt'):
+        if net_name.startswith('ConvNeXt'):
             net.features[0][0].in_channels = 1
             net.features[0][0].weight = nn.Parameter(net.features[0][0].weight.sum(dim=1).unsqueeze(1))
+            return net
 
-        elif net_name.startswith('ViT'):
+        if net_name.startswith('ViT'):
             net.conv_proj.in_channels = 1
             net.conv_proj.weight = nn.Parameter(net.conv_proj.weight.sum(dim=1).unsqueeze(1))
+            return net
 
-        else:
-            raise ValueError(f"No specified net: {net_name}.")
-
-        """
-        if net_name.startswith('ResNet'):
-            first_layer = net.conv1
-        elif net_name.startswith('DenseNet') or net_name.startswith('Efficient'):
-            first_layer = net.features.conv0
-        elif net_name.startswith('ConvNeXt'):
-            first_layer = net.features[0][0]
-        elif net_name.startswith('ViT'):
-            first_layer = net.conv_proj
-        else:
-            raise ValueError(f"No specified net: {net_name}.")
-
-        first_layer.in_channels = 1
-        first_layer.weight = nn.Parameter(first_layer.weight.sum(dim=1).unsqueeze(1))
-        """
-        return net
+        raise ValueError(f"No specified net: {net_name}.")
 
     @classmethod
     def construct_extractor(
@@ -250,7 +239,7 @@ class BaseNet:
             nn.Module: extractor of network
         """
         if net_name == 'MLP':
-            extractor = cls.MLPNet(mlp_num_inputs=mlp_num_inputs)
+            extractor = cls.set_mlp(mlp_num_inputs=mlp_num_inputs)
         else:
             extractor = cls.set_net(
                                     net_name=net_name,
@@ -480,6 +469,7 @@ class MultiNet(MultiWidget):
                                                     vit_image_size=self.vit_image_size,
                                                     pretrained=self.pretrained
                                                     )
+        # Multi classifier
         self.multi_classifier = self.construct_multi_classifier(net_name=self.net_name, num_outputs_for_label=self.num_outputs_for_label)
 
     def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
@@ -544,7 +534,7 @@ class MultiNetFusion(MultiWidget):
         self.in_features_from_mlp = self.get_classifier_in_features('MLP')
         self.in_features_from_net = self.get_classifier_in_features(self.net_name)
         self.inter_mlp_in_feature = self.in_features_from_mlp + self.in_features_from_net
-        self.inter_mlp = self.MLPNet(mlp_num_inputs=self.inter_mlp_in_feature, inplace=False)
+        self.inter_mlp = self.set_mlp(mlp_num_inputs=self.inter_mlp_in_feature, inplace=False)
 
         # Multi classifier
         self.multi_classifier = self.construct_multi_classifier(net_name='MLP', num_outputs_for_label=num_outputs_for_label)
