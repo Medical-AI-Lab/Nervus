@@ -4,9 +4,55 @@
 from collections import OrderedDict
 import torch
 import torch.nn as nn
+from torch.nn import functional as F
+from torchvision.ops.misc import Permute
 from torchvision.ops import MLP
 import torchvision.models as models
-from typing import Dict, Optional, Union
+from torchvision.models.convnext import LayerNorm2d
+from torch import Tensor
+from typing import List, Dict, Optional, Union
+
+
+class LayerNorm2dWithContiguous(nn.LayerNorm):
+    def __init__(self, normalized_shape, eps):
+        super().__init__(normalized_shape, eps)
+        self.normalized_shape = normalized_shape
+        self.eps = eps
+
+    def forward(self, x: Tensor) -> Tensor:
+        x = x.permute(0, 2, 3, 1).contiguous()
+        x = F.layer_norm(x, self.normalized_shape, self.weight, self.bias, self.eps)
+        x = x.permute(0, 3, 1, 2).contiguous()
+        return x
+
+
+class PermuteWithContiguous(nn.Module):
+    """
+    Class to permute tensor.
+    """
+    def __init__(self, dims: List[int]):
+        super().__init__()
+        self.dims = dims
+
+    def forward(self, x: Tensor) -> Tensor:
+        return torch.permute(x, self.dims).contiguous()
+
+
+def replace_all_layer_type_recursive(net: nn.Module) -> None:
+    for name, layer in net._modules.items():
+        if isinstance(layer, Permute):
+            dims = layer.dims
+            net._modules[name] = PermuteWithContiguous(dims)
+
+        elif isinstance(layer, LayerNorm2d):
+            normalized_shape = layer.normalized_shape
+            eps = layer.eps
+            net._modules[name] = LayerNorm2dWithContiguous(normalized_shape, eps)
+
+        else:
+            pass
+
+        replace_all_layer_type_recursive(layer)
 
 
 class BaseNet:
@@ -75,10 +121,7 @@ class BaseNet:
                 'dropout': 0.2
                 }
 
-
-
     DUMMY = nn.Identity()
-
 
     @classmethod
     def set_mlp(cls, mlp_num_inputs: int = None, inplace: bool = None) -> MLP:
@@ -121,20 +164,34 @@ class BaseNet:
         Returns:
             nn.Module: modified network
         """
-        assert net_name in cls.net, f"No specified net: {net_name}."
-
         if net_name in cls.cnn:
-            assert (vit_image_size == 0), \
-                f"vit_image_size should be set 0 except using ViT, but got {vit_image_size}."
+            assert vit_image_size == 0, f"vit_image_size should be set 0 except using ViT, but got {vit_image_size}."
+        if net_name in cls.vit:
+            assert vit_image_size > 0, f"vit_image_size must be positive integer, but got {vit_image_size}."
+
+        # When except ConvNeXt, ViT
+        if (net_name in cls.cnn) and (not net_name.startswith('ConvNeXt')):
             _cnn = getattr(models, cls.cnn[net_name])
             if pretrained:
                 net = _cnn(weights='DEFAULT')
             else:
                 net = _cnn()
 
+        # When ConvNeXt
+        elif net_name.startswith('ConvNeXt'):
+            _convnext = getattr(models, cls.cnn[net_name])
+            if pretrained:
+                pretrained_convnext = _convnext(weights='DEFAULT')
+                weight = pretrained_convnext.state_dict()
+                net = _convnext()
+                replace_all_layer_type_recursive(net)
+                net.load_state_dict(weight)
+            else:
+                net = _convnext()
+                replace_all_layer_type_recursive(net)
+
+        # When ViT
         elif net_name in cls.vit:
-            assert (vit_image_size > 0), \
-                f"vit_image_size must be positive integer, but got {vit_image_size}."
             _vit = getattr(models, cls.vit[net_name])
             if pretrained:
                 net = cls.make_vit_with_aligned_weight(_vit, vit_name=net_name, vit_image_size=vit_image_size)
@@ -143,6 +200,7 @@ class BaseNet:
 
         else:
             raise ValueError(f"No specified net: {net_name}.")
+
 
         # Align net depending on input channels.
         if in_channel == 1:
@@ -262,8 +320,12 @@ class BaseNet:
         Returns:
             nn.Module: classifier of network
         """
-        _net = getattr(models, cls.net[net_name])
-        classifier = getattr(_net(), cls.classifier[net_name])
+        _net = getattr(models, cls.net[net_name])()
+
+        if net_name.startswith('ConvNeXt'):
+            replace_all_layer_type_recursive(_net)
+
+        classifier = getattr(_net, cls.classifier[net_name])
         return classifier
 
     @classmethod
