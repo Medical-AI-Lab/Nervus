@@ -403,7 +403,7 @@ class BaseNet:
             return cls.DUMMY
 
 
-class MultiMixin:
+class MultiForward:
     """
     Class to define auxiliary function to handle multi-label.
     """
@@ -423,7 +423,7 @@ class MultiMixin:
         return output
 
 
-class MultiWidget(nn.Module, BaseNet, MultiMixin):
+class MultiWidget(nn.Module, BaseNet, MultiForward):
     """
     Class for a widget to inherit multiple classes simultaneously.
     """
