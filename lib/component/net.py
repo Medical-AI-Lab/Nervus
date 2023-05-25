@@ -262,9 +262,14 @@ class BaseNet:
             net.conv1.weight = nn.Parameter(net.conv1.weight.sum(dim=1).unsqueeze(1))
             return net
 
-        if net_name.startswith('DenseNet') or net_name.startswith('Efficient'):
+        if net_name.startswith('DenseNet'):
             net.features.conv0.in_channels = 1
             net.features.conv0.weight = nn.Parameter(net.features.conv0.weight.sum(dim=1).unsqueeze(1))
+            return net
+
+        if net_name.startswith('EfficientNet'):
+            net.features[0][0].in_channels = 1
+            net.features[0][0].weight = nn.Parameter(net.features[0][0].weight.sum(dim=1).unsqueeze(1))
             return net
 
         if net_name.startswith('ConvNeXt'):
