@@ -207,7 +207,6 @@ class BaseNet:
         else:
             raise ValueError(f"No specified net: {net_name}.")
 
-
         # Align net depending on input channels.
         if in_channel == 1:
             net = cls.align_in_channels_1ch(net_name=net_name, net=net)
@@ -378,7 +377,7 @@ class BaseNet:
             flatten = base_classifier[1]
             in_features = base_classifier[2].in_features
             for label_name, num_outputs in num_outputs_for_label.items():
-                # Shape is changed before nn.Linear.
+                # Shape is changed by layer_norm and flatten.
                 classifiers[label_name] = nn.Sequential(
                                                         layer_norm,
                                                         flatten,
