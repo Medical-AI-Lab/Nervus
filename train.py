@@ -159,7 +159,6 @@ if __name__ == '__main__':
         logger.info(f"\nTraining started at {start_datetime_name}.\n")
 
         setenv()
-
         args = set_options(datetime_name=start_datetime_name, phase='train')
         main(args)
 
