@@ -130,7 +130,7 @@ def main(args):
     args_conf = args['args_conf']
     args_print = args['args_print']
     args_save = args['args_save']
-    print_parameter(args_print)
+    print_parameter(args_print, phase='train')
 
     isDistributed = (len(args_conf.gpu_ids) >= 1)
     world_size = set_world_size(args_conf.gpu_ids)
@@ -159,7 +159,6 @@ if __name__ == '__main__':
         logger.info(f"\nTraining started at {start_datetime_name}.\n")
 
         setenv()
-
         args = set_options(datetime_name=start_datetime_name, phase='train')
         main(args)
 
