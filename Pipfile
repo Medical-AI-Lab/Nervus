@@ -5,11 +5,11 @@ name = "pypi"
 
 [packages]
 numpy = "*"
-pandas = "2.0.1"
+pandas = "*"
 torch = "2.0.1"
 torchvision = "0.15.2"
 torchaudio = "2.0.2"
-scikit-learn = "1.2.2"
+scikit-learn = "*"
 matplotlib = "*"
 opencv-python = "*"
 torchinfo = "*"
