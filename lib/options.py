@@ -53,12 +53,12 @@ class Options:
             # Image
             self.parser.add_argument('--bit_depth',       type=int, required=True, choices=[8, 16], help='bit depth of input image')
             self.parser.add_argument('--in_channel',      type=int, required=True, choices=[1, 3],  help='channel of input image')
-            self.parser.add_argument('--vit_image_size',  type=int, default=0,                      help='input image size for ViT. Set 0 if not used ViT (Default: 0)')
+            self.parser.add_argument('--vit_image_size',  type=int, default=0,                      help='input image size for ViT. Set 0 except when using ViT (Default: 0)')
             self.parser.add_argument('--augmentation',    type=str, default='no',  choices=['xrayaug', 'trivialaugwide', 'randaug', 'no'], help='kind of augmentation')
             self.parser.add_argument('--normalize_image', type=str,                choices=['yes', 'no'], default='yes', help='image normalization: yes, no (Default: yes)')
 
             # Sampler
-            self.parser.add_argument('--sampler',         type=str,  default='no', choices=['weighted', 'distributed', 'distweight', 'no'], help='kind of sampler')
+            self.parser.add_argument('--sampler',         type=str, required=True, choices=['weighted', 'distributed', 'distweight', 'no'], help='kind of sampler')
 
             # Weight saving strategy
             self.parser.add_argument('--save_weight_policy', type=str,  choices=['best', 'each'], default='best',
@@ -66,7 +66,8 @@ class Options:
 
         else:
             # Weight at training
-            self.parser.add_argument('--weight', type=str, default=None, help='path to a directory which contains weights, or path to a weight file. If None, the latest directory is selected automatically (Default: None)')
+            self.parser.add_argument('--weight', type=str, default=None,
+                                                help='path to a directory which contains weights, or path to a weight file. If None, the latest directory is selected automatically (Default: None)')
 
             # Test bash size
             self.parser.add_argument('--test_batch_size', type=int, default=1, metavar='N', help='batch size for test (Default: 1)')
@@ -267,46 +268,53 @@ def _collect_weight_paths(weight_dir: str) -> List[str]:
     return weight_paths
 
 
+class ParamSet:
+    """
+    Class to store required parameters for each group.
+    """
+    pass
+
+
 class ParamTable:
     """
     Class to make table to dispatch parameters by group.
     """
     def __init__(self) -> None:
         # groups
-        # key is abbreviation, value is group name
         self.groups = {
-                        'mo': 'model',
-                        'dl': 'dataloader',
-                        'trc': 'train_conf',
-                        'tsc': 'test_conf',
-                        'sa': 'save',
-                        'lo': 'load',
-                        'trp': 'train_print',
-                        'tsp': 'test_print'
+                        'model': 'model',
+                        'dataloader': 'dataloader',
+                        'train_conf': 'train_conf',
+                        'test_conf': 'test_conf',
+                        'save': 'save',
+                        'load': 'load',
+                        'train_print': 'train_print',
+                        'test_print': 'test_print'
                         }
 
-        mo = self.groups['mo']
-        dl = self.groups['dl']
-        trc = self.groups['trc']
-        tsc = self.groups['tsc']
-        sa = self.groups['sa']
-        lo = self.groups['lo']
-        trp = self.groups['trp']
-        tsp = self.groups['tsp']
+        # Just abbreviations
+        mo = self.groups['model']
+        dl = self.groups['dataloader']
+        trc = self.groups['train_conf']
+        tsc = self.groups['test_conf']
+        sa = self.groups['save']
+        lo = self.groups['load']
+        trp = self.groups['train_print']
+        tsp = self.groups['test_print']
 
-        # The below shows that which group each parameter dispatches to.
+        # The below shows that which group each parameter is dispatched to.
         self.dispatch = {
                 'datetime': [sa],
                 'project': [sa, trp, tsp],
                 'csvpath': [sa, trp, tsp],
                 'task': [dl, tsc, sa, lo, trp, tsp],
-                'isTrain': [dl, trp, tsp],
+                'isTrain': [dl],
 
                 'model': [sa, lo, trp, tsp],
-                'vit_image_size': [mo, sa, lo, trp, tsp],
-                'pretrained': [mo, sa, trp],
                 'mlp': [mo, dl],
                 'net': [mo, dl],
+                'vit_image_size': [mo, sa, lo, trp, tsp],
+                'pretrained': [mo, sa, trp],
 
                 'weight': [tsp],
                 'weight_paths': [tsc],
@@ -342,14 +350,14 @@ class ParamTable:
                 'dataset_info': [sa, trp, tsp]
                 }
 
-        self.table = self._make_table()
+        self.df_table = self._make_table()
 
     def _make_table(self) -> pd.DataFrame:
         """
         Make table to dispatch parameters by group.
 
         Returns:
-            pd.DataFrame: table which shows that which group each parameter belongs to.
+            pd.DataFrame: table which shows that which group each parameter is belonged to.
         """
         df_table = pd.DataFrame([], index=self.dispatch.keys(), columns=self.groups.values()).fillna('no')
         for param, grps in self.dispatch.items():
@@ -360,7 +368,7 @@ class ParamTable:
         df_table = df_table.rename(columns={'index': 'parameter'})
         return df_table
 
-    def get_by_group(self, group_name: str) -> List[str]:
+    def _get_by_group(self, group_name: str) -> List[str]:
         """
         Return list of parameters which belong to group
 
@@ -370,39 +378,52 @@ class ParamTable:
         Returns:
             List[str]: list of parameters
         """
-        _df_table = self.table
-        _param_names = _df_table[_df_table[group_name] == 'yes']['parameter'].tolist()
-        return _param_names
+        _df_params = self.df_table[self.df_table[group_name] == 'yes']
+        param_names = _df_params['parameter'].tolist()
+        return param_names
 
+    def dispatch_by_group(self, args: argparse.Namespace, group_name: str) -> ParamSet:
+        """
+        Dispatch parameters depending on group.
 
-Param_Table = ParamTable()
+        Args:
+            args (argparse.Namespace): arguments
+            group_name (str): group
 
+        Returns:
+            ParamSet: class containing parameters for group
+        """
+        _param_names = self._get_by_group(group_name)
+        param_set = ParamSet()
+        for param_name in _param_names:
+            if hasattr(args, param_name):
+                _arg = getattr(args, param_name)
+                setattr(param_set, param_name, _arg)
+        return param_set
 
-class ParamSet:
-    """
-    Class to store required parameters for each group.
-    """
-    pass
+    def retrieve_parameter(
+                            self,
+                            args: argparse.Namespace,
+                            parameter_path: str
+                        ) -> Dict[str, Union[str, int, float]]:
+        """
+        Retrieve parameters required only at test from parameters at training.
 
+        Args:
+            args (argparse.Namespace): arguments
+            parameter_path (str): path to parameter_path
 
-def _dispatch_by_group(args: argparse.Namespace, group_name: str) -> ParamSet:
-    """
-    Dispatch parameters depending on group.
+        Returns:
+            args (argparse.Namespace) : arguments
+        """
+        with open(parameter_path) as f:
+            retrieved = json.load(f)
 
-    Args:
-        args (argparse.Namespace): arguments
-        group_name (str): group
-
-    Returns:
-        ParamSet: class containing parameters for group
-    """
-    _param_names = Param_Table.get_by_group(group_name)
-    param_set = ParamSet()
-    for param_name in _param_names:
-        if hasattr(args, param_name):
-            _arg = getattr(args, param_name)
-            setattr(param_set, param_name, _arg)
-    return param_set
+        load_group = self._get_by_group('load')
+        for _param_name in retrieved.keys():
+            if _param_name in load_group:
+                setattr(args, _param_name, retrieved[_param_name])
+        return args
 
 
 def save_parameter(params: ParamSet, save_path: str) -> None:
@@ -411,50 +432,33 @@ def save_parameter(params: ParamSet, save_path: str) -> None:
 
     Args:
         params (ParamSet): parameters
-
         save_path (str): save path for parameters
     """
-    _saved = {_param: _arg for _param, _arg in vars(params).items()}
+    saved = {_param: _arg for _param, _arg in vars(params).items()}
     save_dir = Path(save_path).parents[0]
     save_dir.mkdir(parents=True, exist_ok=True)
     with open(save_path, 'w') as f:
-        json.dump(_saved, f, indent=4)
+        json.dump(saved, f, indent=4)
 
 
-def _retrieve_parameter(parameter_path: str) -> Dict[str, Union[str, int, float]]:
-    """
-    Retrieve only parameters required at test from parameters at training.
-
-    Args:
-        parameter_path (str): path to parameter_path
-
-    Returns:
-        Dict[str, Union[str, int, float]]: parameters at training
-    """
-    with open(parameter_path) as f:
-        params = json.load(f)
-
-    _required = Param_Table.get_by_group('load')
-    params = {p: v for p, v in params.items() if p in _required}
-    return params
-
-
-def print_parameter(params: ParamSet) -> None:
+def print_parameter(params: ParamSet, phase: str = None) -> None:
     """
     Print parameters.
 
     Args:
         params (ParamSet): parameters
+        phase (str): phase, or 'train' or 'test'
     """
-
     LINE_LENGTH = 82
 
-    if params.isTrain:
-        phase = 'Training'
+    if phase == 'train':
+        print_phase = 'Training'
+    elif phase == 'test':
+        print_phase = 'Test'
     else:
-        phase = 'Test'
+        raise ValueError(f"phase must be 'train' or 'test', but got {phase}")
 
-    _header = f" Configuration of {phase} "
+    _header = f" Configuration of {print_phase} "
     _padding = (LINE_LENGTH - len(_header) + 1) // 2  # round up
     _header = ('-' * _padding) + _header + ('-' * _padding) + '\n'
 
@@ -466,7 +470,6 @@ def print_parameter(params: ParamSet) -> None:
     message += _header
 
     _params_dict = vars(params)
-    del _params_dict['isTrain']
     for _param, _arg in _params_dict.items():
         _str_arg = _arg2str(_param, _arg)
         message += f"{_param:>30}: {_str_arg:<40}\n"
@@ -484,7 +487,7 @@ def _arg2str(param: str, arg: Union[str, int, float]) -> str:
             arg (Union[str, int, float]): argument
 
         Returns:
-            str: strings of argument
+            str: string of argument
         """
         if param == 'lr':
             if arg is None:
@@ -492,15 +495,18 @@ def _arg2str(param: str, arg: Union[str, int, float]) -> str:
             else:
                 str_arg = str(param)
             return str_arg
+
         elif param == 'gpu_ids':
             if arg == []:
                 str_arg = 'CPU selected'
             else:
                 str_arg = f"{arg}  (Primary GPU:{arg[0]})"
             return str_arg
+
         elif param == 'test_splits':
             str_arg = ', '.join(arg)
             return str_arg
+
         elif param == 'dataset_info':
             str_arg = ''
             for i, (split, total) in enumerate(arg.items()):
@@ -509,6 +515,7 @@ def _arg2str(param: str, arg: Union[str, int, float]) -> str:
                 else:
                     str_arg += (f"{split}_data={total}")
             return str_arg
+
         else:
             if arg is None:
                 str_arg = 'No need'
@@ -527,14 +534,14 @@ def _check_if_valid_sampler(sampler: str, gpu_ids: List[int]) -> None:
         gpu_ids (List[str]): list og GPU ids, where [] means CPU.
     """
     dist_sampler = ['distributed', 'distweight']
-    no_dist_sampler = ['weighted', 'no']
-    isDistributed = (len(gpu_ids) >= 1)
-    if isDistributed:
+    non_dist_sampler = ['weighted', 'no']
+    _isDistributed = (len(gpu_ids) >= 1)
+    if _isDistributed:
         assert (sampler in dist_sampler), \
-                f"Invalid sampler: {sampler}, Specify distributed or distweight when using GPU."
+                f"Invalid sampler: {sampler}, Specify {dist_sampler} when using GPU."
     else:
-        assert (sampler in no_dist_sampler), \
-                f"Invalid sampler: {sampler}, No need of sampler for distributed learning when using CPU."
+        assert (sampler in non_dist_sampler), \
+                f"Invalid sampler: {sampler}, Specify {non_dist_sampler} when using CPU."
 
 
 def _check_if_valid_criterion(criterion: str, task: str) -> None:
@@ -550,11 +557,11 @@ def _check_if_valid_criterion(criterion: str, task: str) -> None:
         'regression': ['MSE', 'RMSE', 'MAE'],
         'deepsurv': ['NLL']
     }
-    assert criterion in valid_criterion[task], \
+    assert (criterion in valid_criterion[task]), \
             f"Invalid criterion for task: task={task}, criterion={criterion}. Specify any of {valid_criterion[task]}."
 
 
-def _train_parse(args: argparse.Namespace) -> Dict[str, ParamSet]:
+def train_parse(args: argparse.Namespace) -> Dict[str, ParamSet]:
     """
     Parse parameters required at training.
 
@@ -564,6 +571,7 @@ def _train_parse(args: argparse.Namespace) -> Dict[str, ParamSet]:
     Returns:
         Dict[str, ParamSet]: parameters dispatched by group
     """
+    args.project = Path(args.csvpath).stem
     args.gpu_ids = _parse_gpu_ids(args.gpu_ids)
 
     # Check validity of sampler
@@ -572,33 +580,35 @@ def _train_parse(args: argparse.Namespace) -> Dict[str, ParamSet]:
     # Check validity of criterion
     _check_if_valid_criterion(args.criterion, args.task)
 
-    args.project = Path(args.csvpath).stem
     args.mlp, args.net = _parse_model(args.model)
     args.pretrained = bool(args.pretrained)  # strtobool('False') = 0 (== False)
     args.save_datetime_dir = str(Path('results', args.project, 'trials', args.datetime))
 
     # Parse csv
-    _csvparser = CSVParser(args.csvpath, args.task, args.isTrain)
-    args.df_source = _csvparser.df_source
+    csvparser = CSVParser(args.csvpath, args.task, args.isTrain)
+    args.df_source = csvparser.df_source
     args.dataset_info = {split: len(args.df_source[args.df_source['split'] == split]) for split in ['train', 'val']}
-    args.input_list = _csvparser.input_list
-    args.label_list = _csvparser.label_list
-    args.mlp_num_inputs = _csvparser.mlp_num_inputs
-    args.num_outputs_for_label = _csvparser.num_outputs_for_label
+    args.input_list = csvparser.input_list
+    args.label_list = csvparser.label_list
+    args.mlp_num_inputs = csvparser.mlp_num_inputs
+    args.num_outputs_for_label = csvparser.num_outputs_for_label
     if args.task == 'deepsurv':
-        args.period_name = _csvparser.period_name
+        args.period_name = csvparser.period_name
+
+    # Make parameter table
+    param_table = ParamTable()
 
     # Dispatch parameters
     return {
-            'args_model': _dispatch_by_group(args, 'model'),
-            'args_dataloader': _dispatch_by_group(args, 'dataloader'),
-            'args_conf': _dispatch_by_group(args, 'train_conf'),
-            'args_print': _dispatch_by_group(args, 'train_print'),
-            'args_save': _dispatch_by_group(args, 'save')
+            'args_model': param_table.dispatch_by_group(args, 'model'),
+            'args_dataloader': param_table.dispatch_by_group(args, 'dataloader'),
+            'args_conf': param_table.dispatch_by_group(args, 'train_conf'),
+            'args_print': param_table.dispatch_by_group(args, 'train_print'),
+            'args_save': param_table.dispatch_by_group(args, 'save')
             }
 
 
-def _test_parse(args: argparse.Namespace) -> Dict[str, ParamSet]:
+def test_parse(args: argparse.Namespace) -> Dict[str, ParamSet]:
     """
     Parse parameters required at test.
 
@@ -625,30 +635,32 @@ def _test_parse(args: argparse.Namespace) -> Dict[str, ParamSet]:
     else:
         raise ValueError(f"Invalid weight path: {args.weight}.")
 
-    # Get datetime at training
-    _train_datetime_dir = Path(_weight_dir).parents[0]
-    _train_datetime = _train_datetime_dir.name
+    # Retrieve datetime at training
+    train_datetime_dir = Path(_weight_dir).parents[0]
+    train_datetime = train_datetime_dir.name
 
-    args.save_datetime_dir = str(Path('results', args.project, 'trials', _train_datetime))
+    # Make parameter table
+    param_table = ParamTable()
 
-    # Retrieve only parameters required at test
-    _parameter_path = str(Path(_train_datetime_dir, 'parameters.json'))
-    params = _retrieve_parameter(_parameter_path)
-    for _param, _arg in params.items():
-        setattr(args, _param, _arg)
+    # Retrieve parameters required only at test
+    param_path = str(Path(train_datetime_dir, 'parameters.json'))
+    args = param_table.retrieve_parameter(args, param_path)
+
+    args.mlp, args.net = _parse_model(args.model)
+    args.save_datetime_dir = str(Path('results', args.project, 'trials', train_datetime))
+
+    # Retrieve scaler path
+    if args.mlp is not None:
+        args.scaler_path = str(Path(train_datetime_dir, 'scaler.pkl'))
 
     # When test, the followings are always fixed.
     args.augmentation = 'no'
     args.sampler = 'no'
     args.pretrained = False
 
-    args.mlp, args.net = _parse_model(args.model)
-    if args.mlp is not None:
-        args.scaler_path = str(Path(_train_datetime_dir, 'scaler.pkl'))
-
     # Parse csv
-    _csvparser = CSVParser(args.csvpath, args.task)
-    args.df_source = _csvparser.df_source
+    csvparser = CSVParser(args.csvpath, args.task)
+    args.df_source = csvparser.df_source
 
     # Align test_splits
     args.test_splits = args.test_splits.split('-')
@@ -660,10 +672,10 @@ def _test_parse(args: argparse.Namespace) -> Dict[str, ParamSet]:
 
     # Dispatch parameters
     return {
-            'args_model': _dispatch_by_group(args, 'model'),
-            'args_dataloader': _dispatch_by_group(args, 'dataloader'),
-            'args_conf': _dispatch_by_group(args, 'test_conf'),
-            'args_print': _dispatch_by_group(args, 'test_print')
+            'args_model': param_table.dispatch_by_group(args, 'model'),
+            'args_dataloader': param_table.dispatch_by_group(args, 'dataloader'),
+            'args_conf': param_table.dispatch_by_group(args, 'test_conf'),
+            'args_print': param_table.dispatch_by_group(args, 'test_print')
             }
 
 
@@ -681,12 +693,12 @@ def set_options(datetime_name: str = None, phase: str = None) -> argparse.Namesp
     if phase == 'train':
         opt = Options(datetime=datetime_name, isTrain=True)
         _args = opt.get_args()
-        args = _train_parse(_args)
+        args = train_parse(_args)
         return args
     else:
         opt = Options(isTrain=False)
         _args = opt.get_args()
-        args = _test_parse(_args)
+        args = test_parse(_args)
         return args
 
 
@@ -702,11 +714,11 @@ def set_world_size(gpu_ids: List[int]) -> int:
         int: world_size
 
     Note:
-        1-CPU/1-Process: Even if using CPU, run 1 process, but DistributedDataParallel is not used.
+        1-CPU/1-Process. DistributedDataParallel is supposed not to be used.
         1-GPU/1-Process
     """
     if gpu_ids == []:
-        # When using CPU, world_size is set as 1.
+        # When using CPU, world_size is supposed to set as 1.
         return 1
     else:
         return len(gpu_ids)
