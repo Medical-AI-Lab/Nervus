@@ -1,4 +1,4 @@
-# Nervus: Useful library for creating AIs
+# Nervus: AI Library for Medical Imaging Classification
 This is an AI model library used for single/multi-label and/or single/multi-class tasks with image and/or tabular data.
 Although this has a possibility to apply wide range of fields, we intended to use this model for medical imaging classification task.
 
@@ -117,7 +117,7 @@ To do the tutorial, please visit this site [https://colab.research.google.com/dr
 
 
 # CUDA VERSION
-CUDA Version = 11
+CUDA Version =   11.7, 11.8
 
 
 # Citation
