@@ -45,8 +45,10 @@ class LabelMetrics:
         """
         Metrics of split, ie 'val' and 'test'
         """
-        self.val = MetricsData()
-        self.test = MetricsData()
+        pass
+        #self.train = MetricsData()  # None
+        #self.val = MetricsData()    # None
+        #self.test = MetricsData()   # None
 
     def set_label_metrics(self, split: str, attr: str, value: Union[np.ndarray, float]) -> None:
         """
@@ -60,7 +62,8 @@ class LabelMetrics:
                         deepsurv:       'c_index'
             value (Union[np.ndarray,float]): value of attr
         """
-        setattr(getattr(self, split), attr, value)
+        #setattr(self, split, MetricsData())
+        setattr(getattr(self, split), attr, value)  # Merics()にattrというクラス変数を作って、valueを代入する
 
     def get_label_metrics(self, split: str, attr: str) -> Union[np.ndarray, float]:
         """
@@ -114,7 +117,9 @@ class ROCMixin:
 
         #! When splits is 'test' only, ie when external dataset, error occurs.
         label_metrics = LabelMetrics()
-        for split in ['val', 'test']:
+        #for split in ['val', 'test']:
+        for split in df_group['split'].unique():
+            setattr(label_metrics, split, MetricsData())
             df_split = df_label.query('split == @split')
             y_true = df_split[label_name]
             y_score = df_split[positive_pred_name]
@@ -350,13 +355,20 @@ class MetricsMixin:
             _new['weight'] = [ _weight]
             _new['group'] = [group]
             for label_name, label_metrics in group_metrics.items():
-                _val_metrics = label_metrics.get_label_metrics('val', metrics_kind)
-                _test_metrics = label_metrics.get_label_metrics('test', metrics_kind)
-                _new[label_name + '_val_' + metrics_kind] = [f"{_val_metrics:.2f}"]
-                _new[label_name + '_test_' + metrics_kind] = [f"{_test_metrics:.2f}"]
+                if hasattr(label_metrics, 'val') and hasattr(label_metrics, 'test'):
+                    # Internal
+                    _val_metrics = label_metrics.get_label_metrics('val', metrics_kind)
+                    _test_metrics = label_metrics.get_label_metrics('test', metrics_kind)
+                    _new[label_name + '_val_' + metrics_kind] = [f"{_val_metrics:.2f}"]
+                    _new[label_name + '_test_' + metrics_kind] = [f"{_test_metrics:.2f}"]
+                else:
+                    # External
+                    _test_metrics = label_metrics.get_label_metrics('test', metrics_kind)
+                    _new[label_name + '_test_' + metrics_kind] = [f"{_test_metrics:.2f}"]
+
             df_summary = pd.concat([df_summary, pd.DataFrame(_new)], ignore_index=True)
 
-        df_summary = df_summary.sort_values('group')
+        #df_summary = df_summary.sort_values('group')
         return df_summary
 
     def print_metrics(self, df_summary: pd.DataFrame, metrics_kind: str) -> None:
@@ -448,8 +460,15 @@ class FigROCMixin:
                                     xmargin=0,
                                     ymargin=0
                                     )
-            ax_i.plot(label_metrics.val.fpr, label_metrics.val.tpr, label=f"AUC_val = {label_metrics.val.auc:.2f}", marker='x')
-            ax_i.plot(label_metrics.test.fpr, label_metrics.test.tpr, label=f"AUC_test = {label_metrics.test.auc:.2f}", marker='o')
+
+            if hasattr(label_metrics, 'val') and hasattr(label_metrics, 'test'):
+                # Internal
+                ax_i.plot(label_metrics.val.fpr, label_metrics.val.tpr, label=f"AUC_val = {label_metrics.val.auc:.2f}", marker='x')
+                ax_i.plot(label_metrics.test.fpr, label_metrics.test.tpr, label=f"AUC_test = {label_metrics.test.auc:.2f}", marker='o')
+            else:
+                # External
+                ax_i.plot(label_metrics.test.fpr, label_metrics.test.tpr, label=f"AUC_test = {label_metrics.test.auc:.2f}", marker='o')
+
             ax_i.grid()
             ax_i.legend()
             fig.tight_layout()
