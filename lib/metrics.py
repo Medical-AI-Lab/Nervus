@@ -17,7 +17,7 @@ logger = BaseLogger.get_logger(__name__)
 
 class MetricsData:
     """
-    Class to store metrics as class variable.
+    Class to store metrics.
     Metrics are defined depending on task.
 
     For ROC
@@ -43,7 +43,7 @@ class LabelMetrics:
     """
     def __init__(self) -> None:
         """
-        Metrics of split, ie 'val' and 'test'
+        Metrics of each split
         """
         pass
         #self.train = MetricsData()  # None
@@ -63,7 +63,7 @@ class LabelMetrics:
             value (Union[np.ndarray,float]): value of attr
         """
         #setattr(self, split, MetricsData())
-        setattr(getattr(self, split), attr, value)  # Merics()にattrというクラス変数を作って、valueを代入する
+        setattr(getattr(self, split), attr, value)  # Metrics()にattrというクラス変数を作って、valueを代入する
 
     def get_label_metrics(self, split: str, attr: str) -> Union[np.ndarray, float]:
         """
@@ -115,9 +115,7 @@ class ROCMixin:
         POSITIVE = 1
         positive_pred_name = 'pred_' + label_name + '_' + str(POSITIVE)
 
-        #! When splits is 'test' only, ie when external dataset, error occurs.
         label_metrics = LabelMetrics()
-        #for split in ['val', 'test']:
         for split in df_group['split'].unique():
             setattr(label_metrics, split, MetricsData())
             df_split = df_label.query('split == @split')
@@ -146,7 +144,8 @@ class ROCMixin:
         num_classes = len(class_list)
 
         label_metrics = LabelMetrics()
-        for split in ['val', 'test']:
+        for split in df_group['split'].unique():
+            setattr(label_metrics, split, MetricsData())
             df_split = df_label.query('split == @split')
             y_true = df_split[label_name]
             y_true_bin = label_binarize(y_true, classes=class_list)  # Since y_true: List[int], should be class_list: List[int]
@@ -228,7 +227,8 @@ class YYMixin:
         required_columns = [column_name for column_name in df_group.columns if label_name in column_name] + ['split']
         df_label = df_group[required_columns]
         label_metrics = LabelMetrics()
-        for split in ['val', 'test']:
+        for split in df_group['split'].unique():
+            setattr(label_metrics, split, MetricsData())
             df_split = df_label.query('split == @split')
             y_obs = df_split[label_name]
             y_pred = df_split['pred_' + label_name]
@@ -278,7 +278,8 @@ class C_IndexMixin:
         required_columns = [column_name for column_name in df_group.columns if label_name in column_name] + ['periods', 'split']
         df_label = df_group[required_columns]
         label_metrics = LabelMetrics()
-        for split in ['val', 'test']:
+        for split in df_group['split'].unique():
+            setattr(label_metrics, split, MetricsData())
             df_split = df_label.query('split == @split')
             periods = df_split['periods']
             preds = df_split['pred_' + label_name]
