@@ -469,12 +469,14 @@ class FigROCMixin:
                                     ymargin=0
                                     )
 
+            # val
             if hasattr(label_metrics, 'val'):
                 _fpr = label_metrics.get_label_metrics('val', 'fpr')
                 _tpr = label_metrics.get_label_metrics('val', 'tpr')
                 _auc = label_metrics.get_label_metrics('val', 'auc')
                 ax_i.plot(_fpr, _tpr, label=f"AUC_val = {_auc:.2f}", marker='x')
 
+            # test
             if hasattr(label_metrics, 'test'):
                 _fpr = label_metrics.get_label_metrics('test', 'fpr')
                 _tpr = label_metrics.get_label_metrics('test', 'tpr')
