@@ -362,10 +362,12 @@ class MetricsMixin:
                     _test_metrics = label_metrics.get_label_metrics('test', metrics_kind)
                     _new[label_name + '_val_' + metrics_kind] = [f"{_val_metrics:.2f}"]
                     _new[label_name + '_test_' + metrics_kind] = [f"{_test_metrics:.2f}"]
-                else:
+                elif not (hasattr(label_metrics, 'val')) and hasattr(label_metrics, 'test'):
                     # External
                     _test_metrics = label_metrics.get_label_metrics('test', metrics_kind)
                     _new[label_name + '_test_' + metrics_kind] = [f"{_test_metrics:.2f}"]
+                else:
+                    raise ValueError('No metrics')
 
             df_summary = pd.concat([df_summary, pd.DataFrame(_new)], ignore_index=True)
 
@@ -381,15 +383,21 @@ class MetricsMixin:
             metrics_kind (str): kind of metrics, ie. 'auc', 'r2', or 'c_index'
         """
         label_list = list(df_summary.columns[df_summary.columns.str.startswith('label')])  # [label_1_val, label_1_test, label_2_val, label_2_test, ...]
-        num_splits = len(['val', 'test'])
+
+        #num_splits = len(['val', 'test'])
+        num_splits = len(['test'])
+
         _column_val_test_list = [label_list[i:i+num_splits] for i in range(0, len(label_list), num_splits)]  # [[label_1_val, label_1_test], [label_2_val, label_2_test], ...]
         for _, row in df_summary.iterrows():
             logger.info(row['group'])
             for _column_val_test in _column_val_test_list:
+                breakpoint()
                 _label_name = _column_val_test[0].replace('_val', '')
                 _label_name_val = _column_val_test[0]
                 _label_name_test = _column_val_test[1]
                 logger.info(f"{_label_name:<25} val_{metrics_kind}: {row[_label_name_val]:>7}, test_{metrics_kind}: {row[_label_name_test]:>7}")
+        breakpoint()
+
 
     def update_summary(self, df_summary: pd.DataFrame, likelihood_path: Path) -> None:
         """
@@ -422,6 +430,7 @@ class MetricsMixin:
         self.make_save_fig(whole_metrics, likelihood_path, self.fig_kind)
         df_summary = self.make_summary(whole_metrics, likelihood_path, self.metrics_kind)
         self.print_metrics(df_summary, self.metrics_kind)
+        breakpoint()
         self.update_summary(df_summary, likelihood_path)
 
 
@@ -466,9 +475,11 @@ class FigROCMixin:
                 # Internal
                 ax_i.plot(label_metrics.val.fpr, label_metrics.val.tpr, label=f"AUC_val = {label_metrics.val.auc:.2f}", marker='x')
                 ax_i.plot(label_metrics.test.fpr, label_metrics.test.tpr, label=f"AUC_test = {label_metrics.test.auc:.2f}", marker='o')
-            else:
+            elif not (hasattr(label_metrics, 'val')) and hasattr(label_metrics, 'test'):
                 # External
                 ax_i.plot(label_metrics.test.fpr, label_metrics.test.tpr, label=f"AUC_test = {label_metrics.test.auc:.2f}", marker='o')
+            else:
+                raise ValueError('Neither internal nor external test.')
 
             ax_i.grid()
             ax_i.legend()
@@ -502,54 +513,87 @@ class FigYYMixin:
 
         for i, label_name in enumerate(label_list):
             label_metrics = group_metrics[label_name]
-            val_offset = (i * num_splits) + 1
-            test_offset = val_offset + 1
 
-            val_ax = fig.add_subplot(
-                                    num_rows,
-                                    num_cols,
-                                    val_offset,
-                                    title=group + ': ' + label_name + '\n' + 'val: Observed-Predicted Plot',
-                                    xlabel='Observed',
-                                    ylabel='Predicted',
-                                    xmargin=0,
-                                    ymargin=0
-                                    )
+            # Internal
+            if hasattr(label_metrics, 'val') and hasattr(label_metrics, 'test'):
+                val_offset = (i * num_splits) + 1
+                test_offset = val_offset + 1
 
-            test_ax = fig.add_subplot(
-                                    num_rows,
-                                    num_cols,
-                                    test_offset,
-                                    title=group + ': ' + label_name + '\n' + 'test: Observed-Predicted Plot',
-                                    xlabel='Observed',
-                                    ylabel='Predicted',
-                                    xmargin=0,
-                                    ymargin=0
-                                    )
+                val_ax = fig.add_subplot(
+                                        num_rows,
+                                        num_cols,
+                                        val_offset,
+                                        title=group + ': ' + label_name + '\n' + 'val: Observed-Predicted Plot',
+                                        xlabel='Observed',
+                                        ylabel='Predicted',
+                                        xmargin=0,
+                                        ymargin=0
+                                        )
 
-            y_obs_val = label_metrics.val.y_obs
-            y_pred_val = label_metrics.val.y_pred
+                test_ax = fig.add_subplot(
+                                        num_rows,
+                                        num_cols,
+                                        test_offset,
+                                        title=group + ': ' + label_name + '\n' + 'test: Observed-Predicted Plot',
+                                        xlabel='Observed',
+                                        ylabel='Predicted',
+                                        xmargin=0,
+                                        ymargin=0
+                                        )
 
-            y_obs_test = label_metrics.test.y_obs
-            y_pred_test = label_metrics.test.y_pred
+                y_obs_val = label_metrics.val.y_obs
+                y_pred_val = label_metrics.val.y_pred
 
-            # Plot
-            color = mcolors.TABLEAU_COLORS
-            val_ax.scatter(y_obs_val, y_pred_val, color=color['tab:blue'], label='val')
-            test_ax.scatter(y_obs_test, y_pred_test, color=color['tab:orange'], label='test')
+                y_obs_test = label_metrics.test.y_obs
+                y_pred_test = label_metrics.test.y_pred
 
-            # Draw diagonal line
-            y_values_val = np.concatenate([y_obs_val.flatten(), y_pred_val.flatten()])
-            y_values_test = np.concatenate([y_obs_test.flatten(), y_pred_test.flatten()])
+                # Plot
+                color = mcolors.TABLEAU_COLORS
+                val_ax.scatter(y_obs_val, y_pred_val, color=color['tab:blue'], label='val')
+                test_ax.scatter(y_obs_test, y_pred_test, color=color['tab:orange'], label='test')
 
-            y_values_val_min, y_values_val_max, y_values_val_range = np.amin(y_values_val), np.amax(y_values_val), np.ptp(y_values_val)
-            y_values_test_min, y_values_test_max, y_values_test_range = np.amin(y_values_test), np.amax(y_values_test), np.ptp(y_values_test)
+                # Draw diagonal line
+                y_values_val = np.concatenate([y_obs_val.flatten(), y_pred_val.flatten()])
+                y_values_test = np.concatenate([y_obs_test.flatten(), y_pred_test.flatten()])
 
-            val_ax.plot([y_values_val_min - (y_values_val_range * 0.01), y_values_val_max + (y_values_val_range * 0.01)],
-                        [y_values_val_min - (y_values_val_range * 0.01), y_values_val_max + (y_values_val_range * 0.01)], color='red')
+                y_values_val_min, y_values_val_max, y_values_val_range = np.amin(y_values_val), np.amax(y_values_val), np.ptp(y_values_val)
+                y_values_test_min, y_values_test_max, y_values_test_range = np.amin(y_values_test), np.amax(y_values_test), np.ptp(y_values_test)
 
-            test_ax.plot([y_values_test_min - (y_values_test_range * 0.01), y_values_test_max + (y_values_test_range * 0.01)],
-                         [y_values_test_min - (y_values_test_range * 0.01), y_values_test_max + (y_values_test_range * 0.01)], color='red')
+                val_ax.plot([y_values_val_min - (y_values_val_range * 0.01), y_values_val_max + (y_values_val_range * 0.01)],
+                            [y_values_val_min - (y_values_val_range * 0.01), y_values_val_max + (y_values_val_range * 0.01)], color='red')
+
+                test_ax.plot([y_values_test_min - (y_values_test_range * 0.01), y_values_test_max + (y_values_test_range * 0.01)],
+                            [y_values_test_min - (y_values_test_range * 0.01), y_values_test_max + (y_values_test_range * 0.01)], color='red')
+
+            # External
+            elif not (hasattr(label_metrics, 'val')) and hasattr(label_metrics, 'test'):
+                test_offset = (i * num_splits) + 1
+
+                test_ax = fig.add_subplot(
+                                        num_rows,
+                                        num_cols,
+                                        test_offset,
+                                        title=group + ': ' + label_name + '\n' + 'test: Observed-Predicted Plot',
+                                        xlabel='Observed',
+                                        ylabel='Predicted',
+                                        xmargin=0,
+                                        ymargin=0
+                                        )
+
+                y_obs_test = label_metrics.test.y_obs
+                y_pred_test = label_metrics.test.y_pred
+
+                # Plot
+                color = mcolors.TABLEAU_COLORS
+                test_ax.scatter(y_obs_test, y_pred_test, color=color['tab:orange'], label='test')
+
+                # Draw diagonal line
+                y_values_test = np.concatenate([y_obs_test.flatten(), y_pred_test.flatten()])
+                y_values_test_min, y_values_test_max, y_values_test_range = np.amin(y_values_test), np.amax(y_values_test), np.ptp(y_values_test)
+                test_ax.plot([y_values_test_min - (y_values_test_range * 0.01), y_values_test_max + (y_values_test_range * 0.01)],
+                            [y_values_test_min - (y_values_test_range * 0.01), y_values_test_max + (y_values_test_range * 0.01)], color='red')
+            else:
+                raise ValueError('Neither internal nor external test.')
 
         fig.tight_layout()
         return fig
