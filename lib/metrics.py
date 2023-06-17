@@ -44,11 +44,13 @@ class LabelMetrics:
     def __init__(self) -> None:
         """
         Metrics of each split
+
+        eg.
+        self.train = MetricsData()
+        self.val = MetricsData()
+        self.test = MetricsData()
         """
         pass
-        #self.train = MetricsData()  # None
-        #self.val = MetricsData()    # None
-        #self.test = MetricsData()   # None
 
     def set_label_metrics(self, split: str, attr: str, value: Union[np.ndarray, float]) -> None:
         """
@@ -58,12 +60,11 @@ class LabelMetrics:
             split (str): split
             attr (str): attribute name as follows:
                         classification: 'fpr', 'tpr', or 'auc',
-                        regression:     'y_obs'(ground truth), 'y_pred'(prediction) or 'r2', or
+                        regression:     'y_obs'(ground truth), 'y_pred'(prediction) or 'r2'
                         deepsurv:       'c_index'
             value (Union[np.ndarray,float]): value of attr
         """
-        #setattr(self, split, MetricsData())
-        setattr(getattr(self, split), attr, value)  # Metrics()にattrというクラス変数を作って、valueを代入する
+        setattr(getattr(self, split), attr, value)
 
     def get_label_metrics(self, split: str, attr: str) -> Union[np.ndarray, float]:
         """
@@ -351,27 +352,31 @@ class MetricsMixin:
         _weight = likelihood_path.stem.replace('likelihood_', '') + '.pt'
         df_summary = pd.DataFrame()
         for group, group_metrics in whole_metrics.items():
-            _new = dict()
-            _new['datetime'] = [_datetime]
-            _new['weight'] = [ _weight]
-            _new['group'] = [group]
+            _df_new_group = pd.DataFrame({
+                                        'datetime': [_datetime],
+                                        'weight': [ _weight],
+                                        'group': [group]
+                                        })
+
             for label_name, label_metrics in group_metrics.items():
-                if hasattr(label_metrics, 'val') and hasattr(label_metrics, 'test'):
-                    # Internal
+                # val
+                if hasattr(label_metrics, 'val'):
                     _val_metrics = label_metrics.get_label_metrics('val', metrics_kind)
-                    _test_metrics = label_metrics.get_label_metrics('test', metrics_kind)
-                    _new[label_name + '_val_' + metrics_kind] = [f"{_val_metrics:.2f}"]
-                    _new[label_name + '_test_' + metrics_kind] = [f"{_test_metrics:.2f}"]
-                elif not (hasattr(label_metrics, 'val')) and hasattr(label_metrics, 'test'):
-                    # External
-                    _test_metrics = label_metrics.get_label_metrics('test', metrics_kind)
-                    _new[label_name + '_test_' + metrics_kind] = [f"{_test_metrics:.2f}"]
+                    _str_val_metrics = f"{_val_metrics:.2f}"
                 else:
-                    raise ValueError('No metrics')
+                    _str_val_metrics = 'No metrics'
 
-            df_summary = pd.concat([df_summary, pd.DataFrame(_new)], ignore_index=True)
+                # test
+                if hasattr(label_metrics, 'test'):
+                    _test_metrics = label_metrics.get_label_metrics('test', metrics_kind)
+                    _str_test_metrics = f"{_test_metrics:.2f}"
+                else:
+                    _str_test_metrics = 'No metrics'
 
-        #df_summary = df_summary.sort_values('group')
+                _df_new_group[label_name + '_val_' + metrics_kind] = _str_val_metrics
+                _df_new_group[label_name + '_test_' + metrics_kind] = _str_test_metrics
+
+            df_summary = pd.concat([df_summary, _df_new_group], ignore_index=True)
         return df_summary
 
     def print_metrics(self, df_summary: pd.DataFrame, metrics_kind: str) -> None:
@@ -382,22 +387,16 @@ class MetricsMixin:
             df_summary (pd.DataFrame): summary
             metrics_kind (str): kind of metrics, ie. 'auc', 'r2', or 'c_index'
         """
-        label_list = list(df_summary.columns[df_summary.columns.str.startswith('label')])  # [label_1_val, label_1_test, label_2_val, label_2_test, ...]
-
-        #num_splits = len(['val', 'test'])
-        num_splits = len(['test'])
-
+        label_list = list(df_summary.columns[df_summary.columns.str.startswith('label')])  # [label_1_val_auc, label_1_test_auc, label_2_val_auc, label_2_test_auc, ...]
+        num_splits = len(['val', 'test'])
         _column_val_test_list = [label_list[i:i+num_splits] for i in range(0, len(label_list), num_splits)]  # [[label_1_val, label_1_test], [label_2_val, label_2_test], ...]
         for _, row in df_summary.iterrows():
             logger.info(row['group'])
             for _column_val_test in _column_val_test_list:
-                breakpoint()
                 _label_name = _column_val_test[0].replace('_val', '')
                 _label_name_val = _column_val_test[0]
                 _label_name_test = _column_val_test[1]
                 logger.info(f"{_label_name:<25} val_{metrics_kind}: {row[_label_name_val]:>7}, test_{metrics_kind}: {row[_label_name_test]:>7}")
-        breakpoint()
-
 
     def update_summary(self, df_summary: pd.DataFrame, likelihood_path: Path) -> None:
         """
@@ -430,7 +429,6 @@ class MetricsMixin:
         self.make_save_fig(whole_metrics, likelihood_path, self.fig_kind)
         df_summary = self.make_summary(whole_metrics, likelihood_path, self.metrics_kind)
         self.print_metrics(df_summary, self.metrics_kind)
-        breakpoint()
         self.update_summary(df_summary, likelihood_path)
 
 
@@ -471,15 +469,17 @@ class FigROCMixin:
                                     ymargin=0
                                     )
 
-            if hasattr(label_metrics, 'val') and hasattr(label_metrics, 'test'):
-                # Internal
-                ax_i.plot(label_metrics.val.fpr, label_metrics.val.tpr, label=f"AUC_val = {label_metrics.val.auc:.2f}", marker='x')
-                ax_i.plot(label_metrics.test.fpr, label_metrics.test.tpr, label=f"AUC_test = {label_metrics.test.auc:.2f}", marker='o')
-            elif not (hasattr(label_metrics, 'val')) and hasattr(label_metrics, 'test'):
-                # External
-                ax_i.plot(label_metrics.test.fpr, label_metrics.test.tpr, label=f"AUC_test = {label_metrics.test.auc:.2f}", marker='o')
-            else:
-                raise ValueError('Neither internal nor external test.')
+            if hasattr(label_metrics, 'val'):
+                _fpr = label_metrics.get_label_metrics('val', 'fpr')
+                _tpr = label_metrics.get_label_metrics('val', 'tpr')
+                _auc = label_metrics.get_label_metrics('val', 'auc')
+                ax_i.plot(_fpr, _tpr, label=f"AUC_val = {_auc:.2f}", marker='x')
+
+            if hasattr(label_metrics, 'test'):
+                _fpr = label_metrics.get_label_metrics('test', 'fpr')
+                _tpr = label_metrics.get_label_metrics('test', 'tpr')
+                _auc = label_metrics.get_label_metrics('test', 'auc')
+                ax_i.plot(_fpr, _tpr, label=f"AUC_test = {_auc:.2f}", marker='o')
 
             ax_i.grid()
             ax_i.legend()
