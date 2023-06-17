@@ -491,6 +491,64 @@ class FigYYMixin:
     """
     Class to plot YY-graph.
     """
+    def _plot_fig_split(
+                        self,
+                        group: str,
+                        label_metrics: LabelMetrics,
+                        label_name: str,
+                        split: str,
+                        fig: plt,
+                        color: Dict[str, str],
+                        num_rows: int,
+                        num_cols: int,
+                        offset: int
+                        ) -> plt:
+        """
+        Plot yy of split.
+
+        Args:
+            group (str): group
+            label_metrics (LabelMetrics): label metrics
+            label_name (str): label name
+            split (str): split
+            fig (plt): figure
+            color (Dict[str, str]): color palette
+            num_rows (int): number of rows
+            num_cols (int): number of columns
+            offset (int): offset
+
+        Returns:
+            plt: yy of split
+        """
+        split_ax = fig.add_subplot(
+                            num_rows,
+                            num_cols,
+                            offset,
+                            title=group + ': ' + label_name + '\n' + split + ': Observed-Predicted Plot',
+                            xlabel='Observed',
+                            ylabel='Predicted',
+                            xmargin=0,
+                            ymargin=0
+                            )
+
+        split_y_obs = label_metrics.get_label_metrics(split, 'y_obs')
+        split_y_pred = label_metrics.get_label_metrics(split, 'y_pred')
+
+        # Plot
+        split_ax.scatter(split_y_obs, split_y_pred, color=color['tab:blue'], label=split)
+
+        # Draw diagonal line
+        split_y_values = np.concatenate([split_y_obs.flatten(), split_y_pred.flatten()])
+        split_y_values_min = np.amin(split_y_values)
+        split_y_values_max = np.amax(split_y_values)
+        split_y_values_range = np.ptp(split_y_values)
+        split_ax.plot(
+                    [split_y_values_min - (split_y_values_range * 0.01), split_y_values_max + (split_y_values_range * 0.01)],
+                    [split_y_values_min - (split_y_values_range * 0.01), split_y_values_max + (split_y_values_range * 0.01)],
+                    color='red'
+                    )
+        return fig
+
     def _plot_fig_group_metrics(self, group: str, group_metrics: Dict[str, LabelMetrics]) -> plt:
         """
         Plot yy.
@@ -503,97 +561,56 @@ class FigYYMixin:
             plt: YY-graph
         """
         label_list = group_metrics.keys()
-        num_splits = len(['val', 'test'])
         num_rows = 1
-        num_cols = len(label_list) * num_splits
         base_size = 7
         height = num_rows * base_size
-        width = num_cols * height
-        fig = plt.figure(figsize=(width, height))
+        color = mcolors.TABLEAU_COLORS
+        fig = None
 
         for i, label_name in enumerate(label_list):
             label_metrics = group_metrics[label_name]
+            num_splits = len(vars(label_metrics).keys())
+            num_cols = len(label_list) * num_splits
+            width = height * num_cols
 
-            # Internal
-            if hasattr(label_metrics, 'val') and hasattr(label_metrics, 'test'):
-                val_offset = (i * num_splits) + 1
-                test_offset = val_offset + 1
-
-                val_ax = fig.add_subplot(
-                                        num_rows,
-                                        num_cols,
-                                        val_offset,
-                                        title=group + ': ' + label_name + '\n' + 'val: Observed-Predicted Plot',
-                                        xlabel='Observed',
-                                        ylabel='Predicted',
-                                        xmargin=0,
-                                        ymargin=0
-                                        )
-
-                test_ax = fig.add_subplot(
-                                        num_rows,
-                                        num_cols,
-                                        test_offset,
-                                        title=group + ': ' + label_name + '\n' + 'test: Observed-Predicted Plot',
-                                        xlabel='Observed',
-                                        ylabel='Predicted',
-                                        xmargin=0,
-                                        ymargin=0
-                                        )
-
-                y_obs_val = label_metrics.val.y_obs
-                y_pred_val = label_metrics.val.y_pred
-
-                y_obs_test = label_metrics.test.y_obs
-                y_pred_test = label_metrics.test.y_pred
-
-                # Plot
-                color = mcolors.TABLEAU_COLORS
-                val_ax.scatter(y_obs_val, y_pred_val, color=color['tab:blue'], label='val')
-                test_ax.scatter(y_obs_test, y_pred_test, color=color['tab:orange'], label='test')
-
-                # Draw diagonal line
-                y_values_val = np.concatenate([y_obs_val.flatten(), y_pred_val.flatten()])
-                y_values_test = np.concatenate([y_obs_test.flatten(), y_pred_test.flatten()])
-
-                y_values_val_min, y_values_val_max, y_values_val_range = np.amin(y_values_val), np.amax(y_values_val), np.ptp(y_values_val)
-                y_values_test_min, y_values_test_max, y_values_test_range = np.amin(y_values_test), np.amax(y_values_test), np.ptp(y_values_test)
-
-                val_ax.plot([y_values_val_min - (y_values_val_range * 0.01), y_values_val_max + (y_values_val_range * 0.01)],
-                            [y_values_val_min - (y_values_val_range * 0.01), y_values_val_max + (y_values_val_range * 0.01)], color='red')
-
-                test_ax.plot([y_values_test_min - (y_values_test_range * 0.01), y_values_test_max + (y_values_test_range * 0.01)],
-                            [y_values_test_min - (y_values_test_range * 0.01), y_values_test_max + (y_values_test_range * 0.01)], color='red')
-
-            # External
-            elif not (hasattr(label_metrics, 'val')) and hasattr(label_metrics, 'test'):
-                test_offset = (i * num_splits) + 1
-
-                test_ax = fig.add_subplot(
-                                        num_rows,
-                                        num_cols,
-                                        test_offset,
-                                        title=group + ': ' + label_name + '\n' + 'test: Observed-Predicted Plot',
-                                        xlabel='Observed',
-                                        ylabel='Predicted',
-                                        xmargin=0,
-                                        ymargin=0
-                                        )
-
-                y_obs_test = label_metrics.test.y_obs
-                y_pred_test = label_metrics.test.y_pred
-
-                # Plot
-                color = mcolors.TABLEAU_COLORS
-                test_ax.scatter(y_obs_test, y_pred_test, color=color['tab:orange'], label='test')
-
-                # Draw diagonal line
-                y_values_test = np.concatenate([y_obs_test.flatten(), y_pred_test.flatten()])
-                y_values_test_min, y_values_test_max, y_values_test_range = np.amin(y_values_test), np.amax(y_values_test), np.ptp(y_values_test)
-                test_ax.plot([y_values_test_min - (y_values_test_range * 0.01), y_values_test_max + (y_values_test_range * 0.01)],
-                            [y_values_test_min - (y_values_test_range * 0.01), y_values_test_max + (y_values_test_range * 0.01)], color='red')
+            if fig is None:
+                # create new figure
+                fig = plt.figure(figsize=(width, height))
             else:
-                raise ValueError('Neither internal nor external test.')
+                # No need to create new figure, ie. overwrite figure
+                pass
+
+            _base_offset = (i * num_splits) + 1
+
+            # val
+            if hasattr(label_metrics, 'val'):
+                val_offset =  _base_offset
+                fig = self._plot_fig_split(
+                                    group,
+                                    label_metrics,
+                                    label_name,
+                                    'val',
+                                    fig,
+                                    color,
+                                    num_rows,
+                                    num_cols,
+                                    val_offset
+                                    )
+
+            # test
+            if hasattr(label_metrics, 'test'):
+                test_offset = _base_offset + 1 if hasattr(label_metrics, 'val') else _base_offset
+                fig = self._plot_fig_split(
+                                            group,
+                                            label_metrics,
+                                            label_name,
+                                            'test',
+                                            fig,
+                                            color,
+                                            num_rows,
+                                            num_cols,
+                                            test_offset
+                                            )
 
         fig.tight_layout()
         return fig
