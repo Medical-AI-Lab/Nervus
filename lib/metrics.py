@@ -364,14 +364,14 @@ class MetricsMixin:
                     _val_metrics = label_metrics.get_label_metrics('val', metrics_kind)
                     _str_val_metrics = f"{_val_metrics:.2f}"
                 else:
-                    _str_val_metrics = 'No metrics'
+                    _str_val_metrics = 'No data'
 
                 # test
                 if hasattr(label_metrics, 'test'):
                     _test_metrics = label_metrics.get_label_metrics('test', metrics_kind)
                     _str_test_metrics = f"{_test_metrics:.2f}"
                 else:
-                    _str_test_metrics = 'No metrics'
+                    _str_test_metrics = 'No data'
 
                 _df_new_group[label_name + '_val_' + metrics_kind] = _str_val_metrics
                 _df_new_group[label_name + '_test_' + metrics_kind] = _str_test_metrics
