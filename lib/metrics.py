@@ -17,7 +17,7 @@ logger = BaseLogger.get_logger(__name__)
 
 class MetricsData:
     """
-    Class to store metrics.
+    Class for storing metrics.
     Metrics are defined depending on task.
 
     For ROC
