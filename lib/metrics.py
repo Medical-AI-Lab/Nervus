@@ -17,7 +17,7 @@ logger = BaseLogger.get_logger(__name__)
 
 class MetricsData:
     """
-    Class to store metrics as class variable.
+    Class for storing metrics.
     Metrics are defined depending on task.
 
     For ROC
@@ -43,10 +43,14 @@ class LabelMetrics:
     """
     def __init__(self) -> None:
         """
-        Metrics of split, ie 'val' and 'test'
-        """
+        Metrics of each split
+
+        eg.
+        self.train = MetricsData()
         self.val = MetricsData()
         self.test = MetricsData()
+        """
+        pass
 
     def set_label_metrics(self, split: str, attr: str, value: Union[np.ndarray, float]) -> None:
         """
@@ -56,7 +60,7 @@ class LabelMetrics:
             split (str): split
             attr (str): attribute name as follows:
                         classification: 'fpr', 'tpr', or 'auc',
-                        regression:     'y_obs'(ground truth), 'y_pred'(prediction) or 'r2', or
+                        regression:     'y_obs'(ground truth), 'y_pred'(prediction) or 'r2'
                         deepsurv:       'c_index'
             value (Union[np.ndarray,float]): value of attr
         """
@@ -112,9 +116,9 @@ class ROCMixin:
         POSITIVE = 1
         positive_pred_name = 'pred_' + label_name + '_' + str(POSITIVE)
 
-        #! When splits is 'test' only, ie when external dataset, error occurs.
         label_metrics = LabelMetrics()
-        for split in ['val', 'test']:
+        for split in df_group['split'].unique():
+            setattr(label_metrics, split, MetricsData())
             df_split = df_label.query('split == @split')
             y_true = df_split[label_name]
             y_score = df_split[positive_pred_name]
@@ -141,7 +145,8 @@ class ROCMixin:
         num_classes = len(class_list)
 
         label_metrics = LabelMetrics()
-        for split in ['val', 'test']:
+        for split in df_group['split'].unique():
+            setattr(label_metrics, split, MetricsData())
             df_split = df_label.query('split == @split')
             y_true = df_split[label_name]
             y_true_bin = label_binarize(y_true, classes=class_list)  # Since y_true: List[int], should be class_list: List[int]
@@ -223,7 +228,8 @@ class YYMixin:
         required_columns = [column_name for column_name in df_group.columns if label_name in column_name] + ['split']
         df_label = df_group[required_columns]
         label_metrics = LabelMetrics()
-        for split in ['val', 'test']:
+        for split in df_group['split'].unique():
+            setattr(label_metrics, split, MetricsData())
             df_split = df_label.query('split == @split')
             y_obs = df_split[label_name]
             y_pred = df_split['pred_' + label_name]
@@ -273,7 +279,8 @@ class C_IndexMixin:
         required_columns = [column_name for column_name in df_group.columns if label_name in column_name] + ['periods', 'split']
         df_label = df_group[required_columns]
         label_metrics = LabelMetrics()
-        for split in ['val', 'test']:
+        for split in df_group['split'].unique():
+            setattr(label_metrics, split, MetricsData())
             df_split = df_label.query('split == @split')
             periods = df_split['periods']
             preds = df_split['pred_' + label_name]
@@ -345,18 +352,31 @@ class MetricsMixin:
         _weight = likelihood_path.stem.replace('likelihood_', '') + '.pt'
         df_summary = pd.DataFrame()
         for group, group_metrics in whole_metrics.items():
-            _new = dict()
-            _new['datetime'] = [_datetime]
-            _new['weight'] = [ _weight]
-            _new['group'] = [group]
-            for label_name, label_metrics in group_metrics.items():
-                _val_metrics = label_metrics.get_label_metrics('val', metrics_kind)
-                _test_metrics = label_metrics.get_label_metrics('test', metrics_kind)
-                _new[label_name + '_val_' + metrics_kind] = [f"{_val_metrics:.2f}"]
-                _new[label_name + '_test_' + metrics_kind] = [f"{_test_metrics:.2f}"]
-            df_summary = pd.concat([df_summary, pd.DataFrame(_new)], ignore_index=True)
+            _df_new_group = pd.DataFrame({
+                                        'datetime': [_datetime],
+                                        'weight': [ _weight],
+                                        'group': [group]
+                                        })
 
-        df_summary = df_summary.sort_values('group')
+            for label_name, label_metrics in group_metrics.items():
+                # val
+                if hasattr(label_metrics, 'val'):
+                    _val_metrics = label_metrics.get_label_metrics('val', metrics_kind)
+                    _str_val_metrics = f"{_val_metrics:.2f}"
+                else:
+                    _str_val_metrics = 'No data'
+
+                # test
+                if hasattr(label_metrics, 'test'):
+                    _test_metrics = label_metrics.get_label_metrics('test', metrics_kind)
+                    _str_test_metrics = f"{_test_metrics:.2f}"
+                else:
+                    _str_test_metrics = 'No data'
+
+                _df_new_group[label_name + '_val_' + metrics_kind] = _str_val_metrics
+                _df_new_group[label_name + '_test_' + metrics_kind] = _str_test_metrics
+
+            df_summary = pd.concat([df_summary, _df_new_group], ignore_index=True)
         return df_summary
 
     def print_metrics(self, df_summary: pd.DataFrame, metrics_kind: str) -> None:
@@ -367,7 +387,7 @@ class MetricsMixin:
             df_summary (pd.DataFrame): summary
             metrics_kind (str): kind of metrics, ie. 'auc', 'r2', or 'c_index'
         """
-        label_list = list(df_summary.columns[df_summary.columns.str.startswith('label')])  # [label_1_val, label_1_test, label_2_val, label_2_test, ...]
+        label_list = list(df_summary.columns[df_summary.columns.str.startswith('label')])  # [label_1_val_auc, label_1_test_auc, label_2_val_auc, label_2_test_auc, ...]
         num_splits = len(['val', 'test'])
         _column_val_test_list = [label_list[i:i+num_splits] for i in range(0, len(label_list), num_splits)]  # [[label_1_val, label_1_test], [label_2_val, label_2_test], ...]
         for _, row in df_summary.iterrows():
@@ -448,8 +468,21 @@ class FigROCMixin:
                                     xmargin=0,
                                     ymargin=0
                                     )
-            ax_i.plot(label_metrics.val.fpr, label_metrics.val.tpr, label=f"AUC_val = {label_metrics.val.auc:.2f}", marker='x')
-            ax_i.plot(label_metrics.test.fpr, label_metrics.test.tpr, label=f"AUC_test = {label_metrics.test.auc:.2f}", marker='o')
+
+            # val
+            if hasattr(label_metrics, 'val'):
+                _fpr = label_metrics.get_label_metrics('val', 'fpr')
+                _tpr = label_metrics.get_label_metrics('val', 'tpr')
+                _auc = label_metrics.get_label_metrics('val', 'auc')
+                ax_i.plot(_fpr, _tpr, label=f"AUC_val = {_auc:.2f}", marker='x')
+
+            # test
+            if hasattr(label_metrics, 'test'):
+                _fpr = label_metrics.get_label_metrics('test', 'fpr')
+                _tpr = label_metrics.get_label_metrics('test', 'tpr')
+                _auc = label_metrics.get_label_metrics('test', 'auc')
+                ax_i.plot(_fpr, _tpr, label=f"AUC_test = {_auc:.2f}", marker='o')
+
             ax_i.grid()
             ax_i.legend()
             fig.tight_layout()
@@ -460,6 +493,64 @@ class FigYYMixin:
     """
     Class to plot YY-graph.
     """
+    def _plot_fig_split(
+                        self,
+                        group: str,
+                        label_metrics: LabelMetrics,
+                        label_name: str,
+                        split: str,
+                        fig: plt,
+                        color: Dict[str, str],
+                        num_rows: int,
+                        num_cols: int,
+                        offset: int
+                        ) -> plt:
+        """
+        Plot yy of split.
+
+        Args:
+            group (str): group
+            label_metrics (LabelMetrics): label metrics
+            label_name (str): label name
+            split (str): split
+            fig (plt): figure
+            color (Dict[str, str]): color palette
+            num_rows (int): number of rows
+            num_cols (int): number of columns
+            offset (int): offset
+
+        Returns:
+            plt: yy of split
+        """
+        split_ax = fig.add_subplot(
+                            num_rows,
+                            num_cols,
+                            offset,
+                            title=group + ': ' + label_name + '\n' + split + ': Observed-Predicted Plot',
+                            xlabel='Observed',
+                            ylabel='Predicted',
+                            xmargin=0,
+                            ymargin=0
+                            )
+
+        split_y_obs = label_metrics.get_label_metrics(split, 'y_obs')
+        split_y_pred = label_metrics.get_label_metrics(split, 'y_pred')
+
+        # Plot
+        split_ax.scatter(split_y_obs, split_y_pred, color=color['tab:blue'], label=split)
+
+        # Draw diagonal line
+        split_y_values = np.concatenate([split_y_obs.flatten(), split_y_pred.flatten()])
+        split_y_values_min = np.amin(split_y_values)
+        split_y_values_max = np.amax(split_y_values)
+        split_y_values_range = np.ptp(split_y_values)
+        split_ax.plot(
+                    [split_y_values_min - (split_y_values_range * 0.01), split_y_values_max + (split_y_values_range * 0.01)],
+                    [split_y_values_min - (split_y_values_range * 0.01), split_y_values_max + (split_y_values_range * 0.01)],
+                    color='red'
+                    )
+        return fig
+
     def _plot_fig_group_metrics(self, group: str, group_metrics: Dict[str, LabelMetrics]) -> plt:
         """
         Plot yy.
@@ -472,64 +563,56 @@ class FigYYMixin:
             plt: YY-graph
         """
         label_list = group_metrics.keys()
-        num_splits = len(['val', 'test'])
         num_rows = 1
-        num_cols = len(label_list) * num_splits
         base_size = 7
         height = num_rows * base_size
-        width = num_cols * height
-        fig = plt.figure(figsize=(width, height))
+        color = mcolors.TABLEAU_COLORS
+        fig = None
 
         for i, label_name in enumerate(label_list):
             label_metrics = group_metrics[label_name]
-            val_offset = (i * num_splits) + 1
-            test_offset = val_offset + 1
+            num_splits = len(vars(label_metrics).keys())
+            num_cols = len(label_list) * num_splits
+            width = height * num_cols
 
-            val_ax = fig.add_subplot(
+            if fig is None:
+                # create new figure
+                fig = plt.figure(figsize=(width, height))
+            else:
+                # No need to create new figure, ie. overwrite figure
+                pass
+
+            _base_offset = (i * num_splits) + 1
+
+            # val
+            if hasattr(label_metrics, 'val'):
+                val_offset =  _base_offset
+                fig = self._plot_fig_split(
+                                    group,
+                                    label_metrics,
+                                    label_name,
+                                    'val',
+                                    fig,
+                                    color,
                                     num_rows,
                                     num_cols,
-                                    val_offset,
-                                    title=group + ': ' + label_name + '\n' + 'val: Observed-Predicted Plot',
-                                    xlabel='Observed',
-                                    ylabel='Predicted',
-                                    xmargin=0,
-                                    ymargin=0
+                                    val_offset
                                     )
 
-            test_ax = fig.add_subplot(
-                                    num_rows,
-                                    num_cols,
-                                    test_offset,
-                                    title=group + ': ' + label_name + '\n' + 'test: Observed-Predicted Plot',
-                                    xlabel='Observed',
-                                    ylabel='Predicted',
-                                    xmargin=0,
-                                    ymargin=0
-                                    )
-
-            y_obs_val = label_metrics.val.y_obs
-            y_pred_val = label_metrics.val.y_pred
-
-            y_obs_test = label_metrics.test.y_obs
-            y_pred_test = label_metrics.test.y_pred
-
-            # Plot
-            color = mcolors.TABLEAU_COLORS
-            val_ax.scatter(y_obs_val, y_pred_val, color=color['tab:blue'], label='val')
-            test_ax.scatter(y_obs_test, y_pred_test, color=color['tab:orange'], label='test')
-
-            # Draw diagonal line
-            y_values_val = np.concatenate([y_obs_val.flatten(), y_pred_val.flatten()])
-            y_values_test = np.concatenate([y_obs_test.flatten(), y_pred_test.flatten()])
-
-            y_values_val_min, y_values_val_max, y_values_val_range = np.amin(y_values_val), np.amax(y_values_val), np.ptp(y_values_val)
-            y_values_test_min, y_values_test_max, y_values_test_range = np.amin(y_values_test), np.amax(y_values_test), np.ptp(y_values_test)
-
-            val_ax.plot([y_values_val_min - (y_values_val_range * 0.01), y_values_val_max + (y_values_val_range * 0.01)],
-                        [y_values_val_min - (y_values_val_range * 0.01), y_values_val_max + (y_values_val_range * 0.01)], color='red')
-
-            test_ax.plot([y_values_test_min - (y_values_test_range * 0.01), y_values_test_max + (y_values_test_range * 0.01)],
-                         [y_values_test_min - (y_values_test_range * 0.01), y_values_test_max + (y_values_test_range * 0.01)], color='red')
+            # test
+            if hasattr(label_metrics, 'test'):
+                test_offset = _base_offset + 1 if hasattr(label_metrics, 'val') else _base_offset
+                fig = self._plot_fig_split(
+                                            group,
+                                            label_metrics,
+                                            label_name,
+                                            'test',
+                                            fig,
+                                            color,
+                                            num_rows,
+                                            num_cols,
+                                            test_offset
+                                            )
 
         fig.tight_layout()
         return fig
