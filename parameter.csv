@@ -1,0 +1,4 @@
+task,csvpath,model,criterion,optimizer,epochs,batch_size,sampler,augmentation,bit_depth,in_channel,pretrained,save_weight_policy,test_batch_size,gpu_ids
+classification,materials/dogcat/docs/tutorial_src.csv,ResNet18,CEL,Adam,3,64,no,trivialaugwide,8,1,True,best,1,cpu
+regression,materials/docs/tutorial.csv,MLP+ResNet18,MSE,Adam,50,64,no,no,8,3,True,best,1,cpu
+deepsurv,materials/docs/tutorial.csv,MLP+ResNet18,NLL,Adam,50,64,distributed,no,16,1,False,each,64,0-1-2
